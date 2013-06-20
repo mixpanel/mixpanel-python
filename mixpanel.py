@@ -8,7 +8,7 @@ class Mixpanel:
 
     def __write_request__(self, endpoint, request):
         data = urllib.urlencode({'data': base64.b64encode(json.dumps(record))})
-        ENDPOINT = (endpoint == "engage" ? ENGAGE_ENDPOINT : TRACK_ENDPOINT)
+        ENDPOINT = ENGAGE_ENDPOINT if (endpoint == "engage") else TRACK_ENDPOINT
         try:
             response = urllib2.urlopen(ENDPOINT, data).read()
         except urllib2.HTTPError as e:
@@ -34,7 +34,7 @@ class Mixpanel:
                 }
         self.__write_event__(event)
 
-   def __engage_update_(self, update_type, properties):
+    def __engage_update_(self, update_type, properties):
         record = {
                      "token": self.__token,
                      "$distinct_id": self.__distinct_id,
