@@ -14,20 +14,23 @@ class Mixpanel(object):
         self._token = token
         self._base_url = base_url
 
+    def _encode_data(self, data):
+        return urllib.urlencode({'data': base64.b64encode(json.dumps(request))})
+
     """ 
     For internal use. Writes a request taking in either 'track/' for events or
     'engage/' for people. 
     """ 
     def _write_request(self, endpoint, request):
-        data = urllib.urlencode({'data': base64.b64encode(json.dumps(request))})
+        data = self._encode_data(request) 
         try:
             response = urllib2.urlopen(''.join([self._base_url,endpoint]), data).read()
         except urllib2.HTTPError as e:
-            # remove when done with development
+            # TODO remove when done with development
             print e.read()
             raise e
         if response == '1':
-            # remove when done with development 
+            # TODO remove when done with development 
             print 'success' 
         else:
             raise RuntimeError('%s failed', endpoint)
@@ -39,16 +42,16 @@ class Mixpanel(object):
     def _send_batch(self, endpoint, request): 
         for item in request:
             item['properties'] = item['properties'].update({'token': self._token})
-        data = urllib.urlencode({'data': base64.b64encode(json.dumps(request))})
+        data = self._encode_data(request) 
         try:
             request = urllib2.Request(''.join([self._base_url, endpoint]), data)
             response = urllib2.urlopen(request).read()
         except urllib2.HTTPError as e:
-            # remove when done with development
+            # TODO remove when done with development
             print e.read()
             raise e
         if response == '1':
-            # remove when done with development 
+            # TODO remove when done with development 
             print 'success' 
         else:
             raise RuntimeError('%s failed', endpoint)
@@ -59,13 +62,13 @@ class Mixpanel(object):
     Example:
         mp.track('clicked button', { 'color': 'blue', 'text': 'no' })
     """ 
-    def track(self, event_name, properties, geolocate_ip=False, verbose=True):
+    def track(self, event_name, properties={}, verbose=True):
         assert(type(event_name) == str), 'event_name not a string'
         assert(len(event_name) > 0), 'event_name empty string'
         assert(type(properties) == dict), 'properties not dictionary'
         all_properties = { '$token' : self._token }
         all_properties.update(properties)
-        all_properties.update( {'ip': (0 if not geolocate_ip else 1), 'verbose': verbose} )
+        all_properties.update( { 'verbose': verbose} )
         event = {
             'event': event_name,
             'properties': all_properties, 
@@ -142,9 +145,9 @@ class Mixpanel(object):
     
     """
     def send_events_batch(self, data):
-        self.__send_batch(data, 'track/')
+        self._send_batch(data, 'track/')
 
     def send_people_batch(self, data):
-        self.__send_batch(data, 'engage/')
+        self._send_batch(data, 'engage/')
 
 
