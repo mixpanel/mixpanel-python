@@ -83,12 +83,12 @@ class Mixpanel(object):
                       'Address': '1313 Mockingbird Lane',
                       'Birthday': '1948-01-01'
                   }
-        mp.engage('13793', '$set', person1)
-        mp.engage('13793', '$add', { 'Coins Gathered': '12' })
-        mp.engage('13793', '$unset', [ 'Birthday' ])
-        mp.engage('13793', '$delete', '')
+        mp.people('13793', '$set', person1)
+        mp.people('13793', '$add', { 'Coins Gathered': '12' })
+        mp.people('13793', '$unset', [ 'Birthday' ])
+        mp.people('13793', '$delete', '')
     """
-    def engage(self, distinct_id, update_type, properties):
+    def people(self, distinct_id, update_type, properties):
         assert(type(distinct_id) == str), 'distinct_id not a string'
         assert(len(distinct_id) > 0), 'distinct_id empty string'
         assert(type(update_type) == str), 'update_type not a string'
