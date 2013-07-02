@@ -62,7 +62,7 @@ class Mixpanel(object):
             return self._people(distinct_id, '$delete', "")
     
         def send_people_batch(self, data):
-            return write_request(self._base_url, data, 'engage/')
+            return write_request(self._base_url, 'engage/', data, True)
 
 
     def __init__(self, token, base_url='https://api.mixpanel.com/'):
@@ -76,7 +76,7 @@ class Mixpanel(object):
         self._base_url = base_url
         self.people = self.People(self._token, self._base_url)
 
-    def track(self, event_name, properties={}, verbose=True):
+    def track(self, event_name, properties={}):
         """ 
         For basic event tracking. Should pass in name of event name and
         dictionary of properties.
@@ -85,7 +85,6 @@ class Mixpanel(object):
         """ 
         all_properties = { 'token' : self._token }
         all_properties.update(properties)
-        all_properties.update( { 'verbose': verbose } )
         event = {
             'event': event_name,
             'properties': all_properties, 
@@ -109,4 +108,4 @@ class Mixpanel(object):
         return write_request(self._base_url, 'engage/', record)
 
     def send_events_batch(self, data):
-        write_request(self._base_url, data, 'track/')
+        write_request(self._base_url, 'track/', data, True)
