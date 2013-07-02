@@ -6,36 +6,26 @@ import urllib2
 def encode_data(data):
     return urllib.urlencode({'data': base64.b64encode(json.dumps(data))})
 
-def write_request(base_url, endpoint, request):
+def write_request(base_url, endpoint, request, batch=False):
     """ 
     Writes a request taking in either 'track/' for events or 'engage/' for
     people.
     """ 
-    data = encode_data(request) 
+    data = encode_data(request)
+    request_url = ''.join([base_url, endpoint])
     try:
-        response = urllib2.urlopen(''.join([base_url, endpoint]), data).read()
+        if not batch:
+            response = urllib2.urlopen(request_url, data).read()
+        else:
+            if len(request) > 50:
+                raise 
+            batch_request = urllib2.Request(request_url, data)
+            response = urllib2.urlopen(batch_request).read()
+
     except urllib2.HTTPError as e:
         raise e
     return response == '1'
  
-def send_batch(base_url, endpoint, batch): 
-    """ 
-    Sends a list of events or people in a POST request. Useful if sending a lot
-    of requests at once.
-    """
-    if len(batch) > 50:
-        raise 
-    for item in batch:
-        # TODO test this hardcore
-        item['properties'] = item['properties'].update({'token': self._token})
-        data = self._encode_data(batch) 
-    try:
-        batch = urllib2.Request(''.join([self._base_url, endpoint]), data)
-        response = urllib2.urlopen(batch).read()
-    except urllib2.HTTPError as e:
-        raise e
-    return response == '1'
-
 class Mixpanel(object):
     class People(object): 
         def __init__(self, token, base_url): 
@@ -69,10 +59,10 @@ class Mixpanel(object):
             return self._people(distinct_id, '$unset', properties)
 
         def delete(self, distinct_id):
-            return self._people(distinct_id, '$append', "")
+            return self._people(distinct_id, '$delete', "")
     
         def send_people_batch(self, data):
-            return send_batch(self._base_url, data, 'engage/')
+            return write_request(self._base_url, data, 'engage/')
 
 
     def __init__(self, token, base_url='https://api.mixpanel.com/'):
@@ -119,31 +109,4 @@ class Mixpanel(object):
         return write_request(self._base_url, 'engage/', record)
 
     def send_events_batch(self, data):
-        """
-        If sending many events at once, this is useful. Accepts lists of 50 
-        events at a time and sends them via a POST request.
-
-        Example:
-
-        events_list = [
-            {
-                "event": "Signed Up",
-                "properties": {
-                    "distinct_id": "13793",
-                    "Referred By": "Friend",
-                    "time": 1371002000
-                }
-            },
-            {
-                "event": "Uploaded Photo",
-                "properties": {
-                    "distinct_id": "13793",
-                    "Topic": "Vacation",
-                    "time": 1371002104
-                }
-            }
-        ]
-
-        mp.send_events_batch(events_list)
-        """
-        send_batch(self._base_url, data, 'track/')
+        write_request(self._base_url, data, 'track/')
