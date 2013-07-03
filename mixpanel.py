@@ -30,8 +30,6 @@ class Mixpanel(object):
             if not batch:
                 response = urllib2.urlopen(request_url, data).read()
             else:
-                if len(request) > 50:
-                    raise
                 batch_request = urllib2.Request(request_url, data)
                 response = urllib2.urlopen(batch_request).read()
 
