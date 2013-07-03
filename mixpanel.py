@@ -17,7 +17,7 @@ class Mixpanel(object):
 
     @classmethod
     def _encode_data(self, data):
-        return urllib.urlencode({'data': base64.b64encode(json.dumps(data))})
+        return urllib.urlencode({'data': base64.b64encode(json.dumps(data)),'verbose':1})
 
     def _write_request(self, base_url, endpoint, request, batch=False):
         """

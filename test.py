@@ -15,7 +15,7 @@ class MixpanelTestCase(unittest.TestCase):
 
     def test_encode_data(self):
         encoded_ab = Mixpanel._encode_data({'a': 'b'})
-        self.assertEqual('data=eyJhIjogImIifQ%3D%3D', encoded_ab)
+        self.assertEqual('data=eyJhIjogImIifQ%3D%3D&verbose=1', encoded_ab)
 
     def test_track(self):
         token = '12345'
