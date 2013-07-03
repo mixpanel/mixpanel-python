@@ -1,27 +1,20 @@
 #!/usr/bin/env python
 import urllib
 import unittest
-from mixpanel import Mixpanel, encode_data
-from mock import Mock, patch 
+from mixpanel import Mixpanel
+from mock import Mock, patch
 
 class MixpanelTestCase(unittest.TestCase):
     track_request_url = 'https://api.mixpanel.com/track/'
     engage_request_url = 'https://api.mixpanel.com/engage/'
-    
-    def setUp(self):
-        print "set up"
-
-    def tearDown(self):
-        print "tear down"
 
     def test_constructor(self):
         token = '12345'
         mp = Mixpanel(token)
         self.assertEqual(mp._token, token)
-        self.assertEqual(mp.people._token, token)
 
     def test_encode_data(self):
-        encoded_ab = encode_data({'a': 'b'})
+        encoded_ab = Mixpanel._encode_data({'a': 'b'})
         self.assertEqual('data=eyJhIjogImIifQ%3D%3D', encoded_ab)
 
     def test_track(self):
@@ -31,7 +24,7 @@ class MixpanelTestCase(unittest.TestCase):
         mock_response.read.return_value = '1'
         with patch('urllib2.urlopen', return_value = mock_response) as mock_urlopen:
             mp.track('button press', {'size': 'big', 'color': 'blue'})
-        data = encode_data({'event': 'button press', 'properties': {'token': '12345', 'size': 'big', 'color': 'blue'}})
+        data = mp._encode_data({'event': 'button press', 'properties': {'token': '12345', 'size': 'big', 'color': 'blue'}})
         mock_urlopen.assert_called_once_with(self.track_request_url, data)
 
     def test_people_set(self):
@@ -40,8 +33,8 @@ class MixpanelTestCase(unittest.TestCase):
         mock_response = Mock()
         mock_response.read.return_value = '1'
         with patch('urllib2.urlopen', return_value = mock_response) as mock_urlopen:
-            mp.people.set('amq', {'birth month': 'october', 'favorite color': 'purple'})
-        data = encode_data({'$token': '12345', '$distinct_id': 'amq', '$set': {'birth month': 'october', 'favorite color': 'purple'}})
+            mp.people_set('amq', {'birth month': 'october', 'favorite color': 'purple'})
+        data = mp._encode_data({'$token': '12345', '$distinct_id': 'amq', '$set': {'birth month': 'october', 'favorite color': 'purple'}})
         mock_urlopen.assert_called_once_with(self.engage_request_url, data)
 
     def test_alias(self):
@@ -51,7 +44,7 @@ class MixpanelTestCase(unittest.TestCase):
         mock_response.read.return_value = '1'
         with patch('urllib2.urlopen', return_value = mock_response) as mock_urlopen:
             mp.alias('amq','3680')
-        data = encode_data({'event': '$create_alias', 'properties': {'distinct_id': '3680', 'alias': 'amq', 'token': '12345'}})
+        data = mp._encode_data({'event': '$create_alias', 'properties': {'distinct_id': '3680', 'alias': 'amq', 'token': '12345'}})
         mock_urlopen.assert_called_once_with(self.engage_request_url, data)
 
     def test_events_batch(self):
@@ -79,13 +72,11 @@ class MixpanelTestCase(unittest.TestCase):
         mp = Mixpanel(token)
         mock_response = Mock()
         mock_response.read.return_value = '1'
-        data = encode_data(events_list)
+        data = mp._encode_data(events_list)
         with patch('urllib2.Request', return_value = mock_response) as mock_Request:
             with patch('urllib2.urlopen', return_value = mock_response) as mock_urlopen:
                 mp.send_events_batch(events_list)
         mock_Request.assert_called_once_with(self.track_request_url, data)
-
-        
 
 if __name__ == "__main__":
     unittest.main()
