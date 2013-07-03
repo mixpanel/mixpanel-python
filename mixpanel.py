@@ -16,7 +16,7 @@ class Mixpanel(object):
         self._base_url = base_url
 
     @classmethod
-    def _encode_data(self, data):
+    def _prepare_data(self, data):
         return urllib.urlencode({'data': base64.b64encode(json.dumps(data)),'verbose':1})
 
     def _write_request(self, base_url, endpoint, request, batch=False):
@@ -24,7 +24,7 @@ class Mixpanel(object):
         Writes a request taking in either 'track/' for events or 'engage/' for
         people.
         """
-        data = self._encode_data(request)
+        data = self._prepare_data(request)
         request_url = ''.join([base_url, endpoint])
         try:
             if not batch:
