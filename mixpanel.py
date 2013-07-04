@@ -49,8 +49,8 @@ class Mixpanel(object):
         """
         For all event tracking.
 
-        For basic event tracking. Should pass in name of event name and
-        optionally a dictionary of properties.
+        For basic event tracking. Should pass in event name and optionally a
+        dictionary of properties.
         Example:
             mp.track('clicked button', { 'color': 'blue', 'text': 'no' })
         """
@@ -66,8 +66,9 @@ class Mixpanel(object):
         """
         Gives custom alias to a people record. 
 
-        Allows use of alias_id instead of original alias. Both arguments are
-        required since people records are not persistent across multiple calls. 
+        Alias sends an update to our servers linking an existing distinct_id
+        with a new id, so that events and profile updates associated with the
+        new id will be associated with the existing user's profile and behavior.
         Example:
             mp.alias('amy@mixpanel.com', '13793')
         """
@@ -89,8 +90,7 @@ class Mixpanel(object):
         does not exist, creates new profile with these properties.
         Example:
             mp.people_set('12345', {'Address': '1313 Mockingbird Lane', 
-                                    'Birthday': '1948-01-01'
-                        })
+                                    'Birthday': '1948-01-01'})
         """
         return self._people(distinct_id, '$set', properties)
 
@@ -171,8 +171,7 @@ class Mixpanel(object):
 
        Takes in list of JSON objects, up to 50 people records.
        Example:
-       data = 
-           [
+       data = [
                {
                    "$token": "36ada5b10da39a1347559321baf13063",
                    "$distinct_id": "13793",
@@ -184,7 +183,7 @@ class Mixpanel(object):
                        "$phone": "4805551212"
                        }
                }
-           ]
+              ]
        mp.send_people_batch(data)
        """
        return self._write_request(self._base_url, 'engage/', data, batch=True)
@@ -195,8 +194,7 @@ class Mixpanel(object):
 
         Takes in list of JSON objects, up to 50 events records.
         Example:
-        data = 
-            [
+        data = [
                 {
                     "event": "Signed Up",
                     "properties": {
@@ -215,7 +213,7 @@ class Mixpanel(object):
                     "time": 1371002104
                     }
                 }
-            ]
+               ]
         mp.send_events_batch(data)
         """
         return self._write_request(self._base_url, 'track/', data, batch=True)
