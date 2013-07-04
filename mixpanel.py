@@ -129,7 +129,7 @@ class Mixpanel(object):
         Example:
             mp.people_append('12345', { "Power Ups": "Bubble Lead" }) 
         """
-       return self._people(distinct_id, '$append', properties)
+        return self._people(distinct_id, '$append', properties)
 
     def people_union(self, distinct_id, properties):
         """
