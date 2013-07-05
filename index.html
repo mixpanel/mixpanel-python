@@ -1,0 +1,180 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html><head><title>Python: module mixpanel</title>
+</head><body bgcolor="#f0f0f8">
+
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="heading">
+<tr bgcolor="#7799ee">
+<td valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial">&nbsp;<br><big><big><strong>mixpanel</strong></big></big></font></td
+><td align=right valign=bottom
+><font color="#ffffff" face="helvetica, arial"><a href=".">index</a><br><a href="file:/home/amy/mixpanel-python/mixpanel.py">/home/amy/mixpanel-python/mixpanel.py</a></font></td></tr></table>
+    <p></p>
+<p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#aa55cc">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Modules</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#aa55cc"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><table width="100%" summary="list"><tr><td width="25%" valign=top><a href="base64.html">base64</a><br>
+</td><td width="25%" valign=top><a href="json.html">json</a><br>
+</td><td width="25%" valign=top><a href="urllib.html">urllib</a><br>
+</td><td width="25%" valign=top><a href="urllib2.html">urllib2</a><br>
+</td></tr></table></td></tr></table><p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#ee77aa">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Classes</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#ee77aa"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><dl>
+<dt><font face="helvetica, arial"><a href="__builtin__.html#object">__builtin__.object</a>
+</font></dt><dd>
+<dl>
+<dt><font face="helvetica, arial"><a href="mixpanel.html#Mixpanel">Mixpanel</a>
+</font></dt></dl>
+</dd>
+</dl>
+ <p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#ffc8d8">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#000000" face="helvetica, arial"><a name="Mixpanel">class <strong>Mixpanel</strong></a>(<a href="__builtin__.html#object">__builtin__.object</a>)</font></td></tr>
+    
+<tr><td bgcolor="#ffc8d8"><tt>&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%">Methods defined here:<br>
+<dl><dt><a name="Mixpanel-__init__"><strong>__init__</strong></a>(self, token, base_url<font color="#909090">='https://api.mixpanel.com/'</font>)</dt><dd><tt>Creates&nbsp;a&nbsp;new&nbsp;<a href="#Mixpanel">Mixpanel</a>&nbsp;<a href="__builtin__.html#object">object</a>,&nbsp;which&nbsp;can&nbsp;be&nbsp;used&nbsp;for&nbsp;all&nbsp;tracking.<br>
+&nbsp;<br>
+To&nbsp;use&nbsp;mixpanel,&nbsp;create&nbsp;a&nbsp;new&nbsp;<a href="#Mixpanel">Mixpanel</a>&nbsp;<a href="__builtin__.html#object">object</a>&nbsp;using&nbsp;your&nbsp;token.<br>
+Use&nbsp;this&nbsp;<a href="__builtin__.html#object">object</a>&nbsp;to&nbsp;start&nbsp;tracking.<br>
+Takes&nbsp;in&nbsp;a&nbsp;user&nbsp;token&nbsp;and&nbsp;an&nbsp;optional&nbsp;base&nbsp;url.&nbsp;Base&nbsp;url&nbsp;defaults&nbsp;to<br>
+https://api.mixpanel.com.<br>
+Example:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;mp&nbsp;=&nbsp;<a href="#Mixpanel">Mixpanel</a>('36ada5b10da39a1347559321baf13063')</tt></dd></dl>
+
+<dl><dt><a name="Mixpanel-alias"><strong>alias</strong></a>(self, alias_id, original)</dt><dd><tt>Gives&nbsp;custom&nbsp;alias&nbsp;to&nbsp;a&nbsp;people&nbsp;record.&nbsp;<br>
+&nbsp;<br>
+Alias&nbsp;sends&nbsp;an&nbsp;update&nbsp;to&nbsp;our&nbsp;servers&nbsp;linking&nbsp;an&nbsp;existing&nbsp;distinct_id<br>
+with&nbsp;a&nbsp;new&nbsp;id,&nbsp;so&nbsp;that&nbsp;events&nbsp;and&nbsp;profile&nbsp;updates&nbsp;associated&nbsp;with&nbsp;the<br>
+new&nbsp;id&nbsp;will&nbsp;be&nbsp;associated&nbsp;with&nbsp;the&nbsp;existing&nbsp;user's&nbsp;profile&nbsp;and&nbsp;behavior.<br>
+Example:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;mp.<a href="#Mixpanel-alias">alias</a>('amy@mixpanel.com',&nbsp;'13793')</tt></dd></dl>
+
+<dl><dt><a name="Mixpanel-people_add"><strong>people_add</strong></a>(self, distinct_id, properties)</dt><dd><tt>Increments/decrements&nbsp;numerical&nbsp;properties&nbsp;of&nbsp;people&nbsp;record.&nbsp;<br>
+&nbsp;<br>
+Takes&nbsp;in&nbsp;JSON&nbsp;<a href="__builtin__.html#object">object</a>&nbsp;with&nbsp;keys&nbsp;and&nbsp;numerical&nbsp;values.&nbsp;Adds&nbsp;numerical<br>
+values&nbsp;to&nbsp;current&nbsp;property&nbsp;of&nbsp;profile.&nbsp;If&nbsp;property&nbsp;doesn't&nbsp;exist&nbsp;adds<br>
+value&nbsp;to&nbsp;zero.&nbsp;Takes&nbsp;in&nbsp;negative&nbsp;values&nbsp;for&nbsp;subtraction.<br>
+Example:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;mp.<a href="#Mixpanel-people_add">people_add</a>('12345',&nbsp;{'Coins&nbsp;Gathered':&nbsp;12})</tt></dd></dl>
+
+<dl><dt><a name="Mixpanel-people_append"><strong>people_append</strong></a>(self, distinct_id, properties)</dt><dd><tt>Appends&nbsp;to&nbsp;the&nbsp;list&nbsp;associated&nbsp;with&nbsp;a&nbsp;property.&nbsp;<br>
+&nbsp;<br>
+Takes&nbsp;a&nbsp;JSON&nbsp;<a href="__builtin__.html#object">object</a>&nbsp;containing&nbsp;keys&nbsp;and&nbsp;values,&nbsp;and&nbsp;appends&nbsp;each&nbsp;to&nbsp;a<br>
+list&nbsp;associated&nbsp;with&nbsp;the&nbsp;corresponding&nbsp;property&nbsp;name.&nbsp;$appending&nbsp;to&nbsp;a<br>
+property&nbsp;that&nbsp;doesn't&nbsp;exist&nbsp;will&nbsp;result&nbsp;in&nbsp;assigning&nbsp;a&nbsp;list&nbsp;with&nbsp;one<br>
+element&nbsp;to&nbsp;that&nbsp;property.<br>
+Example:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;mp.<a href="#Mixpanel-people_append">people_append</a>('12345',&nbsp;{&nbsp;"Power&nbsp;Ups":&nbsp;"Bubble&nbsp;Lead"&nbsp;})</tt></dd></dl>
+
+<dl><dt><a name="Mixpanel-people_delete"><strong>people_delete</strong></a>(self, distinct_id)</dt><dd><tt>Permanently&nbsp;deletes&nbsp;a&nbsp;profile.&nbsp;<br>
+&nbsp;<br>
+Permanently&nbsp;delete&nbsp;the&nbsp;profile&nbsp;from&nbsp;<a href="#Mixpanel">Mixpanel</a>,&nbsp;along&nbsp;with&nbsp;all&nbsp;of&nbsp;its<br>
+properties.<br>
+Example:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;mp.<a href="#Mixpanel-people_delete">people_delete</a>('12345')</tt></dd></dl>
+
+<dl><dt><a name="Mixpanel-people_set"><strong>people_set</strong></a>(self, distinct_id, properties)</dt><dd><tt>Set&nbsp;properties&nbsp;of&nbsp;a&nbsp;people&nbsp;record.<br>
+&nbsp;<br>
+Sets&nbsp;properties&nbsp;of&nbsp;a&nbsp;people&nbsp;record&nbsp;given&nbsp;in&nbsp;JSON&nbsp;<a href="__builtin__.html#object">object</a>.&nbsp;If&nbsp;the&nbsp;profile<br>
+does&nbsp;not&nbsp;exist,&nbsp;creates&nbsp;new&nbsp;profile&nbsp;with&nbsp;these&nbsp;properties.<br>
+Example:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;mp.<a href="#Mixpanel-people_set">people_set</a>('12345',&nbsp;{'Address':&nbsp;'1313&nbsp;Mockingbird&nbsp;Lane',&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'Birthday':&nbsp;'1948-01-01'})</tt></dd></dl>
+
+<dl><dt><a name="Mixpanel-people_set_once"><strong>people_set_once</strong></a>(self, distinct_id, properties)</dt><dd><tt>Set&nbsp;immutable&nbsp;properties&nbsp;of&nbsp;a&nbsp;people&nbsp;record.<br>
+&nbsp;<br>
+Sets&nbsp;properties&nbsp;of&nbsp;a&nbsp;people&nbsp;record&nbsp;given&nbsp;in&nbsp;JSON&nbsp;<a href="__builtin__.html#object">object</a>.&nbsp;If&nbsp;the&nbsp;profile<br>
+does&nbsp;not&nbsp;exist,&nbsp;creates&nbsp;new&nbsp;profile&nbsp;with&nbsp;these&nbsp;properties.&nbsp;Does&nbsp;not<br>
+overwrite&nbsp;existing&nbsp;property&nbsp;values.<br>
+Example:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;mp.<a href="#Mixpanel-people_set_once">people_set_once</a>('12345',&nbsp;{'First&nbsp;Login':&nbsp;"2013-04-01T13:20:00"})</tt></dd></dl>
+
+<dl><dt><a name="Mixpanel-people_union"><strong>people_union</strong></a>(self, distinct_id, properties)</dt><dd><tt>Merges&nbsp;the&nbsp;values&nbsp;for&nbsp;a&nbsp;list&nbsp;associated&nbsp;with&nbsp;a&nbsp;property.&nbsp;<br>
+&nbsp;<br>
+Takes&nbsp;a&nbsp;JSON&nbsp;<a href="__builtin__.html#object">object</a>&nbsp;containing&nbsp;keys&nbsp;and&nbsp;list&nbsp;values.&nbsp;The&nbsp;list&nbsp;values&nbsp;in<br>
+the&nbsp;request&nbsp;are&nbsp;merged&nbsp;with&nbsp;the&nbsp;existing&nbsp;list&nbsp;on&nbsp;the&nbsp;user&nbsp;profile,<br>
+ignoring&nbsp;duplicate&nbsp;list&nbsp;values.<br>
+Example:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;mp.<a href="#Mixpanel-people_union">people_union</a>('12345',&nbsp;{&nbsp;"Items&nbsp;purchased":&nbsp;["socks",&nbsp;"shirts"]&nbsp;}&nbsp;)</tt></dd></dl>
+
+<dl><dt><a name="Mixpanel-people_unset"><strong>people_unset</strong></a>(self, distinct_id, properties)</dt><dd><tt>Removes&nbsp;properties&nbsp;from&nbsp;a&nbsp;profile.<br>
+&nbsp;<br>
+Takes&nbsp;a&nbsp;JSON&nbsp;list&nbsp;of&nbsp;string&nbsp;property&nbsp;names,&nbsp;and&nbsp;permanently&nbsp;removes&nbsp;the<br>
+properties&nbsp;and&nbsp;their&nbsp;values&nbsp;from&nbsp;a&nbsp;profile.<br>
+Example:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;mp.<a href="#Mixpanel-people_unset">people_unset</a>('12345',&nbsp;["Days&nbsp;Overdue"])</tt></dd></dl>
+
+<dl><dt><a name="Mixpanel-send_events_batch"><strong>send_events_batch</strong></a>(self, data)</dt><dd><tt>Sends&nbsp;list&nbsp;of&nbsp;up&nbsp;to&nbsp;50&nbsp;events.<br>
+&nbsp;<br>
+Takes&nbsp;in&nbsp;list&nbsp;of&nbsp;JSON&nbsp;objects,&nbsp;up&nbsp;to&nbsp;50&nbsp;events&nbsp;records.<br>
+Example:<br>
+data&nbsp;=&nbsp;[<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"event":&nbsp;"Signed&nbsp;Up",<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"properties":&nbsp;{<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"distinct_id":&nbsp;"13793",<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"token":&nbsp;"e3bc4100330c35722740fb8c6f5abddc",<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"Referred&nbsp;By":&nbsp;"Friend",<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"time":&nbsp;1371002000<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;},<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"event":&nbsp;"Uploaded&nbsp;Photo",<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"properties":&nbsp;{<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"distinct_id":&nbsp;"13793",<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"token":&nbsp;"e3bc4100330c35722740fb8c6f5abddc",<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"Topic":&nbsp;"Vacation",<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"time":&nbsp;1371002104<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;]<br>
+mp.<a href="#Mixpanel-send_events_batch">send_events_batch</a>(data)</tt></dd></dl>
+
+<dl><dt><a name="Mixpanel-send_people_batch"><strong>send_people_batch</strong></a>(self, data)</dt><dd><tt>Sends&nbsp;list&nbsp;of&nbsp;up&nbsp;to&nbsp;50&nbsp;people&nbsp;records.<br>
+&nbsp;<br>
+Takes&nbsp;in&nbsp;list&nbsp;of&nbsp;JSON&nbsp;objects,&nbsp;up&nbsp;to&nbsp;50&nbsp;people&nbsp;records.<br>
+Example:<br>
+data&nbsp;=&nbsp;[<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"$token":&nbsp;"36ada5b10da39a1347559321baf13063",<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"$distinct_id":&nbsp;"13793",<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"$set":&nbsp;{<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"$first_name":&nbsp;"Joe",<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"$last_name":&nbsp;"Doe",<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"$email":&nbsp;"joe.doe@example.com",<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"$created":&nbsp;"2013-04-01T13:20:00",<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"$phone":&nbsp;"4805551212"<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;]<br>
+mp.<a href="#Mixpanel-send_people_batch">send_people_batch</a>(data)</tt></dd></dl>
+
+<dl><dt><a name="Mixpanel-track"><strong>track</strong></a>(self, event_name, properties<font color="#909090">={}</font>)</dt><dd><tt>For&nbsp;all&nbsp;event&nbsp;tracking.<br>
+&nbsp;<br>
+For&nbsp;basic&nbsp;event&nbsp;tracking.&nbsp;Should&nbsp;pass&nbsp;in&nbsp;event&nbsp;name&nbsp;and&nbsp;optionally&nbsp;a<br>
+dictionary&nbsp;of&nbsp;properties.<br>
+Example:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;mp.<a href="#Mixpanel-track">track</a>('clicked&nbsp;button',&nbsp;{&nbsp;'color':&nbsp;'blue',&nbsp;'text':&nbsp;'no'&nbsp;})</tt></dd></dl>
+
+<hr>
+Data descriptors defined here:<br>
+<dl><dt><strong>__dict__</strong></dt>
+<dd><tt>dictionary&nbsp;for&nbsp;instance&nbsp;variables&nbsp;(if&nbsp;defined)</tt></dd>
+</dl>
+<dl><dt><strong>__weakref__</strong></dt>
+<dd><tt>list&nbsp;of&nbsp;weak&nbsp;references&nbsp;to&nbsp;the&nbsp;object&nbsp;(if&nbsp;defined)</tt></dd>
+</dl>
+</td></tr></table></td></tr></table>
+</body></html>
