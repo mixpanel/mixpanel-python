@@ -4,12 +4,14 @@ This is the official Mixpanel Python library. This library allows for server-sid
 
 Installation
 ------------
-The library can be installed using pip::
+The library can be installed using pip:
+
     pip install mixpanel-python
 
 Getting Started
 ---------------
-Typical usage usually looks like this::
+Typical usage usually looks like this:
+
     #!/usr/bin/env python
     from mixpanel import Mixpanel
 
