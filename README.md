@@ -25,6 +25,6 @@ You can use an instance of the Mixpanel class for sending all of your events and
 
 Additional Information
 ----------------------
-[Help Docs](https://wwwmixpanel.com/help/reference/python)
+[Help Docs](https://www.mixpanel.com/help/reference/python)
 
 [Full Documentation](http://mixpanel.github.io/mixpanel-python/)
