@@ -168,6 +168,18 @@ dictionary&nbsp;of&nbsp;properties.<br>
 Example:<br>
 &nbsp;&nbsp;&nbsp;&nbsp;mp.<a href="#Mixpanel-track">track</a>('clicked&nbsp;button',&nbsp;{&nbsp;'color':&nbsp;'blue',&nbsp;'text':&nbsp;'no'&nbsp;})</tt></dd></dl>
 
+<dl><dt><a name="Mixpanel-track_charge"><strong>track_charge</strong></a>(self, distinct_id, amount, properties<font color="#909090">={}</font>)</dt><dd><tt>Tracks&nbsp;a&nbsp;charge&nbsp;to&nbsp;a&nbsp;user.<br>
+&nbsp;<br>
+Record&nbsp;that&nbsp;you&nbsp;have&nbsp;charged&nbsp;the&nbsp;current&nbsp;user&nbsp;a&nbsp;certain&nbsp;amount&nbsp;of<br>
+money.&nbsp;Charges&nbsp;recorded&nbsp;with&nbsp;track_charge&nbsp;will&nbsp;appear&nbsp;in&nbsp;the&nbsp;<a href="#Mixpanel">Mixpanel</a><br>
+revenue&nbsp;report.<br>
+Example:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;#tracks&nbsp;a&nbsp;charge&nbsp;of&nbsp;$50&nbsp;to&nbsp;user&nbsp;'1234'<br>
+&nbsp;&nbsp;&nbsp;&nbsp;mp.<a href="#Mixpanel-track_charge">track_charge</a>('1234',&nbsp;50)<br>
+&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;#tracks&nbsp;a&nbsp;charge&nbsp;of&nbsp;$50&nbsp;to&nbsp;user&nbsp;'1234'&nbsp;at&nbsp;a&nbsp;specific&nbsp;time<br>
+&nbsp;&nbsp;&nbsp;&nbsp;mp.<a href="#Mixpanel-track_charge">track_charge</a>('1234',&nbsp;50,&nbsp;{'$time':&nbsp;"2013-04-01T09:02:00"})</tt></dd></dl>
+
 <hr>
 Data descriptors defined here:<br>
 <dl><dt><strong>__dict__</strong></dt>
