@@ -165,6 +165,23 @@ class Mixpanel(object):
         """
         return self._people(distinct_id, '$delete', "")
 
+    def track_charge(self, distinct_id, amount, properties={}):
+        """
+        Tracks a charge to a user.
+
+        Record that you have charged the current user a certain amount of
+        money. Charges recorded with track_charge will appear in the Mixpanel
+        revenue report.
+        Example:
+            #tracks a charge of $50 to user '1234'
+            mp.track_charge('1234', 50)
+
+            #tracks a charge of $50 to user '1234' at a specific time
+            mp.track_charge('1234', 50, {'$time': "2013-04-01T09:02:00"})
+        """
+        properties.update({'$amount': amount})
+        return self.people_append(distinct_id, {'$transactions': properties})
+
     def send_people_batch(self, data):
        """
        Sends list of up to 50 people records.
