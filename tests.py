@@ -45,7 +45,7 @@ class MixpanelTestCase(unittest.TestCase):
         with patch('urllib2.urlopen', return_value = mock_response) as mock_urlopen:
             mp.alias('amq','3680')
         data = mp._prepare_data({'event': '$create_alias', 'properties': {'distinct_id': '3680', 'alias': 'amq', 'token': '12345'}})
-        mock_urlopen.assert_called_once_with(self.engage_request_url, data)
+        mock_urlopen.assert_called_once_with(self.track_request_url, data)
 
     def test_events_batch(self):
         events_list = [
