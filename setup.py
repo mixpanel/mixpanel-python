@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
     name='mixpanel-py',
-    version='1.0.0',
+    version='2.0.0rc',
     author='Mixpanel, Inc.',
     author_email='dev@mixpanel.com',
     packages=['mixpanel', 'mixpanel.test'],
