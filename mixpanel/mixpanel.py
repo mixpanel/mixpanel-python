@@ -80,7 +80,7 @@ class Mixpanel(object):
                 'token': self._token,
             }
         }
-        return self._write_request(self._base_url, 'engage/', record)
+        return self._write_request(self._base_url, 'track/', record)
 
     def people_set(self, distinct_id, properties):
         """
