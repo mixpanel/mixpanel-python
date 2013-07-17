@@ -1,1 +1,6 @@
-v1.0.0, 3 Jul 2013 -- Initial release
+v2.0.0
+* Name change- base module is now named 'mixpanel'
+* Fix to alias
+
+v1.0.0
+* Initial release

@@ -19,7 +19,7 @@ Typical usage usually looks like this::
 
     mp = Mixpanel(YOUR_TOKEN)
 
-    # tracks an event with certain properties 
+    # tracks an event with certain properties
     mp.track('button clicked', {'color' : 'blue', 'size': 'large'})
 
     # sends an update to a user profile
@@ -30,4 +30,7 @@ You can use an instance of the Mixpanel class for sending all of your events and
 Additional Information
 ======================
 
-     
+For more information please visit:
+
+* Our Ruby API Integration page[https://mixpanel.com/help/reference/python]
+* The documentation[http://mixpanel.github.io/mixpanel-python]
