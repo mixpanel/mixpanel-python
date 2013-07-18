@@ -4,9 +4,11 @@ import time
 import urllib
 import urllib2
 
+from .consumer import Consumer
+
 class Mixpanel(object):
 
-    def __init__(self, token, base_url='https://api.mixpanel.com/'):
+    def __init__(self, token, consumer=None):
         """
         Creates a new Mixpanel object, which can be used for all tracking.
 
@@ -18,37 +20,10 @@ class Mixpanel(object):
             mp = Mixpanel('36ada5b10da39a1347559321baf13063')
         """
         self._token = token
-        self._base_url = base_url
+        self._consumer = consumer
 
     def _now():
         return int(time.time())
-
-    @classmethod
-    def _prepare_data(self, data):
-        return urllib.urlencode({'data': base64.b64encode(json.dumps(data)),'verbose':1})
-
-    def _write_request(self, base_url, endpoint, request, batch=False):
-        data = self._prepare_data(request)
-        request_url = ''.join([base_url, endpoint])
-        try:
-            if not batch:
-                response = urllib2.urlopen(request_url, data).read()
-            else:
-                batch_request = urllib2.Request(request_url, data)
-                response = urllib2.urlopen(batch_request).read()
-
-        except urllib2.HTTPError as e:
-            raise e
-
-        try:
-            response = json.loads(response)
-        except ValueError:
-            raise Exception('Cannot interpret Mixpanel server response: {0}'.format(response))
-
-        if response['status'] != 1:
-            raise Exception('Mixpanel error: {0}'.format(response['error']))
-
-        return True
 
     def _people(self, distinct_id, update_type, properties):
         record = {
@@ -56,7 +31,7 @@ class Mixpanel(object):
             '$distinct_id': distinct_id,
             update_type: properties,
         }
-        return self._write_request(self._base_url, 'engage/', record)
+        consumer.send_people(json.dumps(record))
 
     def track(self, distinct_id, event_name, properties={}):
         """
@@ -87,7 +62,7 @@ class Mixpanel(object):
             'event': event_name,
             'properties': all_properties,
         }
-        return self._write_request(self._base_url, 'track/', event)
+        self.consumer.send_events(json.dumps(event))
 
     def alias(self, alias_id, original):
         """
