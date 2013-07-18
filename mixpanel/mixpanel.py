@@ -1,5 +1,6 @@
 import base64
 import json
+import time
 import urllib
 import urllib2
 
@@ -19,6 +20,9 @@ class Mixpanel(object):
         self._token = token
         self._base_url = base_url
 
+    def _now():
+        return int(time.time())
+
     @classmethod
     def _prepare_data(self, data):
         return urllib.urlencode({'data': base64.b64encode(json.dumps(data)),'verbose':1})
@@ -35,7 +39,16 @@ class Mixpanel(object):
 
         except urllib2.HTTPError as e:
             raise e
-        return response == '1'
+
+        try:
+            response = json.loads(response)
+        except ValueError:
+            raise Exception('Cannot interpret Mixpanel server response: {0}'.format(response))
+
+        if response['status'] != 1:
+            raise Exception('Mixpanel error: {0}'.format(response['error']))
+
+        return True
 
     def _people(self, distinct_id, update_type, properties):
         record = {
@@ -45,16 +58,30 @@ class Mixpanel(object):
         }
         return self._write_request(self._base_url, 'engage/', record)
 
-    def track(self, event_name, properties={}):
+    def track(self, distinct_id, event_name, properties={}):
         """
-        For all event tracking.
+        Notes that an event has occurred, along with a distinct_id
+        representing the source of that event (for example, a user id),
+        an event name describing the event and a set of properties
+        describing that event. Properties are provided as a Hash with
+        string keys and strings, numbers or booleans as values.
 
-        For basic event tracking. Should pass in event name and optionally a
-        dictionary of properties.
-        Example:
-            mp.track('clicked button', { 'color': 'blue', 'text': 'no' })
+          # Track that user "12345"'s credit card was declined
+          mp.track("12345", "Credit Card Declined")
+
+          # Properties describe the circumstances of the event,
+          # or aspects of the source or user associated with the event
+          mp.track("12345", "Welcome Email Sent", {
+              'Email Template' => 'Pretty Pink Welcome',
+              'User Sign-up Cohort' => 'July 2013'
+          })
         """
-        all_properties = { 'token' : self._token }
+        all_properties = {
+            'token' : self._token,
+            'distinct_id': distinct_id,
+            'time': self._now(),
+            'mp_lib': 'python',
+        }
         all_properties.update(properties)
         event = {
             'event': event_name,
@@ -64,7 +91,7 @@ class Mixpanel(object):
 
     def alias(self, alias_id, original):
         """
-        Gives custom alias to a people record. 
+        Gives custom alias to a people record.
 
         Alias sends an update to our servers linking an existing distinct_id
         with a new id, so that events and profile updates associated with the
@@ -72,15 +99,11 @@ class Mixpanel(object):
         Example:
             mp.alias('amy@mixpanel.com', '13793')
         """
-        record = {
-            'event': '$create_alias',
-            'properties': {
-                'distinct_id': original,
-                'alias': alias_id,
-                'token': self._token,
-            }
-        }
-        return self._write_request(self._base_url, 'track/', record)
+        self.track(original, '$create_alias', {
+            'distinct_id': original,
+            'alias': alias_id,
+            'token': self._token,
+        })
 
     def people_set(self, distinct_id, properties):
         """
@@ -89,7 +112,7 @@ class Mixpanel(object):
         Sets properties of a people record given in JSON object. If the profile
         does not exist, creates new profile with these properties.
         Example:
-            mp.people_set('12345', {'Address': '1313 Mockingbird Lane', 
+            mp.people_set('12345', {'Address': '1313 Mockingbird Lane',
                                     'Birthday': '1948-01-01'})
         """
         return self._people(distinct_id, '$set', properties)
@@ -108,7 +131,7 @@ class Mixpanel(object):
 
     def people_add(self, distinct_id, properties):
         """
-        Increments/decrements numerical properties of people record. 
+        Increments/decrements numerical properties of people record.
 
         Takes in JSON object with keys and numerical values. Adds numerical
         values to current property of profile. If property doesn't exist adds
@@ -120,20 +143,20 @@ class Mixpanel(object):
 
     def people_append(self, distinct_id, properties):
         """
-        Appends to the list associated with a property. 
+        Appends to the list associated with a property.
 
         Takes a JSON object containing keys and values, and appends each to a
         list associated with the corresponding property name. $appending to a
         property that doesn't exist will result in assigning a list with one
         element to that property.
         Example:
-            mp.people_append('12345', { "Power Ups": "Bubble Lead" }) 
+            mp.people_append('12345', { "Power Ups": "Bubble Lead" })
         """
         return self._people(distinct_id, '$append', properties)
 
     def people_union(self, distinct_id, properties):
         """
-        Merges the values for a list associated with a property. 
+        Merges the values for a list associated with a property.
 
         Takes a JSON object containing keys and list values. The list values in
         the request are merged with the existing list on the user profile,
@@ -156,7 +179,7 @@ class Mixpanel(object):
 
     def people_delete(self, distinct_id):
         """
-        Permanently deletes a profile. 
+        Permanently deletes a profile.
 
         Permanently delete the profile from Mixpanel, along with all of its
         properties.
