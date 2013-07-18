@@ -1,10 +1,9 @@
-import base64
 import json
 import time
-import urllib
-import urllib2
 
 from .consumer import Consumer
+
+VERSION = '2.0.0'
 
 class Mixpanel(object):
 
@@ -20,18 +19,10 @@ class Mixpanel(object):
             mp = Mixpanel('36ada5b10da39a1347559321baf13063')
         """
         self._token = token
-        self._consumer = consumer
+        self._consumer = consumer or Consumer()
 
     def _now():
-        return int(time.time())
-
-    def _people(self, distinct_id, update_type, properties):
-        record = {
-            '$token': self._token,
-            '$distinct_id': distinct_id,
-            update_type: properties,
-        }
-        consumer.send_people(json.dumps(record))
+        return time.time()
 
     def track(self, distinct_id, event_name, properties={}):
         """
@@ -54,15 +45,16 @@ class Mixpanel(object):
         all_properties = {
             'token' : self._token,
             'distinct_id': distinct_id,
-            'time': self._now(),
+            'time': int(self._now()),
             'mp_lib': 'python',
+            '$lib_version': VERSION,
         }
         all_properties.update(properties)
         event = {
             'event': event_name,
             'properties': all_properties,
         }
-        self.consumer.send_events(json.dumps(event))
+        self._consumer.send_events(json.dumps(event))
 
     def alias(self, alias_id, original):
         """
@@ -90,7 +82,10 @@ class Mixpanel(object):
             mp.people_set('12345', {'Address': '1313 Mockingbird Lane',
                                     'Birthday': '1948-01-01'})
         """
-        return self._people(distinct_id, '$set', properties)
+        return self.people_update({
+            '$distinct_id': distinct_id,
+            '$set': properties,
+        })
 
     def people_set_once(self, distinct_id, properties):
         """
@@ -102,9 +97,12 @@ class Mixpanel(object):
         Example:
             mp.people_set_once('12345', {'First Login': "2013-04-01T13:20:00"})
         """
-        return self._people(distinct_id, '$set_once', properties)
+        return self.people_update({
+            '$distinct_id': distinct_id,
+            '$set_once': properties,
+        })
 
-    def people_add(self, distinct_id, properties):
+    def people_increment(self, distinct_id, properties):
         """
         Increments/decrements numerical properties of people record.
 
@@ -114,7 +112,10 @@ class Mixpanel(object):
         Example:
             mp.people_add('12345', {'Coins Gathered': 12})
         """
-        return self._people(distinct_id, '$add', properties)
+        return self.people_update({
+            '$distinct_id': distinct_id,
+            '$add': properties,
+        })
 
     def people_append(self, distinct_id, properties):
         """
@@ -127,7 +128,10 @@ class Mixpanel(object):
         Example:
             mp.people_append('12345', { "Power Ups": "Bubble Lead" })
         """
-        return self._people(distinct_id, '$append', properties)
+        return self.people_update({
+            '$distinct_id': distinct_id,
+            '$append': properties,
+        })
 
     def people_union(self, distinct_id, properties):
         """
@@ -139,7 +143,10 @@ class Mixpanel(object):
         Example:
             mp.people_union('12345', { "Items purchased": ["socks", "shirts"] } )
         """
-        return self._people(distinct_id, '$union', properties)
+        return self.people_update({
+            '$distinct_id': distinct_id,
+            '$union': properties,
+        })
 
     def people_unset(self, distinct_id, properties):
         """
@@ -150,7 +157,10 @@ class Mixpanel(object):
         Example:
             mp.people_unset('12345', ["Days Overdue"])
         """
-        return self._people(distinct_id, '$unset', properties)
+        return self.people_update({
+            '$distinct_id': distinct_id,
+            '$unset': properties,
+        })
 
     def people_delete(self, distinct_id):
         """
@@ -161,9 +171,12 @@ class Mixpanel(object):
         Example:
             mp.people_delete('12345')
         """
-        return self._people(distinct_id, '$delete', "")
+        return self.people_update({
+            '$distinct_id': distinct_id,
+            '$delete': "",
+        })
 
-    def track_charge(self, distinct_id, amount, properties={}):
+    def people_track_charge(self, distinct_id, amount, properties={}):
         """
         Tracks a charge to a user.
 
@@ -180,55 +193,21 @@ class Mixpanel(object):
         properties.update({'$amount': amount})
         return self.people_append(distinct_id, {'$transactions': properties})
 
-    def send_people_batch(self, data):
-       """
-       Sends list of up to 50 people records.
 
-       Takes in list of JSON objects, up to 50 people records.
-       Example:
-       data = [
-               {
-                   "$token": "36ada5b10da39a1347559321baf13063",
-                   "$distinct_id": "13793",
-                   "$set": {
-                       "$first_name": "Joe",
-                       "$last_name": "Doe",
-                       "$email": "joe.doe@example.com",
-                       "$created": "2013-04-01T13:20:00",
-                       "$phone": "4805551212"
-                       }
-               }
-              ]
-       mp.send_people_batch(data)
-       """
-       return self._write_request(self._base_url, 'engage/', data, batch=True)
-
-    def send_events_batch(self, data):
-        """
-        Sends list of up to 50 events.
-
-        Takes in list of JSON objects, up to 50 events records.
-        Example:
-        data = [
-                {
-                    "event": "Signed Up",
-                    "properties": {
-                    "distinct_id": "13793",
-                    "token": "e3bc4100330c35722740fb8c6f5abddc",
-                    "Referred By": "Friend",
-                    "time": 1371002000
-                    }
-                },
-                {
-                    "event": "Uploaded Photo",
-                    "properties": {
-                    "distinct_id": "13793",
-                    "token": "e3bc4100330c35722740fb8c6f5abddc",
-                    "Topic": "Vacation",
-                    "time": 1371002104
-                    }
-                }
-               ]
-        mp.send_events_batch(data)
-        """
-        return self._write_request(self._base_url, 'track/', data, batch=True)
+    """
+    Send a generic update to \Mixpanel people analytics.
+    Caller is responsible for formatting the update message, as
+    documented in the \Mixpanel HTTP specification, and passing
+    the message as a dict to update. This
+    method might be useful if you want to use very new
+    or experimental features of people analytics from Ruby
+    The \Mixpanel HTTP tracking API is documented at
+    https://mixpanel.com/help/reference/http
+    """
+    def people_update(self, message):
+        record = {
+            '$token': self._token,
+            '$time': int(self._now() * 1000),
+        }
+        record.update(message)
+        self._consumer.send_people(json.dumps(record))

@@ -1,1 +1,1 @@
-from .mixpanel import Mixpanel
+from .mixpanel import Mixpanel, Consumer, VERSION
