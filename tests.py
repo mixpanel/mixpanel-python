@@ -14,11 +14,8 @@ class LogConsumer(object):
     def __init__(self):
         self.log = []
 
-    def send_events(self, event):
-        self.log.append(('event', json.loads(event)))
-
-    def send_people(self, people):
-        self.log.append(('people', json.loads(people)))
+    def send(self, endpoint, event):
+        self.log.append((endpoint, json.loads(event)))
 
 class MixpanelTestCase(unittest.TestCase):
     def setUp(self):
@@ -30,7 +27,7 @@ class MixpanelTestCase(unittest.TestCase):
     def test_track(self):
         self.mp.track('ID', 'button press', {'size': 'big', 'color': 'blue'})
         self.assertEqual(self.consumer.log, [(
-            'event', {
+            'events', {
                 'event': 'button press',
                 'properties': {
                     'token': self.TOKEN,
@@ -142,7 +139,7 @@ class MixpanelTestCase(unittest.TestCase):
     def test_alias(self):
         self.mp.alias('ALIAS','ORIGINAL ID')
         self.assertEqual(self.consumer.log, [(
-            'event', {
+            'events', {
                 'event': '$create_alias',
                 'properties': {
                     'token': self.TOKEN,
@@ -174,11 +171,11 @@ class ConsumerTestCase(unittest.TestCase):
 
     def test_send_events(self):
         with self._assertSends('https://api.mixpanel.com/events', 'data=IkV2ZW50Ig%3D%3D&verbose=1'):
-            self.consumer.send_events('"Event"')
+            self.consumer.send('events', '"Event"')
 
     def test_send_people(self):
         with self._assertSends('https://api.mixpanel.com/people','data=IlBlb3BsZSI%3D&verbose=1'):
-            self.consumer.send_people('"People"')
+            self.consumer.send('people', '"People"')
 
 class BufferedConsumerTestCase(unittest.TestCase):
     def setUp(self):
@@ -189,7 +186,7 @@ class BufferedConsumerTestCase(unittest.TestCase):
 
     def test_buffer_hold_and_flush(self):
         with patch('urllib2.urlopen', return_value = self.mock) as urlopen:
-            self.consumer.send_events('"Event"')
+            self.consumer.send('events', '"Event"')
             self.assertTrue(not self.mock.called)
             self.consumer.flush()
 
@@ -201,10 +198,10 @@ class BufferedConsumerTestCase(unittest.TestCase):
     def test_buffer_fills_up(self):
         with patch('urllib2.urlopen', return_value = self.mock) as urlopen:
             for i in xrange(self.MAX_LENGTH - 1):
-                self.consumer.send_events('"Event"')
+                self.consumer.send('events', '"Event"')
                 self.assertTrue(not self.mock.called)
 
-            self.consumer.send_events('"Last Event"')
+            self.consumer.send('events', '"Last Event"')
 
             self.assertEqual(urlopen.call_count, 1)
             ((url, request),_) = urlopen.call_args

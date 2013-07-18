@@ -54,7 +54,7 @@ class Mixpanel(object):
             'event': event_name,
             'properties': all_properties,
         }
-        self._consumer.send_events(json.dumps(event))
+        self._consumer.send('events', json.dumps(event))
 
     def alias(self, alias_id, original):
         """
@@ -210,4 +210,4 @@ class Mixpanel(object):
             '$time': int(self._now() * 1000),
         }
         record.update(message)
-        self._consumer.send_people(json.dumps(record))
+        self._consumer.send('people', json.dumps(record))
