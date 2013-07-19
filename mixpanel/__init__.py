@@ -7,22 +7,31 @@ import urllib2
 '''
 The mixpanel package allows you to easily track events and
 update people properties from your python application.
+
+The Mixpanel class is the primary class for tracking events and
+sending people analytics updates.
+
+The Consumer and BufferedConsumer classes allow callers to
+customize the IO characteristics of their tracking.
 '''
 
 VERSION = '2.0.0'
 
 class Mixpanel(object):
+    '''
+    Use instances of Mixpanel to track events and send Mixpanel
+    profile updates from your python code.
+    '''
 
     def __init__(self, token, consumer=None):
         """
         Creates a new Mixpanel object, which can be used for all tracking.
 
-        To use mixpanel, create a new Mixpanel object using your token.
-        Use this object to start tracking.
-        Takes in a user token and an optional base url. Base url defaults to
-        https://api.mixpanel.com.
-        Example:
-            mp = Mixpanel('36ada5b10da39a1347559321baf13063')
+        To use mixpanel, create a new Mixpanel object using your
+        token.  Takes in a user token and an optional Consumer (or
+        anything else with a send() method). If no consumer is
+        provided, Mixpanel will use the default Consumer, which
+        communicates one synchronous request for every message.
         """
         self._token = token
         self._consumer = consumer or Consumer()
