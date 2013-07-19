@@ -1,6 +1,6 @@
 mixpanel-python
 ===============
-This is the official Mixpanel Python library. This library allows for server-side intergration of Mixpanel.
+This is the official Mixpanel Python library. This library allows for server-side integration of Mixpanel.
 
 Installation
 ------------
