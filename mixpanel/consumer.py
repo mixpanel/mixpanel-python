@@ -6,7 +6,7 @@ import urllib2
 class Consumer(object):
     def __init__(self, events_url=None, people_url=None):
         self._endpoints = {
-            'events': events_url or 'https://api.mixpanel.com/events',
+            'events': events_url or 'https://api.mixpanel.com/track',
             'people': people_url or 'https://api.mixpanel.com/people',
         }
 
@@ -17,7 +17,7 @@ class Consumer(object):
         data = urllib.urlencode({'data': base64.b64encode(json_message),'verbose':1})
         try:
             request = urllib2.Request(request_url, data)
-            response = urllib2.urlopen(request_url, request).read()
+            response = urllib2.urlopen(request).read()
         except urllib2.HTTPError as e:
             raise e
 

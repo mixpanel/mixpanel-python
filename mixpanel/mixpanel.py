@@ -21,7 +21,7 @@ class Mixpanel(object):
         self._token = token
         self._consumer = consumer or Consumer()
 
-    def _now():
+    def _now(self):
         return time.time()
 
     def track(self, distinct_id, event_name, properties={}):

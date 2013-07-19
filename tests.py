@@ -165,12 +165,12 @@ class ConsumerTestCase(unittest.TestCase):
             yield
 
             self.assertEqual(urlopen.call_count, 1)
-            ((url, request),_) = urlopen.call_args
-            self.assertEqual(url, expect_url)
+            ((request,),_) = urlopen.call_args
+            self.assertEqual(request.get_full_url(), expect_url)
             self.assertEqual(request.get_data(), expect_data)
 
     def test_send_events(self):
-        with self._assertSends('https://api.mixpanel.com/events', 'data=IkV2ZW50Ig%3D%3D&verbose=1'):
+        with self._assertSends('https://api.mixpanel.com/track', 'data=IkV2ZW50Ig%3D%3D&verbose=1'):
             self.consumer.send('events', '"Event"')
 
     def test_send_people(self):
@@ -191,8 +191,8 @@ class BufferedConsumerTestCase(unittest.TestCase):
             self.consumer.flush()
 
             self.assertEqual(urlopen.call_count, 1)
-            ((url, request),_) = urlopen.call_args
-            self.assertEqual(url, 'https://api.mixpanel.com/events')
+            ((request,),_) = urlopen.call_args
+            self.assertEqual(request.get_full_url(), 'https://api.mixpanel.com/track')
             self.assertEqual(request.get_data(), 'data=WyJFdmVudCJd&verbose=1')
 
     def test_buffer_fills_up(self):
@@ -204,8 +204,8 @@ class BufferedConsumerTestCase(unittest.TestCase):
             self.consumer.send('events', '"Last Event"')
 
             self.assertEqual(urlopen.call_count, 1)
-            ((url, request),_) = urlopen.call_args
-            self.assertEqual(url, 'https://api.mixpanel.com/events')
+            ((request,),_) = urlopen.call_args
+            self.assertEqual(request.get_full_url(), 'https://api.mixpanel.com/track')
             self.assertEqual(request.get_data(), 'data=WyJFdmVudCIsIkV2ZW50IiwiRXZlbnQiLCJFdmVudCIsIkV2ZW50IiwiRXZlbnQiLCJFdmVudCIsIkV2ZW50IiwiRXZlbnQiLCJMYXN0IEV2ZW50Il0%3D&verbose=1')
 
 class FunctionalTestCase(unittest.TestCase):
@@ -222,13 +222,13 @@ class FunctionalTestCase(unittest.TestCase):
             yield
 
             self.assertEqual(urlopen.call_count, 1)
-            ((url, request),_) = urlopen.call_args
-            self.assertEqual(url, expect_url)
+            ((request,),_) = urlopen.call_args
+            self.assertEqual(request.get_full_url(), expect_url)
             self.assertEqual(request.get_data(), expect_data)
 
     def test_track_functional(self):
         expect_data = 'data=eyJldmVudCI6IHsiY29sb3IiOiAiYmx1ZSIsICJzaXplIjogImJpZyJ9LCAicHJvcGVydGllcyI6IHsibXBfbGliIjogInB5dGhvbiIsICJ0b2tlbiI6ICIxMjM0NSIsICJkaXN0aW5jdF9pZCI6ICJidXR0b24gcHJlc3MiLCAiJGxpYl92ZXJzaW9uIjogIjIuMC4wIiwgInRpbWUiOiAxMDAwfX0%3D&verbose=1'
-        with self._assertRequested('https://api.mixpanel.com/events', expect_data):
+        with self._assertRequested('https://api.mixpanel.com/track', expect_data):
             self.mp.track('button press', {'size': 'big', 'color': 'blue'})
 
     def test_people_set_functional(self):
