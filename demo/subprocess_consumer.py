@@ -2,8 +2,7 @@
 import multiprocessing
 import random
 
-from mixpanel import Mixpanel
-from mixpanel.consumer import BufferedConsumer
+from mixpanel import Mixpanel, BufferedConsumer
 
 '''
 As your application scales, it's likely you'll want to

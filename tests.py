@@ -155,7 +155,7 @@ class MixpanelTestCase(unittest.TestCase):
 
 class ConsumerTestCase(unittest.TestCase):
     def setUp(self):
-        self.consumer = mixpanel.consumer.Consumer()
+        self.consumer = mixpanel.Consumer()
 
     @contextlib.contextmanager
     def _assertSends(self, expect_url, expect_data):
@@ -180,7 +180,7 @@ class ConsumerTestCase(unittest.TestCase):
 class BufferedConsumerTestCase(unittest.TestCase):
     def setUp(self):
         self.MAX_LENGTH = 10
-        self.consumer = mixpanel.consumer.BufferedConsumer(self.MAX_LENGTH)
+        self.consumer = mixpanel.BufferedConsumer(self.MAX_LENGTH)
         self.mock = Mock()
         self.mock.read.return_value = '{"status":1, "error": null}'
 
