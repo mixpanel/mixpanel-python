@@ -1,6 +1,11 @@
 v2.0.0
-* Name change- base module is now named 'mixpanel'
-* Fix to alias
+* MANY BACKWARD COMPATIBILITY-BREAKING CHANGES.
+* Name change- module is now named 'mixpanel'
+* Introduction of pluggable Consumers
+* Change to Mixpanel constructor- no longer takes a base url
+* Addition of sample scripts in demo/ distribution directory
+* rename of Mixpanel.track_charge to Mixpanel.people_track_charge
+* New test suite
 
 v1.0.0
 * Initial release
