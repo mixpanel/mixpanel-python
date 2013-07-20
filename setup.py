@@ -10,9 +10,11 @@ setup(
     author_email='dev@mixpanel.com',
     packages=['mixpanel'],
     url='https://github.com/mixpanel/mixpanel-python',
-    license='LICENSE.txt',
     description='Official Mixpanel library for Python',
     long_description=open('README.txt').read(),
-    install_requires=[
-    ],
+    classifiers=[
+        'License :: OSI Approved :: Apache Software License',
+        'Operating System :: OS Independent',
+        'Programming Language :: Python',
+    ]
 )
