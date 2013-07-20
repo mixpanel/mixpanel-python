@@ -208,26 +208,23 @@ class Mixpanel(object):
         properties.update({'$amount': amount})
         return self.people_append(distinct_id, {'$transactions': properties})
 
-
-    """
-    Send a generic update to \Mixpanel people analytics.
-    Caller is responsible for formatting the update message, as
-    documented in the \Mixpanel HTTP specification, and passing
-    the message as a dict to update. This
-    method might be useful if you want to use very new
-    or experimental features of people analytics from Ruby
-    The \Mixpanel HTTP tracking API is documented at
-    https://mixpanel.com/help/reference/http
-    """
     def people_update(self, message):
+        """
+        Send a generic update to Mixpanel people analytics.
+        Caller is responsible for formatting the update message, as
+        documented in the Mixpanel HTTP specification, and passing
+        the message as a dict to update. This
+        method might be useful if you want to use very new
+        or experimental features of people analytics from python
+        The Mixpanel HTTP tracking API is documented at
+        https://mixpanel.com/help/reference/http
+        """
         record = {
             '$token': self._token,
             '$time': int(self._now() * 1000),
         }
         record.update(message)
         self._consumer.send('people', json.dumps(record))
-
-
 
 class MixpanelException(Exception):
     '''

@@ -32,5 +32,5 @@ Additional Information
 
 For more information please visit:
 
-* Our Ruby API Integration page[https://mixpanel.com/help/reference/python]
+* Our Python API Integration page[https://mixpanel.com/help/reference/python]
 * The documentation[http://mixpanel.github.io/mixpanel-python]
