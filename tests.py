@@ -1,7 +1,9 @@
 #!/usr/bin/env python
+import base64
 import contextlib
 import json
 import unittest
+import urlparse
 try:
     from mock import Mock, patch
 except ImportError:
@@ -174,7 +176,7 @@ class ConsumerTestCase(unittest.TestCase):
             self.consumer.send('events', '"Event"')
 
     def test_send_people(self):
-        with self._assertSends('https://api.mixpanel.com/people','data=IlBlb3BsZSI%3D&verbose=1'):
+        with self._assertSends('https://api.mixpanel.com/engage','data=IlBlb3BsZSI%3D&verbose=1'):
             self.consumer.send('people', '"People"')
 
 class BufferedConsumerTestCase(unittest.TestCase):
@@ -224,16 +226,23 @@ class FunctionalTestCase(unittest.TestCase):
             self.assertEqual(urlopen.call_count, 1)
             ((request,),_) = urlopen.call_args
             self.assertEqual(request.get_full_url(), expect_url)
-            self.assertEqual(request.get_data(), expect_data)
+            data = urlparse.parse_qs(request.get_data())
+            self.assertEqual(len(data['data']), 1)
+            payload_encoded = data['data'][0]
+            payload_json = base64.b64decode(payload_encoded)
+            payload = json.loads(payload_json)
+            self.assertEqual(payload, expect_data)
 
     def test_track_functional(self):
-        expect_data = 'data=eyJldmVudCI6IHsiY29sb3IiOiAiYmx1ZSIsICJzaXplIjogImJpZyJ9LCAicHJvcGVydGllcyI6IHsibXBfbGliIjogInB5dGhvbiIsICJ0b2tlbiI6ICIxMjM0NSIsICJkaXN0aW5jdF9pZCI6ICJidXR0b24gcHJlc3MiLCAiJGxpYl92ZXJzaW9uIjogIjIuMC4wIiwgInRpbWUiOiAxMDAwfX0%3D&verbose=1'
+        # XXX this includes $lib_version, which means the test breaks
+        # every time we release.
+        expect_data = {u'event': {u'color': u'blue', u'size': u'big'}, u'properties': {u'mp_lib': u'python', u'token': u'12345', u'distinct_id': u'button press', u'$lib_version': unicode(mixpanel.VERSION), u'time': 1000}}
         with self._assertRequested('https://api.mixpanel.com/track', expect_data):
             self.mp.track('button press', {'size': 'big', 'color': 'blue'})
 
     def test_people_set_functional(self):
-        expect_data = 'data=eyIkZGlzdGluY3RfaWQiOiAiYW1xIiwgIiRzZXQiOiB7ImJpcnRoIG1vbnRoIjogIm9jdG9iZXIiLCAiZmF2b3JpdGUgY29sb3IiOiAicHVycGxlIn0sICIkdGltZSI6IDEwMDAwMDAsICIkdG9rZW4iOiAiMTIzNDUifQ%3D%3D&verbose=1'
-        with self._assertRequested('https://api.mixpanel.com/people', expect_data):
+        expect_data = {u'$distinct_id': u'amq', u'$set': {u'birth month': u'october', u'favorite color': u'purple'}, u'$time': 1000000, u'$token': u'12345'}
+        with self._assertRequested('https://api.mixpanel.com/engage', expect_data):
              self.mp.people_set('amq', {'birth month': 'october', 'favorite color': 'purple'})
 
 if __name__ == "__main__":

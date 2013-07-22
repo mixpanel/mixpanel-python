@@ -15,7 +15,7 @@ The Consumer and BufferedConsumer classes allow callers to
 customize the IO characteristics of their tracking.
 '''
 
-VERSION = '2.0.1dev'
+VERSION = '2.0.1'
 
 class Mixpanel(object):
     '''
@@ -243,7 +243,7 @@ class Consumer(object):
     def __init__(self, events_url=None, people_url=None):
         self._endpoints = {
             'events': events_url or 'https://api.mixpanel.com/track',
-            'people': people_url or 'https://api.mixpanel.com/people',
+            'people': people_url or 'https://api.mixpanel.com/engage',
         }
 
     def send(self, endpoint, json_message):
