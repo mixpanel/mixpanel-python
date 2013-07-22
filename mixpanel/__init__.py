@@ -15,7 +15,7 @@ The Consumer and BufferedConsumer classes allow callers to
 customize the IO characteristics of their tracking.
 '''
 
-VERSION = '2.0.1'
+VERSION = '2.0.2dev'
 
 class Mixpanel(object):
     '''
