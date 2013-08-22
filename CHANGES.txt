@@ -1,3 +1,11 @@
+
+v2.0.2dev (These changes have not been released)
+* Ignore source IP in events by default
+
+v2.0.1
+* New build
+* Fix people analytics endpoint
+
 v2.0.0
 * MANY BACKWARD COMPATIBILITY-BREAKING CHANGES.
 * Name change- module is now named 'mixpanel'
