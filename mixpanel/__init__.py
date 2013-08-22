@@ -268,7 +268,7 @@ class Consumer(object):
             raise MixpanelException('No such endpoint "{0}". Valid endpoints are one of {1}'.format(self._endpoints.keys()))
 
     def _write_request(self, request_url, json_message):
-        data = urllib.urlencode({'data': base64.b64encode(json_message),'verbose':1})
+        data = urllib.urlencode({'data': base64.b64encode(json_message),'verbose':1,'ip':0}) #by default don't grab the server's ip
         try:
             request = urllib2.Request(request_url, data)
             response = urllib2.urlopen(request).read()
