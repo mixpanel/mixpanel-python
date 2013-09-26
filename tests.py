@@ -42,6 +42,26 @@ class MixpanelTestCase(unittest.TestCase):
                 }
             }
         )])
+        
+    def test_track_meta(self):
+        self.mp.track('ID', 'button press', {'size': 'big', 'color': 'blue'}, 
+            meta={'$ip': 0, '$ignore_time': True,})
+        self.assertEqual(self.consumer.log, [(
+            'events', {
+                'event': 'button press',
+                'properties': {
+                    'token': self.TOKEN,
+                    'size': 'big',
+                    'color': 'blue',
+                    'distinct_id': 'ID',
+                    'time': int(self.mp._now()),
+                    'mp_lib': 'python',
+                    '$lib_version': mixpanel.VERSION,
+                },
+                '$ip': 0,
+                '$ignore_time': True,
+            }
+        )])
 
     def test_people_set(self):
         self.mp.people_set('amq', {'birth month': 'october', 'favorite color': 'purple'})
@@ -153,6 +173,23 @@ class MixpanelTestCase(unittest.TestCase):
                 },
             }
 
+        )])
+        
+    def test_people_meta(self):
+        self.mp.people_set('amq', {'birth month': 'october', 'favorite color': 'purple'}, 
+            meta={'$ip': 0, '$ignore_time': True})
+        self.assertEqual(self.consumer.log, [(
+            'people', {
+                '$time': int(self.mp._now() * 1000),
+                '$token': self.TOKEN,
+                '$distinct_id': 'amq',
+                '$set': {
+                    'birth month': 'october',
+                    'favorite color': 'purple',
+                },
+                '$ip': 0,
+                '$ignore_time': True,
+            }
         )])
 
 class ConsumerTestCase(unittest.TestCase):
