@@ -42,9 +42,9 @@ class MixpanelTestCase(unittest.TestCase):
                 }
             }
         )])
-        
+
     def test_track_meta(self):
-        self.mp.track('ID', 'button press', {'size': 'big', 'color': 'blue'}, 
+        self.mp.track('ID', 'button press', {'size': 'big', 'color': 'blue'},
             meta={'$ip': 0, '$ignore_time': True,})
         self.assertEqual(self.consumer.log, [(
             'events', {
@@ -174,9 +174,9 @@ class MixpanelTestCase(unittest.TestCase):
             }
 
         )])
-        
+
     def test_people_meta(self):
-        self.mp.people_set('amq', {'birth month': 'october', 'favorite color': 'purple'}, 
+        self.mp.people_set('amq', {'birth month': 'october', 'favorite color': 'purple'},
             meta={'$ip': 0, '$ignore_time': True})
         self.assertEqual(self.consumer.log, [(
             'people', {
@@ -209,11 +209,11 @@ class ConsumerTestCase(unittest.TestCase):
             self.assertEqual(request.get_data(), expect_data)
 
     def test_send_events(self):
-        with self._assertSends('https://api.mixpanel.com/track', 'data=IkV2ZW50Ig%3D%3D&verbose=1'):
+        with self._assertSends('https://api.mixpanel.com/track', 'ip=0&data=IkV2ZW50Ig%3D%3D&verbose=1'):
             self.consumer.send('events', '"Event"')
 
     def test_send_people(self):
-        with self._assertSends('https://api.mixpanel.com/engage','data=IlBlb3BsZSI%3D&verbose=1'):
+        with self._assertSends('https://api.mixpanel.com/engage','ip=0&data=IlBlb3BsZSI%3D&verbose=1'):
             self.consumer.send('people', '"People"')
 
 class BufferedConsumerTestCase(unittest.TestCase):
@@ -232,7 +232,7 @@ class BufferedConsumerTestCase(unittest.TestCase):
             self.assertEqual(urlopen.call_count, 1)
             ((request,),_) = urlopen.call_args
             self.assertEqual(request.get_full_url(), 'https://api.mixpanel.com/track')
-            self.assertEqual(request.get_data(), 'data=WyJFdmVudCJd&verbose=1')
+            self.assertEqual(request.get_data(), 'ip=0&data=WyJFdmVudCJd&verbose=1')
 
     def test_buffer_fills_up(self):
         with patch('urllib2.urlopen', return_value = self.mock) as urlopen:
@@ -245,7 +245,7 @@ class BufferedConsumerTestCase(unittest.TestCase):
             self.assertEqual(urlopen.call_count, 1)
             ((request,),_) = urlopen.call_args
             self.assertEqual(request.get_full_url(), 'https://api.mixpanel.com/track')
-            self.assertEqual(request.get_data(), 'data=WyJFdmVudCIsIkV2ZW50IiwiRXZlbnQiLCJFdmVudCIsIkV2ZW50IiwiRXZlbnQiLCJFdmVudCIsIkV2ZW50IiwiRXZlbnQiLCJMYXN0IEV2ZW50Il0%3D&verbose=1')
+            self.assertEqual(request.get_data(), 'ip=0&data=WyJFdmVudCIsIkV2ZW50IiwiRXZlbnQiLCJFdmVudCIsIkV2ZW50IiwiRXZlbnQiLCJFdmVudCIsIkV2ZW50IiwiRXZlbnQiLCJMYXN0IEV2ZW50Il0%3D&verbose=1')
 
 class FunctionalTestCase(unittest.TestCase):
     def setUp(self):
