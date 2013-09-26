@@ -39,7 +39,7 @@ class Mixpanel(object):
     def _now(self):
         return time.time()
 
-    def track(self, distinct_id, event_name, properties={}):
+    def track(self, distinct_id, event_name, properties={}, meta={}):
         """
         Notes that an event has occurred, along with a distinct_id
         representing the source of that event (for example, a user id),
@@ -65,13 +65,14 @@ class Mixpanel(object):
             '$lib_version': VERSION,
         }
         all_properties.update(properties)
+        all_properties.update(meta)
         event = {
             'event': event_name,
             'properties': all_properties,
         }
         self._consumer.send('events', json.dumps(event))
 
-    def alias(self, alias_id, original):
+    def alias(self, alias_id, original, meta={}):
         """
         Gives custom alias to a people record.
 
@@ -85,9 +86,9 @@ class Mixpanel(object):
             'distinct_id': original,
             'alias': alias_id,
             'token': self._token,
-        })
+        }, meta=meta)
 
-    def people_set(self, distinct_id, properties):
+    def people_set(self, distinct_id, properties, meta={}):
         """
         Set properties of a people record.
 
@@ -100,9 +101,9 @@ class Mixpanel(object):
         return self.people_update({
             '$distinct_id': distinct_id,
             '$set': properties,
-        })
+        }, meta=meta)
 
-    def people_set_once(self, distinct_id, properties):
+    def people_set_once(self, distinct_id, properties, meta={}):
         """
         Set immutable properties of a people record.
 
@@ -115,9 +116,9 @@ class Mixpanel(object):
         return self.people_update({
             '$distinct_id': distinct_id,
             '$set_once': properties,
-        })
+        }, meta=meta)
 
-    def people_increment(self, distinct_id, properties):
+    def people_increment(self, distinct_id, properties, meta={}):
         """
         Increments/decrements numerical properties of people record.
 
@@ -130,9 +131,9 @@ class Mixpanel(object):
         return self.people_update({
             '$distinct_id': distinct_id,
             '$add': properties,
-        })
+        }, meta=meta)
 
-    def people_append(self, distinct_id, properties):
+    def people_append(self, distinct_id, properties, meta={}):
         """
         Appends to the list associated with a property.
 
@@ -146,9 +147,9 @@ class Mixpanel(object):
         return self.people_update({
             '$distinct_id': distinct_id,
             '$append': properties,
-        })
+        }, meta=meta)
 
-    def people_union(self, distinct_id, properties):
+    def people_union(self, distinct_id, properties, meta={}):
         """
         Merges the values for a list associated with a property.
 
@@ -161,9 +162,9 @@ class Mixpanel(object):
         return self.people_update({
             '$distinct_id': distinct_id,
             '$union': properties,
-        })
+        }, meta=meta)
 
-    def people_unset(self, distinct_id, properties):
+    def people_unset(self, distinct_id, properties, meta={}):
         """
         Removes properties from a profile.
 
@@ -175,9 +176,9 @@ class Mixpanel(object):
         return self.people_update({
             '$distinct_id': distinct_id,
             '$unset': properties,
-        })
+        }, meta=meta)
 
-    def people_delete(self, distinct_id):
+    def people_delete(self, distinct_id, meta={}):
         """
         Permanently deletes a profile.
 
@@ -189,9 +190,9 @@ class Mixpanel(object):
         return self.people_update({
             '$distinct_id': distinct_id,
             '$delete': "",
-        })
+        }, meta=meta)
 
-    def people_track_charge(self, distinct_id, amount, properties={}):
+    def people_track_charge(self, distinct_id, amount, properties={}, meta={}):
         """
         Tracks a charge to a user.
 
@@ -206,9 +207,9 @@ class Mixpanel(object):
             mp.track_charge('1234', 50, {'$time': "2013-04-01T09:02:00"})
         """
         properties.update({'$amount': amount})
-        return self.people_append(distinct_id, {'$transactions': properties})
+        return self.people_append(distinct_id, {'$transactions': properties}, meta=meta)
 
-    def people_update(self, message):
+    def people_update(self, message, meta={}):
         """
         Send a generic update to Mixpanel people analytics.
         Caller is responsible for formatting the update message, as
@@ -224,6 +225,7 @@ class Mixpanel(object):
             '$time': int(self._now() * 1000),
         }
         record.update(message)
+        record.update(meta)
         self._consumer.send('people', json.dumps(record))
 
 class MixpanelException(Exception):
