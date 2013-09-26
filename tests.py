@@ -25,6 +25,23 @@ class MixpanelTestCase(unittest.TestCase):
         self.consumer = LogConsumer()
         self.mp = mixpanel.Mixpanel('12345', consumer=self.consumer)
         self.mp._now = lambda : 1000.1
+        
+    def test_people_meta(self):
+        self.mp.people_set('amq', {'birth month': 'october', 'favorite color': 'purple'}, 
+            meta={'$ip': 0, '$ignore_time': True})
+        self.assertEqual(self.consumer.log, [(
+            'people', {
+                '$time': int(self.mp._now() * 1000),
+                '$token': self.TOKEN,
+                '$distinct_id': 'amq',
+                '$set': {
+                    'birth month': 'october',
+                    'favorite color': 'purple',
+                },
+                '$ip': 0,
+                '$ignore_time': True,
+            }
+        )])
 
     def test_track(self):
         self.mp.track('ID', 'button press', {'size': 'big', 'color': 'blue'})
