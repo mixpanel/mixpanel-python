@@ -65,11 +65,11 @@ class Mixpanel(object):
             '$lib_version': VERSION,
         }
         all_properties.update(properties)
-        all_properties.update(meta)
         event = {
             'event': event_name,
             'properties': all_properties,
         }
+        event.update(meta)
         self._consumer.send('events', json.dumps(event))
 
     def alias(self, alias_id, original, meta={}):
