@@ -5,7 +5,7 @@ except ImportError:
 
 setup(
     name='mixpanel-py',
-    version='2.0.2dev',
+    version='3.0.0',
     author='Mixpanel, Inc.',
     author_email='dev@mixpanel.com',
     packages=['mixpanel'],

@@ -1,6 +1,6 @@
-
-v2.0.2dev (These changes have not been released)
-* Ignore source IP in events by default
+v3.0.0
+* BACKWARD BREAKING CHANGE: Ignore source IP in events by default
+* Allow users to provide "envelope" or "meta" tracking information
 
 v2.0.1
 * New build
