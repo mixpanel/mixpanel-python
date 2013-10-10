@@ -17,9 +17,7 @@
 <font color="#ffffff" face="helvetica, arial"><big><strong>Package Contents</strong></big></font></td></tr>
     
 <tr><td bgcolor="#aa55cc"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
-<td width="100%"><table width="100%" summary="list"><tr><td width="25%" valign=top><a href="mixpanel.consumer.html">consumer</a><br>
-</td><td width="25%" valign=top><a href="mixpanel.">mixpanel</a><br>
-</td><td width="25%" valign=top></td><td width="25%" valign=top></td></tr></table></td></tr></table><p>
+<td width="100%"><table width="100%" summary="list"><tr><td width="25%" valign=top></td><td width="25%" valign=top></td><td width="25%" valign=top></td><td width="25%" valign=top></td></tr></table></td></tr></table><p>
 <table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
 <tr bgcolor="#ee77aa">
 <td colspan=3 valign=bottom>&nbsp;<br>
@@ -150,7 +148,7 @@ anything&nbsp;else&nbsp;with&nbsp;a&nbsp;send()&nbsp;method).&nbsp;If&nbsp;no&nb
 provided,&nbsp;<a href="#Mixpanel">Mixpanel</a>&nbsp;will&nbsp;use&nbsp;the&nbsp;default&nbsp;<a href="#Consumer">Consumer</a>,&nbsp;which<br>
 communicates&nbsp;one&nbsp;synchronous&nbsp;request&nbsp;for&nbsp;every&nbsp;message.</tt></dd></dl>
 
-<dl><dt><a name="Mixpanel-alias"><strong>alias</strong></a>(self, alias_id, original)</dt><dd><tt>Gives&nbsp;custom&nbsp;alias&nbsp;to&nbsp;a&nbsp;people&nbsp;record.<br>
+<dl><dt><a name="Mixpanel-alias"><strong>alias</strong></a>(self, alias_id, original, meta<font color="#909090">={}</font>)</dt><dd><tt>Gives&nbsp;custom&nbsp;alias&nbsp;to&nbsp;a&nbsp;people&nbsp;record.<br>
 &nbsp;<br>
 Alias&nbsp;sends&nbsp;an&nbsp;update&nbsp;to&nbsp;our&nbsp;servers&nbsp;linking&nbsp;an&nbsp;existing&nbsp;distinct_id<br>
 with&nbsp;a&nbsp;new&nbsp;id,&nbsp;so&nbsp;that&nbsp;events&nbsp;and&nbsp;profile&nbsp;updates&nbsp;associated&nbsp;with&nbsp;the<br>
@@ -158,7 +156,7 @@ new&nbsp;id&nbsp;will&nbsp;be&nbsp;associated&nbsp;with&nbsp;the&nbsp;existing&n
 Example:<br>
 &nbsp;&nbsp;&nbsp;&nbsp;mp.<a href="#Mixpanel-alias">alias</a>('amy@mixpanel.com',&nbsp;'13793')</tt></dd></dl>
 
-<dl><dt><a name="Mixpanel-people_append"><strong>people_append</strong></a>(self, distinct_id, properties)</dt><dd><tt>Appends&nbsp;to&nbsp;the&nbsp;list&nbsp;associated&nbsp;with&nbsp;a&nbsp;property.<br>
+<dl><dt><a name="Mixpanel-people_append"><strong>people_append</strong></a>(self, distinct_id, properties, meta<font color="#909090">={}</font>)</dt><dd><tt>Appends&nbsp;to&nbsp;the&nbsp;list&nbsp;associated&nbsp;with&nbsp;a&nbsp;property.<br>
 &nbsp;<br>
 Takes&nbsp;a&nbsp;JSON&nbsp;<a href="__builtin__.html#object">object</a>&nbsp;containing&nbsp;keys&nbsp;and&nbsp;values,&nbsp;and&nbsp;appends&nbsp;each&nbsp;to&nbsp;a<br>
 list&nbsp;associated&nbsp;with&nbsp;the&nbsp;corresponding&nbsp;property&nbsp;name.&nbsp;$appending&nbsp;to&nbsp;a<br>
@@ -167,22 +165,22 @@ element&nbsp;to&nbsp;that&nbsp;property.<br>
 Example:<br>
 &nbsp;&nbsp;&nbsp;&nbsp;mp.<a href="#Mixpanel-people_append">people_append</a>('12345',&nbsp;{&nbsp;"Power&nbsp;Ups":&nbsp;"Bubble&nbsp;Lead"&nbsp;})</tt></dd></dl>
 
-<dl><dt><a name="Mixpanel-people_delete"><strong>people_delete</strong></a>(self, distinct_id)</dt><dd><tt>Permanently&nbsp;deletes&nbsp;a&nbsp;profile.<br>
+<dl><dt><a name="Mixpanel-people_delete"><strong>people_delete</strong></a>(self, distinct_id, meta<font color="#909090">={}</font>)</dt><dd><tt>Permanently&nbsp;deletes&nbsp;a&nbsp;profile.<br>
 &nbsp;<br>
 Permanently&nbsp;delete&nbsp;the&nbsp;profile&nbsp;from&nbsp;<a href="#Mixpanel">Mixpanel</a>,&nbsp;along&nbsp;with&nbsp;all&nbsp;of&nbsp;its<br>
 properties.<br>
 Example:<br>
 &nbsp;&nbsp;&nbsp;&nbsp;mp.<a href="#Mixpanel-people_delete">people_delete</a>('12345')</tt></dd></dl>
 
-<dl><dt><a name="Mixpanel-people_increment"><strong>people_increment</strong></a>(self, distinct_id, properties)</dt><dd><tt>Increments/decrements&nbsp;numerical&nbsp;properties&nbsp;of&nbsp;people&nbsp;record.<br>
+<dl><dt><a name="Mixpanel-people_increment"><strong>people_increment</strong></a>(self, distinct_id, properties, meta<font color="#909090">={}</font>)</dt><dd><tt>Increments/decrements&nbsp;numerical&nbsp;properties&nbsp;of&nbsp;people&nbsp;record.<br>
 &nbsp;<br>
 Takes&nbsp;in&nbsp;JSON&nbsp;<a href="__builtin__.html#object">object</a>&nbsp;with&nbsp;keys&nbsp;and&nbsp;numerical&nbsp;values.&nbsp;Adds&nbsp;numerical<br>
 values&nbsp;to&nbsp;current&nbsp;property&nbsp;of&nbsp;profile.&nbsp;If&nbsp;property&nbsp;doesn't&nbsp;exist&nbsp;adds<br>
 value&nbsp;to&nbsp;zero.&nbsp;Takes&nbsp;in&nbsp;negative&nbsp;values&nbsp;for&nbsp;subtraction.<br>
 Example:<br>
-&nbsp;&nbsp;&nbsp;&nbsp;mp.people_add('12345',&nbsp;{'Coins&nbsp;Gathered':&nbsp;12})</tt></dd></dl>
+&nbsp;&nbsp;&nbsp;&nbsp;mp.<a href="#Mixpanel-people_increment">people_increment</a>('12345',&nbsp;{'Coins&nbsp;Gathered':&nbsp;12})</tt></dd></dl>
 
-<dl><dt><a name="Mixpanel-people_set"><strong>people_set</strong></a>(self, distinct_id, properties)</dt><dd><tt>Set&nbsp;properties&nbsp;of&nbsp;a&nbsp;people&nbsp;record.<br>
+<dl><dt><a name="Mixpanel-people_set"><strong>people_set</strong></a>(self, distinct_id, properties, meta<font color="#909090">={}</font>)</dt><dd><tt>Set&nbsp;properties&nbsp;of&nbsp;a&nbsp;people&nbsp;record.<br>
 &nbsp;<br>
 Sets&nbsp;properties&nbsp;of&nbsp;a&nbsp;people&nbsp;record&nbsp;given&nbsp;in&nbsp;JSON&nbsp;<a href="__builtin__.html#object">object</a>.&nbsp;If&nbsp;the&nbsp;profile<br>
 does&nbsp;not&nbsp;exist,&nbsp;creates&nbsp;new&nbsp;profile&nbsp;with&nbsp;these&nbsp;properties.<br>
@@ -190,7 +188,7 @@ Example:<br>
 &nbsp;&nbsp;&nbsp;&nbsp;mp.<a href="#Mixpanel-people_set">people_set</a>('12345',&nbsp;{'Address':&nbsp;'1313&nbsp;Mockingbird&nbsp;Lane',<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'Birthday':&nbsp;'1948-01-01'})</tt></dd></dl>
 
-<dl><dt><a name="Mixpanel-people_set_once"><strong>people_set_once</strong></a>(self, distinct_id, properties)</dt><dd><tt>Set&nbsp;immutable&nbsp;properties&nbsp;of&nbsp;a&nbsp;people&nbsp;record.<br>
+<dl><dt><a name="Mixpanel-people_set_once"><strong>people_set_once</strong></a>(self, distinct_id, properties, meta<font color="#909090">={}</font>)</dt><dd><tt>Set&nbsp;immutable&nbsp;properties&nbsp;of&nbsp;a&nbsp;people&nbsp;record.<br>
 &nbsp;<br>
 Sets&nbsp;properties&nbsp;of&nbsp;a&nbsp;people&nbsp;record&nbsp;given&nbsp;in&nbsp;JSON&nbsp;<a href="__builtin__.html#object">object</a>.&nbsp;If&nbsp;the&nbsp;profile<br>
 does&nbsp;not&nbsp;exist,&nbsp;creates&nbsp;new&nbsp;profile&nbsp;with&nbsp;these&nbsp;properties.&nbsp;Does&nbsp;not<br>
@@ -198,7 +196,7 @@ overwrite&nbsp;existing&nbsp;property&nbsp;values.<br>
 Example:<br>
 &nbsp;&nbsp;&nbsp;&nbsp;mp.<a href="#Mixpanel-people_set_once">people_set_once</a>('12345',&nbsp;{'First&nbsp;Login':&nbsp;"2013-04-01T13:20:00"})</tt></dd></dl>
 
-<dl><dt><a name="Mixpanel-people_track_charge"><strong>people_track_charge</strong></a>(self, distinct_id, amount, properties<font color="#909090">={}</font>)</dt><dd><tt>Tracks&nbsp;a&nbsp;charge&nbsp;to&nbsp;a&nbsp;user.<br>
+<dl><dt><a name="Mixpanel-people_track_charge"><strong>people_track_charge</strong></a>(self, distinct_id, amount, properties<font color="#909090">={}</font>, meta<font color="#909090">={}</font>)</dt><dd><tt>Tracks&nbsp;a&nbsp;charge&nbsp;to&nbsp;a&nbsp;user.<br>
 &nbsp;<br>
 Record&nbsp;that&nbsp;you&nbsp;have&nbsp;charged&nbsp;the&nbsp;current&nbsp;user&nbsp;a&nbsp;certain&nbsp;amount&nbsp;of<br>
 money.&nbsp;Charges&nbsp;recorded&nbsp;with&nbsp;track_charge&nbsp;will&nbsp;appear&nbsp;in&nbsp;the&nbsp;<a href="#Mixpanel">Mixpanel</a><br>
@@ -210,7 +208,7 @@ Example:<br>
 &nbsp;&nbsp;&nbsp;&nbsp;#tracks&nbsp;a&nbsp;charge&nbsp;of&nbsp;$50&nbsp;to&nbsp;user&nbsp;'1234'&nbsp;at&nbsp;a&nbsp;specific&nbsp;time<br>
 &nbsp;&nbsp;&nbsp;&nbsp;mp.track_charge('1234',&nbsp;50,&nbsp;{'$time':&nbsp;"2013-04-01T09:02:00"})</tt></dd></dl>
 
-<dl><dt><a name="Mixpanel-people_union"><strong>people_union</strong></a>(self, distinct_id, properties)</dt><dd><tt>Merges&nbsp;the&nbsp;values&nbsp;for&nbsp;a&nbsp;list&nbsp;associated&nbsp;with&nbsp;a&nbsp;property.<br>
+<dl><dt><a name="Mixpanel-people_union"><strong>people_union</strong></a>(self, distinct_id, properties, meta<font color="#909090">={}</font>)</dt><dd><tt>Merges&nbsp;the&nbsp;values&nbsp;for&nbsp;a&nbsp;list&nbsp;associated&nbsp;with&nbsp;a&nbsp;property.<br>
 &nbsp;<br>
 Takes&nbsp;a&nbsp;JSON&nbsp;<a href="__builtin__.html#object">object</a>&nbsp;containing&nbsp;keys&nbsp;and&nbsp;list&nbsp;values.&nbsp;The&nbsp;list&nbsp;values&nbsp;in<br>
 the&nbsp;request&nbsp;are&nbsp;merged&nbsp;with&nbsp;the&nbsp;existing&nbsp;list&nbsp;on&nbsp;the&nbsp;user&nbsp;profile,<br>
@@ -218,16 +216,23 @@ ignoring&nbsp;duplicate&nbsp;list&nbsp;values.<br>
 Example:<br>
 &nbsp;&nbsp;&nbsp;&nbsp;mp.<a href="#Mixpanel-people_union">people_union</a>('12345',&nbsp;{&nbsp;"Items&nbsp;purchased":&nbsp;["socks",&nbsp;"shirts"]&nbsp;}&nbsp;)</tt></dd></dl>
 
-<dl><dt><a name="Mixpanel-people_unset"><strong>people_unset</strong></a>(self, distinct_id, properties)</dt><dd><tt>Removes&nbsp;properties&nbsp;from&nbsp;a&nbsp;profile.<br>
+<dl><dt><a name="Mixpanel-people_unset"><strong>people_unset</strong></a>(self, distinct_id, properties, meta<font color="#909090">={}</font>)</dt><dd><tt>Removes&nbsp;properties&nbsp;from&nbsp;a&nbsp;profile.<br>
 &nbsp;<br>
 Takes&nbsp;a&nbsp;JSON&nbsp;list&nbsp;of&nbsp;string&nbsp;property&nbsp;names,&nbsp;and&nbsp;permanently&nbsp;removes&nbsp;the<br>
 properties&nbsp;and&nbsp;their&nbsp;values&nbsp;from&nbsp;a&nbsp;profile.<br>
 Example:<br>
 &nbsp;&nbsp;&nbsp;&nbsp;mp.<a href="#Mixpanel-people_unset">people_unset</a>('12345',&nbsp;["Days&nbsp;Overdue"])</tt></dd></dl>
 
-<dl><dt><a name="Mixpanel-people_update"><strong>people_update</strong></a>(self, message)</dt></dl>
+<dl><dt><a name="Mixpanel-people_update"><strong>people_update</strong></a>(self, message, meta<font color="#909090">={}</font>)</dt><dd><tt>Send&nbsp;a&nbsp;generic&nbsp;update&nbsp;to&nbsp;<a href="#Mixpanel">Mixpanel</a>&nbsp;people&nbsp;analytics.<br>
+Caller&nbsp;is&nbsp;responsible&nbsp;for&nbsp;formatting&nbsp;the&nbsp;update&nbsp;message,&nbsp;as<br>
+documented&nbsp;in&nbsp;the&nbsp;<a href="#Mixpanel">Mixpanel</a>&nbsp;HTTP&nbsp;specification,&nbsp;and&nbsp;passing<br>
+the&nbsp;message&nbsp;as&nbsp;a&nbsp;dict&nbsp;to&nbsp;update.&nbsp;This<br>
+method&nbsp;might&nbsp;be&nbsp;useful&nbsp;if&nbsp;you&nbsp;want&nbsp;to&nbsp;use&nbsp;very&nbsp;new<br>
+or&nbsp;experimental&nbsp;features&nbsp;of&nbsp;people&nbsp;analytics&nbsp;from&nbsp;python<br>
+The&nbsp;<a href="#Mixpanel">Mixpanel</a>&nbsp;HTTP&nbsp;tracking&nbsp;API&nbsp;is&nbsp;documented&nbsp;at<br>
+https://mixpanel.com/help/reference/http</tt></dd></dl>
 
-<dl><dt><a name="Mixpanel-track"><strong>track</strong></a>(self, distinct_id, event_name, properties<font color="#909090">={}</font>)</dt><dd><tt>Notes&nbsp;that&nbsp;an&nbsp;event&nbsp;has&nbsp;occurred,&nbsp;along&nbsp;with&nbsp;a&nbsp;distinct_id<br>
+<dl><dt><a name="Mixpanel-track"><strong>track</strong></a>(self, distinct_id, event_name, properties<font color="#909090">={}</font>, meta<font color="#909090">={}</font>)</dt><dd><tt>Notes&nbsp;that&nbsp;an&nbsp;event&nbsp;has&nbsp;occurred,&nbsp;along&nbsp;with&nbsp;a&nbsp;distinct_id<br>
 representing&nbsp;the&nbsp;source&nbsp;of&nbsp;that&nbsp;event&nbsp;(for&nbsp;example,&nbsp;a&nbsp;user&nbsp;id),<br>
 an&nbsp;event&nbsp;name&nbsp;describing&nbsp;the&nbsp;event&nbsp;and&nbsp;a&nbsp;set&nbsp;of&nbsp;properties<br>
 describing&nbsp;that&nbsp;event.&nbsp;Properties&nbsp;are&nbsp;provided&nbsp;as&nbsp;a&nbsp;Hash&nbsp;with<br>
@@ -320,5 +325,5 @@ Data descriptors inherited from <a href="exceptions.html#BaseException">exceptio
 <font color="#ffffff" face="helvetica, arial"><big><strong>Data</strong></big></font></td></tr>
     
 <tr><td bgcolor="#55aa55"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
-<td width="100%"><strong>VERSION</strong> = '2.0.0'</td></tr></table>
+<td width="100%"><strong>VERSION</strong> = '3.0.0'</td></tr></table>
 </body></html>
