@@ -126,7 +126,7 @@ class Mixpanel(object):
         values to current property of profile. If property doesn't exist adds
         value to zero. Takes in negative values for subtraction.
         Example:
-            mp.people_add('12345', {'Coins Gathered': 12})
+            mp.people_increment('12345', {'Coins Gathered': 12})
         """
         return self.people_update({
             '$distinct_id': distinct_id,
