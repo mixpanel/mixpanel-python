@@ -17,7 +17,7 @@ Typical usage usually looks like this:
 
     mp = Mixpanel(YOUR_TOKEN)
 
-    # tracks an event with certain properties 
+    # tracks an event with certain properties
     mp.track('button clicked', {'color' : 'blue', 'size': 'large'})
 
     # sends an update to a user profile
@@ -30,3 +30,5 @@ Additional Information
 [Help Docs](https://www.mixpanel.com/help/reference/python)
 
 [Full Documentation](http://mixpanel.github.io/mixpanel-python/)
+
+[mixpanel-python-asyc](https://github.com/jessepollak/mixpanel-python-async) a third party tool for sending data asynchronously from the tracking python process.
