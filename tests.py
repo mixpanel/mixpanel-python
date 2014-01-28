@@ -157,6 +157,17 @@ class MixpanelTestCase(unittest.TestCase):
                 },
             }
         )])
+    
+    def test_people_clear_charges(self):
+        self.mp.people_clear_charges('amq')
+        self.assertEqual(self.consumer.log, [(
+            'people', {
+                '$time': int(self.mp._now() * 1000),
+                '$token': self.TOKEN,
+                '$distinct_id': 'amq',
+                '$unset': [ '$transactions' ],
+            }
+        )])
 
     def test_alias(self):
         self.mp.alias('ALIAS','ORIGINAL ID')
