@@ -201,13 +201,24 @@ class Mixpanel(object):
         revenue report.
         Example:
             #tracks a charge of $50 to user '1234'
-            mp.track_charge('1234', 50)
+            mp.people_track_charge('1234', 50)
 
             #tracks a charge of $50 to user '1234' at a specific time
-            mp.track_charge('1234', 50, {'$time': "2013-04-01T09:02:00"})
+            mp.people_track_charge('1234', 50, {'$time': "2013-04-01T09:02:00"})
         """
         properties.update({'$amount': amount})
         return self.people_append(distinct_id, {'$transactions': properties}, meta=meta)
+
+    def people_clear_charges(self, distinct_id, meta={}):
+        """
+        Clears all charges from a user.
+
+        Clears all charges associated with a user profile on Mixpanel.
+        Example:
+            #clear all charges from user '1234'
+            mp.people_clear_charges('1234')
+        """
+        return self.people_unset(distinct_id, ["$transactions"], meta=meta)
 
     def people_update(self, message, meta={}):
         """
