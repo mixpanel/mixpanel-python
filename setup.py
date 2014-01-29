@@ -5,13 +5,13 @@ except ImportError:
 
 setup(
     name='mixpanel-py',
-    version='3.1.0',
+    version='3.1.1',
     author='Mixpanel, Inc.',
     author_email='dev@mixpanel.com',
     packages=['mixpanel'],
     url='https://github.com/mixpanel/mixpanel-python',
     description='Official Mixpanel library for Python',
-    long_description=open('README.md').read(),
+    long_description=open('README.txt').read(),
     classifiers=[
         'License :: OSI Approved :: Apache Software License',
         'Operating System :: OS Independent',
