@@ -1,27 +1,31 @@
 import base64
 import json
 import time
-import urllib
-import urllib2
+import sys
 
-'''
-The mixpanel package allows you to easily track events and
-update people properties from your python application.
+if sys.version > '3':
+    import urllib.request
+else:
+    import urllib2
+    import urllib
 
-The Mixpanel class is the primary class for tracking events and
-sending people analytics updates.
+# The mixpanel package allows you to easily track events and
+# update people properties from your python application.
+#
+# The Mixpanel class is the primary class for tracking events and
+# sending people analytics updates.
+#
+# The Consumer and BufferedConsumer classes allow callers to
+# customize the IO characteristics of their tracking.
 
-The Consumer and BufferedConsumer classes allow callers to
-customize the IO characteristics of their tracking.
-'''
+VERSION = '3.1.2'
 
-VERSION = '3.0.0'
 
 class Mixpanel(object):
-    '''
+    """
     Use instances of Mixpanel to track events and send Mixpanel
     profile updates from your python code.
-    '''
+    """
 
     def __init__(self, token, consumer=None):
         """
@@ -58,7 +62,7 @@ class Mixpanel(object):
           })
         """
         all_properties = {
-            'token' : self._token,
+            'token': self._token,
             'distinct_id': distinct_id,
             'time': int(self._now()),
             'mp_lib': 'python',
@@ -70,7 +74,7 @@ class Mixpanel(object):
             'properties': all_properties,
         }
         event.update(meta)
-        self._consumer.send('events', json.dumps(event))
+        self._consumer.send('events', json.dumps(event, separators=(',', ':')))
 
     def alias(self, alias_id, original, meta={}):
         """
@@ -237,22 +241,24 @@ class Mixpanel(object):
         }
         record.update(message)
         record.update(meta)
-        self._consumer.send('people', json.dumps(record))
+        self._consumer.send('people', json.dumps(record, separators=(',', ':')))
+
 
 class MixpanelException(Exception):
-    '''
+    """
     MixpanelExceptions will be thrown if the server can't recieve
     our events or updates for some reason- for example, if we can't
     connect to the Internet.
-    '''
+    """
     pass
 
+
 class Consumer(object):
-    '''
+    """
     The simple consumer sends an HTTP request directly to the Mixpanel service,
     with one request for every call. This is the default consumer for Mixpanel
     objects- if you don't provide your own, you get one of these.
-    '''
+    """
     def __init__(self, events_url=None, people_url=None):
         self._endpoints = {
             'events': events_url or 'https://api.mixpanel.com/track',
@@ -260,7 +266,7 @@ class Consumer(object):
         }
 
     def send(self, endpoint, json_message):
-        '''
+        """
         Record an event or a profile update. Send is the only method
         associated with consumers. Will raise an exception if the endpoint
         doesn't exist, if the server is unreachable or for some reason
@@ -274,23 +280,39 @@ class Consumer(object):
         :param json_message: A json message formatted for the endpoint.
         :type json_message: str
         :raises: MixpanelException
-        '''
+        """
         if endpoint in self._endpoints:
             self._write_request(self._endpoints[endpoint], json_message)
         else:
             raise MixpanelException('No such endpoint "{0}". Valid endpoints are one of {1}'.format(self._endpoints.keys()))
 
     def _write_request(self, request_url, json_message):
-        data = urllib.urlencode({
-            'data': base64.b64encode(json_message),
-            'verbose':1,
-            'ip':0,
-        })
-        try:
-            request = urllib2.Request(request_url, data)
-            response = urllib2.urlopen(request).read()
-        except urllib2.HTTPError as e:
-            raise MixpanelException(e)
+        if sys.version > '3':
+            # For Python 3.3+
+            data = urllib.parse.urlencode({
+                'data': base64.b64encode(json_message.encode('utf-8')),
+                'verbose': 1,
+                'ip': 0
+            }).encode('utf-8')
+            try:
+                req = urllib.request.Request(url=request_url, data=data, method='POST')
+                f = urllib.request.urlopen(req)
+                response = f.read().decode('utf-8')
+            except urllib.error.HTTPError as e:
+                raise MixpanelException(e)
+
+        else:
+            # For Python 2.x
+            data = urllib.urlencode({
+                'data': base64.b64encode(json_message),
+                'verbose': 1,
+                'ip': 0
+            })
+            try:
+                request = urllib2.Request(request_url, data)
+                response = urllib2.urlopen(request).read()
+            except urllib2.HTTPError as e:
+                raise MixpanelException(e)
 
         try:
             response = json.loads(response)
@@ -302,8 +324,9 @@ class Consumer(object):
 
         return True
 
+
 class BufferedConsumer(object):
-    '''
+    """
     BufferedConsumer works just like Consumer, but holds messages in
     memory and sends them in batches. This can save bandwidth and
     reduce the total amount of time required to post your events.
@@ -311,7 +334,7 @@ class BufferedConsumer(object):
     Because BufferedConsumers hold events, you need to call flush()
     when you're sure you're done sending them. calls to flush() will
     send all remaining unsent events being held by the BufferedConsumer.
-    '''
+    """
     def __init__(self, max_size=50, events_url=None, people_url=None):
         self._consumer = Consumer(events_url, people_url)
         self._buffers = {
@@ -321,7 +344,7 @@ class BufferedConsumer(object):
         self._max_size = min(50, max_size)
 
     def send(self, endpoint, json_message):
-        '''
+        """
         Record an event or a profile update. Calls to send() will store
         the given message in memory, and (when enough messages have been stored)
         may trigger a request to Mixpanel's servers.
@@ -335,7 +358,7 @@ class BufferedConsumer(object):
         :param json_message: A json message formatted for the endpoint.
         :type json_message: str
         :raises: MixpanelException
-        '''
+        """
         if endpoint not in self._buffers:
             raise MixpanelException('No such endpoint "{0}". Valid endpoints are one of {1}'.format(self._buffers.keys()))
 
@@ -345,7 +368,7 @@ class BufferedConsumer(object):
             self._flush_endpoint(endpoint)
 
     def flush(self):
-        '''
+        """
         Send all remaining messages to Mixpanel. BufferedConsumers will
         flush automatically when you call send(), but you will need to call
         flush() when you are completely done using the consumer (for example,
@@ -358,7 +381,7 @@ class BufferedConsumer(object):
         and an endpoint property containing the endpoint that failed.
 
         :raises: MixpanelException
-        '''
+        """
         for endpoint in self._buffers.keys():
             self._flush_endpoint(endpoint)
 
