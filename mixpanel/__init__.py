@@ -2,12 +2,7 @@ import base64
 import json
 import time
 import sys
-
-if sys.version > '3':
-    import urllib.request
-else:
-    import urllib2
-    import urllib
+import urllib.request
 
 # The mixpanel package allows you to easily track events and
 # update people properties from your python application.
@@ -287,32 +282,17 @@ class Consumer(object):
             raise MixpanelException('No such endpoint "{0}". Valid endpoints are one of {1}'.format(self._endpoints.keys()))
 
     def _write_request(self, request_url, json_message):
-        if sys.version > '3':
-            # For Python 3.3+
-            data = urllib.parse.urlencode({
-                'data': base64.b64encode(json_message.encode('utf-8')),
-                'verbose': 1,
-                'ip': 0
-            }).encode('utf-8')
-            try:
-                req = urllib.request.Request(url=request_url, data=data, method='POST')
-                f = urllib.request.urlopen(req)
-                response = f.read().decode('utf-8')
-            except urllib.error.HTTPError as e:
-                raise MixpanelException(e)
-
-        else:
-            # For Python 2.x
-            data = urllib.urlencode({
-                'data': base64.b64encode(json_message),
-                'verbose': 1,
-                'ip': 0
-            })
-            try:
-                request = urllib2.Request(request_url, data)
-                response = urllib2.urlopen(request).read()
-            except urllib2.HTTPError as e:
-                raise MixpanelException(e)
+        data = urllib.parse.urlencode({
+            'data': base64.b64encode(json_message.encode('utf-8')),
+            'verbose': 1,
+            'ip': 0
+        }).encode('utf-8')
+        try:
+            req = urllib.request.Request(url=request_url, data=data, method='POST')
+            f = urllib.request.urlopen(req)
+            response = f.read().decode('utf-8')
+        except urllib.error.HTTPError as e:
+            raise MixpanelException(e)
 
         try:
             response = json.loads(response)
