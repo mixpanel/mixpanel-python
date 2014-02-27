@@ -32,3 +32,5 @@ Additional Information
 [Full Documentation](http://mixpanel.github.io/mixpanel-python/)
 
 [mixpanel-python-asyc](https://github.com/jessepollak/mixpanel-python-async) a third party tool for sending data asynchronously from the tracking python process.
+
+[mixpanel-py3](https://github.com/MyGGaN/mixpanel-python) a fork of this library that supports Python 3, and some additional features, maintained by Fredrik Svensson
