@@ -371,12 +371,13 @@ class BufferedConsumer(object):
     def _flush_endpoint(self, endpoint):
         buf = self._buffers[endpoint]
         while buf:
-            batch = buf[:self._max_size]
+            batch_size = min(len(buf), self._max_size)
+            batch = buf[:batch_size]
             batch_json = '[{0}]'.format(','.join(batch))
             try:
                 self._consumer.send(endpoint, batch_json)
             except MixpanelException as e:
                 e.message = 'batch_json'
                 e.endpoint = endpoint
-            buf = buf[self._max_size:]
+            buf = buf[batch_size:]
         self._buffers[endpoint] = buf
