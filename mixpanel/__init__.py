@@ -15,7 +15,7 @@ The Consumer and BufferedConsumer classes allow callers to
 customize the IO characteristics of their tracking.
 """
 
-VERSION = '3.1.2'
+VERSION = '3.1.2'  # this probably needs to be manipulated as required
 
 
 class Mixpanel(object):
@@ -24,7 +24,7 @@ class Mixpanel(object):
     profile updates from your python code.
     """
 
-    def __init__(self, token, consumer=None):
+    def __init__(self, token, consumer=None, api_key=None):
         """
         Creates a new Mixpanel object, which can be used for all tracking.
 
@@ -33,20 +33,32 @@ class Mixpanel(object):
         anything else with a send() method). If no consumer is
         provided, Mixpanel will use the default Consumer, which
         communicates one synchronous request for every message.
+
+        api_key is only required if utilizing the import endpoint
+        (necessary to track events with a time more than 5 days in the past).
+
+        If using a custom Consumer that utilizes the defualt Consumer's send
+        method, the custom Consumer would need to have access to the API key
+        if import endpoint support is desired.
         """
         self._token = token
-        self._consumer = consumer or Consumer()
+        self._consumer = consumer or Consumer(api_key=api_key)
 
     def _now(self):
         return time.time()
 
-    def track(self, distinct_id, event_name, properties={}, meta={}):
+    def track(self, distinct_id, event_name, properties={}, meta={},
+              import_older=False):
         """
         Notes that an event has occurred, along with a distinct_id
         representing the source of that event (for example, a user id),
         an event name describing the event and a set of properties
         describing that event. Properties are provided as a Hash with
         string keys and strings, numbers or booleans as values.
+
+        import_older can be set to True to utilize the import endpoint when
+        needed to track events with a time more than 5 days in the past.
+        Without import_older=True, track will fail to process these events.
 
           # Track that user "12345"'s credit card was declined
           mp.track("12345", "Credit Card Declined")
@@ -71,7 +83,16 @@ class Mixpanel(object):
             'properties': all_properties,
         }
         event.update(meta)
-        self._consumer.send('events', json.dumps(event, separators=(',', ':')))
+
+        endpoint = 'events'
+
+        if import_older:
+            # 5 24hr days prior
+            naive_import_threshold = int(self._now()) - 432000
+            if event['properties']['time'] < naive_import_threshold:
+                endpoint = 'import'
+
+        self._consumer.send(endpoint, json.dumps(event, separators=(',', ':')))
 
     def alias(self, alias_id, original, meta={}):
         """
@@ -257,11 +278,14 @@ class Consumer(object):
     with one request for every call. This is the default consumer for Mixpanel
     objects- if you don't provide your own, you get one of these.
     """
-    def __init__(self, events_url=None, people_url=None):
+    def __init__(self, events_url=None, people_url=None, import_url=None,
+                 api_key=None):
         self._endpoints = {
             'events': events_url or 'https://api.mixpanel.com/track',
             'people': people_url or 'https://api.mixpanel.com/engage',
+            'import': import_url or 'https://api.mixpanel.com/import',
         }
+        self._api_key = api_key
 
     def send(self, endpoint, json_message):
         """
@@ -269,6 +293,9 @@ class Consumer(object):
         associated with consumers. Will raise an exception if the endpoint
         doesn't exist, if the server is unreachable or for some reason
         can't process the message.
+
+        If the endpoint is import, an API key must be available, and is
+        included as part of the request as its own parameter, as required.
 
         All you need to do to write your own consumer is to implement
         a send method of your own.
@@ -280,16 +307,32 @@ class Consumer(object):
         :raises: MixpanelException
         """
         if endpoint in self._endpoints:
-            self._write_request(self._endpoints[endpoint], json_message)
+            if endpoint == 'import':
+                if self._api_key is not None:
+                    self._write_request(self._endpoints[endpoint],
+                                        json_message,
+                                        {'api_key': self._api_key})
+                else:
+                    raise MixpanelException(
+                        'Must have API key to utilize import endpoint.')
+            else:
+                self._write_request(self._endpoints[endpoint], json_message)
         else:
             raise MixpanelException('No such endpoint "{0}". Valid endpoints are one of {1}'.format(self._endpoints.keys()))
 
-    def _write_request(self, request_url, json_message):
-        data = urllib.urlencode({
+    def _write_request(self, request_url, json_message, extra={}):
+        to_encode = {
             'data': base64.b64encode(json_message),
             'verbose': 1,
             'ip': 0,
-        })
+        }
+        # The 'extra' argument provides a manner in which to add extra
+        # parameters to the request. Key/value pairs from extra apply after the
+        # initial request dict is created, so extra can currently allow one to
+        # override the 'data', 'verbose', and 'ip' parameters if so desired.
+        to_encode.update(extra)
+
+        data = urllib.urlencode(to_encode)
         try:
             request = urllib2.Request(request_url, data)
             response = urllib2.urlopen(request).read()
@@ -317,11 +360,13 @@ class BufferedConsumer(object):
     when you're sure you're done sending them. calls to flush() will
     send all remaining unsent events being held by the BufferedConsumer.
     """
-    def __init__(self, max_size=50, events_url=None, people_url=None):
-        self._consumer = Consumer(events_url, people_url)
+    def __init__(self, max_size=50, events_url=None, people_url=None,
+                 import_url=None, api_key=None):
+        self._consumer = Consumer(events_url, people_url, import_url, api_key)
         self._buffers = {
             'events': [],
             'people': [],
+            'import': [],
         }
         self._max_size = min(50, max_size)
 
