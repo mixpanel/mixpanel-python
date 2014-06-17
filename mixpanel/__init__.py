@@ -77,17 +77,28 @@ class Mixpanel(object):
         """
         Gives custom alias to a people record.
 
+        Calling this method always results in a synchronous HTTP
+        request to Mixpanel servers. Unlike other methods, this method
+        will ignore any consumer object provided to the Mixpanel
+        object on construction.
+
         Alias sends an update to our servers linking an existing distinct_id
         with a new id, so that events and profile updates associated with the
         new id will be associated with the existing user's profile and behavior.
         Example:
             mp.alias('amy@mixpanel.com', '13793')
         """
-        self.track(original, '$create_alias', {
-            'distinct_id': original,
-            'alias': alias_id,
-            'token': self._token,
-        }, meta=meta)
+        sync_consumer = Consumer()
+        event = {
+            'event': '$create_alias',
+            'properties': {
+                'distinct_id': original,
+                'alias': alias_id,
+                'token': self._token,
+            },
+        }
+        event.update(meta)
+        sync_consumer.send('events', json.dumps(event, separators=(',', ':')))
 
     def people_set(self, distinct_id, properties, meta={}):
         """

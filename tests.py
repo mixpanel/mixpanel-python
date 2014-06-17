@@ -157,7 +157,7 @@ class MixpanelTestCase(unittest.TestCase):
                 },
             }
         )])
-    
+
     def test_people_clear_charges(self):
         self.mp.people_clear_charges('amq')
         self.assertEqual(self.consumer.log, [(
@@ -170,21 +170,18 @@ class MixpanelTestCase(unittest.TestCase):
         )])
 
     def test_alias(self):
-        self.mp.alias('ALIAS','ORIGINAL ID')
-        self.assertEqual(self.consumer.log, [(
-            'events', {
-                'event': '$create_alias',
-                'properties': {
-                    'token': self.TOKEN,
-                    'distinct_id': 'ORIGINAL ID',
-                    'alias': 'ALIAS',
-                    'time': int(self.mp._now()),
-                    'mp_lib': 'python',
-                    '$lib_version': mixpanel.VERSION,
-                },
-            }
+        mock_response = Mock()
+        mock_response.read.return_value = '{"status":1, "error": null}'
+        with patch('urllib2.urlopen', return_value = mock_response) as urlopen:
+            self.mp.alias('ALIAS','ORIGINAL ID')
+            self.assertEqual(self.consumer.log, [])
 
-        )])
+            self.assertEqual(urlopen.call_count, 1)
+            ((request,),_) = urlopen.call_args
+
+            self.assertEqual(request.get_full_url(), 'https://api.mixpanel.com/track')
+            self.assertEqual(request.get_data(), 'ip=0&data=eyJldmVudCI6IiRjcmVhdGVfYWxpYXMiLCJwcm9wZXJ0aWVzIjp7ImFsaWFzIjoiQUxJQVMiLCJ0b2tlbiI6IjEyMzQ1IiwiZGlzdGluY3RfaWQiOiJPUklHSU5BTCBJRCJ9fQ%3D%3D&verbose=1')
+
 
     def test_people_meta(self):
         self.mp.people_set('amq', {'birth month': 'october', 'favorite color': 'purple'},

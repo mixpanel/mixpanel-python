@@ -1,3 +1,7 @@
+v3.1.3
+* All calls to alias() now run a synchronous request to Mixpanel's
+  servers on every call.
+
 v3.0.0
 * BACKWARD BREAKING CHANGE: Ignore source IP in events by default
 * Allow users to provide "envelope" or "meta" tracking information
