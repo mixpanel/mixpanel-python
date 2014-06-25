@@ -295,6 +295,11 @@ class Consumer(object):
         else:
             raise MixpanelException('No such endpoint "{0}". Valid endpoints are one of {1}'.format(self._endpoints.keys()))
 
+    @staticmethod
+    def flush():
+        """To have the same interface as the BufferedConsumer."""
+        pass
+
     def _write_request(self, request_url, json_message):
         data = urllib.urlencode({
             'data': base64.b64encode(json_message),
