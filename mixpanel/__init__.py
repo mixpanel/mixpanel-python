@@ -6,17 +6,32 @@ import urllib2
 
 """
 The mixpanel package allows you to easily track events and
-update people properties from your python application.
+update people properties from your python application, as well
+as export data from the data export API.
 
 The Mixpanel class is the primary class for tracking events and
 sending people analytics updates.
 
 The Consumer and BufferedConsumer classes allow callers to
 customize the IO characteristics of their tracking.
+
+The MixpanelExport class is the primary class for requesting exported data.
+The MixpanelRawExport class is used for requesting "raw" data exports.
+
+Read more about the data export API here:
+https://mixpanel.com/docs/api-documentation/data-export-api
 """
 
 VERSION = '3.1.2'
 
+from . import export
+MixpanelExport = export.MixpanelExport
+MixpanelRawExport = export.MixpanelRawExport
+
+__all__ = [
+    'Mixpanel', 'MixpanelExport', 'MixpanelRawExport',
+    'MixpanelException', 'Consumer', 'BufferedConsumer',
+]
 
 class Mixpanel(object):
     """

@@ -200,6 +200,31 @@ class MixpanelTestCase(unittest.TestCase):
             }
         )])
 
+class MixpanelExportTestCase(unittest.TestCase):
+    def setUp(self):
+        self.client = mixpanel.MixpanelExport('a', 'b')
+
+    @patch('time.time')
+    def test_url_generation(self, mock_time):
+        mock_time.return_value = 123456789
+        url = self.client._make_request_url(['events'], {})
+        self.assertEquals(url, 'https://mixpanel.com/api/2.0/events/?api_key=a&sig=27fcdaadb5fc5ae1ca27024cc04a1331&expire=123457389&format=json')
+
+    def test_arg_hashing(self):
+        hash = self.client.hash_args(dict(api_key='a', format='json', expire=123457389))
+        self.assertEquals(hash, '27fcdaadb5fc5ae1ca27024cc04a1331')
+
+
+class MixpanelRawExportTestCase(unittest.TestCase):
+    def setUp(self):
+        self.client = mixpanel.MixpanelRawExport('a', 'b')
+
+    @patch('time.time')
+    def test_url_generation(self, mock_time):
+        mock_time.return_value = 123456789
+        url = self.client._make_request_url(['export'], {})
+        self.assertEquals(url, 'https://data.mixpanel.com/api/2.0/export/?api_key=a&sig=27fcdaadb5fc5ae1ca27024cc04a1331&expire=123457389&format=json')
+
 class ConsumerTestCase(unittest.TestCase):
     def setUp(self):
         self.consumer = mixpanel.Consumer()
