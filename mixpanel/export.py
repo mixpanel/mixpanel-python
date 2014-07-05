@@ -1,4 +1,3 @@
-#! /usr/bin/env python
 #
 # Mixpanel, Inc. -- http://mixpanel.com/
 #
@@ -99,16 +98,3 @@ class Mixpanel(object):
         elif self.api_secret:
             hash.update(self.api_secret)
         return hash.hexdigest()
-
-if __name__ == '__main__':
-    api = Mixpanel(
-        api_key = 'YOUR KEY',
-        api_secret = 'YOUR SECRET'
-    )
-    data = api.request(['events'], {
-        'event' : ['pages',],
-        'unit' : 'hour',
-        'interval' : 24,
-        'type': 'general'
-    })
-    print data
