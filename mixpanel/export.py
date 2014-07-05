@@ -122,3 +122,13 @@ class MixpanelRawExport(MixpanelExport):
         request = self._make_request(['export'], params, format=format)
         data = [json.loads(line) for line in request]
         return data
+
+    def request_generator(self, params, format='json'):
+        """
+        Like request, but yields every line returned as soon as it is read.
+
+            params - Extra parameters
+        """
+        request = self._make_request(['export'], params, format=format)
+        for line in request:
+            yield json.loads(line)
