@@ -26,7 +26,8 @@ try:
 except ImportError:
     import simplejson as json
 
-class Mixpanel(object):
+
+class MixpanelExport(object):
 
     ENDPOINT = 'http://mixpanel.com/api'
     VERSION = '2.0'
@@ -35,12 +36,7 @@ class Mixpanel(object):
         self.api_key = api_key
         self.api_secret = api_secret
 
-    def request(self, methods, params, format='json'):
-        """
-            methods - List of methods to be joined, e.g. ['events', 'properties', 'values']
-                      will give us http://mixpanel.com/api/2.0/events/properties/values/
-            params - Extra parameters associated with method
-        """
+    def _make_request_url(self, methods, params, format='json'):
         params['api_key'] = self.api_key
         params['expire'] = int(time.time()) + 600   # Grant this request 10 minutes.
         params['format'] = format
@@ -49,9 +45,20 @@ class Mixpanel(object):
 
         request_url = '/'.join([self.ENDPOINT, str(self.VERSION)] + methods) + '/?' + self.unicode_urlencode(params)
 
-        request = urllib2.urlopen(request_url, timeout=120)
-        data = request.read()
+        return request_url
 
+    def _make_request(self, methods, params, format='json'):
+        url = self._make_request_url(methods, params, format=format)
+        return urllib2.urlopen(url, timeout=120)
+
+    def request(self, methods, params, format='json'):
+        """
+            methods - List of methods to be joined, e.g. ['events', 'properties', 'values']
+                      will give us http://mixpanel.com/api/2.0/events/properties/values/
+            params - Extra parameters associated with method
+        """
+        request = self._make_request(methods, params, format=format)
+        data = request.read()
         return json.loads(data)
 
     def unicode_urlencode(self, params):
@@ -98,3 +105,20 @@ class Mixpanel(object):
         elif self.api_secret:
             hash.update(self.api_secret)
         return hash.hexdigest()
+
+
+class MixpanelRawExport(MixpanelExport):
+
+    ENDPOINT = 'http://data.mixpanel.com/api'
+
+    def request(self, params, format='json'):
+        """
+        Will make a request to the special data.mixpanel.com "raw export" API.
+
+        Returns a list of json-decoded objects.
+
+            params - Extra parameters
+        """
+        request = self._make_request(['export'], params, format=format)
+        data = [json.loads(line) for line in request]
+        return data
