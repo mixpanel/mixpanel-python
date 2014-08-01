@@ -2,6 +2,7 @@
 import base64
 import contextlib
 import json
+import time
 import unittest
 import urlparse
 try:
@@ -16,8 +17,11 @@ class LogConsumer(object):
     def __init__(self):
         self.log = []
 
-    def send(self, endpoint, event):
-        self.log.append((endpoint, json.loads(event)))
+    def send(self, endpoint, event, api_key=None):
+        if api_key:
+            self.log.append((endpoint, json.loads(event), api_key))
+        else:
+            self.log.append((endpoint, json.loads(event)))
 
 class MixpanelTestCase(unittest.TestCase):
     def setUp(self):
@@ -41,6 +45,26 @@ class MixpanelTestCase(unittest.TestCase):
                     '$lib_version': mixpanel.VERSION,
                 }
             }
+        )])
+
+    def test_import_data(self):
+        " Unit test for the `import_data` method. "
+        timestamp = time.time()
+        self.mp.import_data('MY_API_KEY', 'ID', 'button press', timestamp, {'size': 'big', 'color': 'blue'})
+        self.assertEqual(self.consumer.log, [(
+            'imports', {
+                'event': 'button press',
+                'properties': {
+                    'token': self.TOKEN,
+                    'size': 'big',
+                    'color': 'blue',
+                    'distinct_id': 'ID',
+                    'time': int(timestamp),
+                    'mp_lib': 'python',
+                    '$lib_version': mixpanel.VERSION,
+                },
+            },
+            'MY_API_KEY'
         )])
 
     def test_track_meta(self):

@@ -73,6 +73,46 @@ class Mixpanel(object):
         event.update(meta)
         self._consumer.send('events', json.dumps(event, separators=(',', ':')))
 
+    def import_data(self, api_key, distinct_id, event_name, timestamp, properties={}, meta={}):
+        """
+        Allows data older than 5 days old to be sent to MixPanel.
+
+        API Notes:
+        https://mixpanel.com/docs/api-documentation/importing-events-older-than-31-days
+
+        Usage:
+        import datetime
+        from your_app.conf import YOUR_MIXPANEL_TOKEN, YOUR_MIXPANEL_API_KEY
+
+        mp = MixPanel(YOUR_TOKEN)
+
+        # Django queryset to get an old event
+        old_event = SomeEvent.objects.get(create_date__lt=datetime.datetime.now() - datetime.timedelta.days(6))
+        mp.import(
+            YOUR_MIXPANEL_API_KEY,  # These requests require your API key as an extra layer of security
+            old_event.id,
+            'Some Event',
+            old_event.timestamp,
+            {
+                ... your custom properties and meta ...
+            }
+        )
+        """
+        all_properties = {
+            'token': self._token,
+            'distinct_id': distinct_id,
+            'time': int(timestamp),
+            'mp_lib': 'python',
+            '$lib_version': VERSION,
+        }
+        all_properties.update(properties)
+        event = {
+            'event': event_name,
+            'properties': all_properties,
+        }
+        event.update(meta)
+        self._consumer.send('imports', json.dumps(event, separators=(',', ':')), api_key)
+
     def alias(self, alias_id, original, meta={}):
         """
         Gives custom alias to a people record.
@@ -268,13 +308,14 @@ class Consumer(object):
     with one request for every call. This is the default consumer for Mixpanel
     objects- if you don't provide your own, you get one of these.
     """
-    def __init__(self, events_url=None, people_url=None):
+    def __init__(self, events_url=None, people_url=None, import_url=None):
         self._endpoints = {
             'events': events_url or 'https://api.mixpanel.com/track',
             'people': people_url or 'https://api.mixpanel.com/engage',
+            'imports': import_url or 'https://api.mixpanel.com/import',
         }
 
-    def send(self, endpoint, json_message):
+    def send(self, endpoint, json_message, api_key=None):
         """
         Record an event or a profile update. Send is the only method
         associated with consumers. Will raise an exception if the endpoint
@@ -291,18 +332,21 @@ class Consumer(object):
         :raises: MixpanelException
         """
         if endpoint in self._endpoints:
-            self._write_request(self._endpoints[endpoint], json_message)
+            self._write_request(self._endpoints[endpoint], json_message, api_key)
         else:
             raise MixpanelException('No such endpoint "{0}". Valid endpoints are one of {1}'.format(self._endpoints.keys()))
 
-    def _write_request(self, request_url, json_message):
-        data = urllib.urlencode({
+    def _write_request(self, request_url, json_message, api_key=None):
+        data = {
             'data': base64.b64encode(json_message),
             'verbose': 1,
             'ip': 0,
-        })
+        }
+        if api_key:
+            data.update({'api_key': api_key})
+        encoded_data = urllib.urlencode(data)
         try:
-            request = urllib2.Request(request_url, data)
+            request = urllib2.Request(request_url, encoded_data)
             response = urllib2.urlopen(request).read()
         except urllib2.HTTPError as e:
             raise MixpanelException(e)
@@ -333,6 +377,7 @@ class BufferedConsumer(object):
         self._buffers = {
             'events': [],
             'people': [],
+            'imports': [],
         }
         self._max_size = min(50, max_size)
 
