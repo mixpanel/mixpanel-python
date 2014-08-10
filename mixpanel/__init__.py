@@ -24,7 +24,7 @@ class Mixpanel(object):
     profile updates from your python code.
     """
 
-    def __init__(self, token, consumer=None):
+    def __init__(self, token, consumer=None, api_key=None):
         """
         Creates a new Mixpanel object, which can be used for all tracking.
 
@@ -35,7 +35,8 @@ class Mixpanel(object):
         communicates one synchronous request for every message.
         """
         self._token = token
-        self._consumer = consumer or Consumer()
+        self._api_key = api_key
+        self._consumer = consumer or Consumer(self._api_key)
 
     def _now(self):
         return time.time()
@@ -72,6 +73,39 @@ class Mixpanel(object):
         }
         event.update(meta)
         self._consumer.send('events', json.dumps(event, separators=(',', ':')))
+
+    def import_event(self, distinct_id, event_name, properties={}, meta={}):
+        """
+        Notes that an event has occurred, along with a distinct_id
+        representing the source of that event (for example, a user id),
+        an event name describing the event and a set of properties
+        describing that event. Properties are provided as a Hash with
+        string keys and strings, numbers or booleans as values.
+
+          # Track that user "12345"'s credit card was declined
+          mp.track("12345", "Credit Card Declined")
+
+          # Properties describe the circumstances of the event,
+          # or aspects of the source or user associated with the event
+          mp.track("12345", "Welcome Email Sent", {
+              'Email Template' => 'Pretty Pink Welcome',
+              'User Sign-up Cohort' => 'July 2013'
+          })
+        """
+        all_properties = {
+            'token': self._token,
+            'distinct_id': distinct_id,
+            'time': int(self._now()),
+            'mp_lib': 'python',
+            '$lib_version': VERSION,
+        }
+        all_properties.update(properties)
+        event = {
+            'event': event_name,
+            'properties': all_properties,
+        }
+        event.update(meta)
+        self._consumer.send('import', json.dumps(event, separators=(',', ':')))
 
     def alias(self, alias_id, original, meta={}):
         """
@@ -268,9 +302,11 @@ class Consumer(object):
     with one request for every call. This is the default consumer for Mixpanel
     objects- if you don't provide your own, you get one of these.
     """
-    def __init__(self, events_url=None, people_url=None):
+    def __init__(self, events_url=None, people_url=None, api_key=None):
+        self._api_key = api_key
         self._endpoints = {
             'events': events_url or 'https://api.mixpanel.com/track',
+            'import': events_url or 'https://api.mixpanel.com/import',
             'people': people_url or 'https://api.mixpanel.com/engage',
         }
 
@@ -296,11 +332,17 @@ class Consumer(object):
             raise MixpanelException('No such endpoint "{0}". Valid endpoints are one of {1}'.format(self._endpoints.keys()))
 
     def _write_request(self, request_url, json_message):
-        data = urllib.urlencode({
+        data = {
             'data': base64.b64encode(json_message),
             'verbose': 1,
             'ip': 0,
-        })
+        }
+
+        if self._api_key:
+            data['api_key'] = self._api_key
+
+        data = urllib.urlencode(data)
+
         try:
             request = urllib2.Request(request_url, data)
             response = urllib2.urlopen(request).read()
@@ -328,10 +370,11 @@ class BufferedConsumer(object):
     when you're sure you're done sending them. calls to flush() will
     send all remaining unsent events being held by the BufferedConsumer.
     """
-    def __init__(self, max_size=50, events_url=None, people_url=None):
-        self._consumer = Consumer(events_url, people_url)
+    def __init__(self, max_size=50, events_url=None, people_url=None, api_key=None):
+        self._consumer = Consumer(events_url, people_url, api_key)
         self._buffers = {
             'events': [],
+            'import': [],
             'people': [],
         }
         self._max_size = min(50, max_size)
