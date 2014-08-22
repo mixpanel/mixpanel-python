@@ -88,7 +88,7 @@ class Mixpanel(object):
 
         # Django queryset to get an old event
         old_event = SomeEvent.objects.get(create_date__lt=datetime.datetime.now() - datetime.timedelta.days(6))
-        mp.import(
+        mp.import_data(
             YOUR_MIXPANEL_API_KEY,  # These requests require your API key as an extra layer of security
             old_event.id,
             'Some Event',
