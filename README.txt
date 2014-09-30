@@ -18,7 +18,7 @@ Typical usage usually looks like this:
     mp = Mixpanel(YOUR_TOKEN)
 
     # tracks an event with certain properties
-    mp.track('button clicked', {'color' : 'blue', 'size': 'large'})
+    mp.track(USER_ID, 'button clicked', {'color' : 'blue', 'size': 'large'})
 
     # sends an update to a user profile
     mp.people_set(USER_ID, {'$first_name' : 'Amy', 'favorite color': 'red'})
