@@ -1,4 +1,5 @@
 import base64
+import datetime
 import json
 import time
 import urllib
@@ -16,6 +17,24 @@ customize the IO characteristics of their tracking.
 """
 
 VERSION = '3.2.0'
+
+
+class DatetimeSerializer(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, datetime.datetime):
+            # TODO set tzinfo to UTC?
+            fmt = '%Y-%m-%dT%H:%M:%S'
+            return obj.strftime(fmt)
+
+        return json.JSONEncoder.default(self, obj)
+
+
+def json_dumps(data):
+    return json.dumps(
+        data,
+        separators=(',', ':'),
+        cls=DatetimeSerializer
+    )
 
 
 class Mixpanel(object):
@@ -71,7 +90,7 @@ class Mixpanel(object):
             'properties': all_properties,
         }
         event.update(meta)
-        self._consumer.send('events', json.dumps(event, separators=(',', ':')))
+        self._consumer.send('events', json_dumps(event))
 
     def import_data(self, api_key, distinct_id, event_name, timestamp, properties={}, meta={}):
         """
@@ -111,7 +130,7 @@ class Mixpanel(object):
             'properties': all_properties,
         }
         event.update(meta)
-        self._consumer.send('imports', json.dumps(event, separators=(',', ':')), api_key)
+        self._consumer.send('imports', json_dumps(event), api_key)
 
     def alias(self, alias_id, original, meta={}):
         """
@@ -138,7 +157,7 @@ class Mixpanel(object):
             },
         }
         event.update(meta)
-        sync_consumer.send('events', json.dumps(event, separators=(',', ':')))
+        sync_consumer.send('events', json_dumps(event))
 
     def people_set(self, distinct_id, properties, meta={}):
         """
@@ -290,7 +309,7 @@ class Mixpanel(object):
         }
         record.update(message)
         record.update(meta)
-        self._consumer.send('people', json.dumps(record, separators=(',', ':')))
+        self._consumer.send('people', json_dumps(record))
 
 
 class MixpanelException(Exception):
@@ -334,7 +353,8 @@ class Consumer(object):
         if endpoint in self._endpoints:
             self._write_request(self._endpoints[endpoint], json_message, api_key)
         else:
-            raise MixpanelException('No such endpoint "{0}". Valid endpoints are one of {1}'.format(self._endpoints.keys()))
+            msg = 'No such endpoint "{0}". Valid endpoints are one of {1}'.format(self._endpoints.keys())
+            raise MixpanelException(msg)
 
     def _write_request(self, request_url, json_message, api_key=None):
         data = {
@@ -398,7 +418,8 @@ class BufferedConsumer(object):
         :raises: MixpanelException
         """
         if endpoint not in self._buffers:
-            raise MixpanelException('No such endpoint "{0}". Valid endpoints are one of {1}'.format(self._buffers.keys()))
+            msg = 'No such endpoint "{0}". Valid endpoints are one of {1}'.format(self._buffers.keys())
+            raise MixpanelException(msg)
 
         buf = self._buffers[endpoint]
         buf.append(json_message)

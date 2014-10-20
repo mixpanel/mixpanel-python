@@ -4,6 +4,7 @@ import contextlib
 import json
 import time
 import unittest
+import datetime
 import urlparse
 try:
     from mock import Mock, patch
@@ -197,6 +198,27 @@ class MixpanelTestCase(unittest.TestCase):
             }
         )])
 
+    def test_people_set_created_date(self):
+        created = datetime.datetime(2014, 2, 14, 1, 2, 3)
+        self.mp.people_set(
+            'amq',
+            {
+                '$created': created,
+                'favorite color': 'purple'
+            }
+        )
+        self.assertEqual(self.consumer.log, [(
+            'people', {
+                '$time': int(self.mp._now() * 1000),
+                '$token': self.TOKEN,
+                '$distinct_id': 'amq',
+                '$set': {
+                    '$created': '2014-02-14T01:02:03',
+                    'favorite color': 'purple',
+                },
+            }
+        )])
+
     def test_alias(self):
         mock_response = Mock()
         mock_response.read.return_value = '{"status":1, "error": null}'
@@ -343,8 +365,15 @@ class FunctionalTestCase(unittest.TestCase):
             self.mp.track('button press', {'size': 'big', 'color': 'blue'})
 
     def test_people_set_functional(self):
-        expect_data = {u'$distinct_id': u'amq', u'$set': {
-            u'birth month': u'october', u'favorite color': u'purple'}, u'$time': 1000000, u'$token': u'12345'}
+        expect_data = {
+            u'$distinct_id': u'amq',
+            u'$set': {
+                u'birth month': u'october',
+                u'favorite color': u'purple'
+            },
+            u'$time': 1000000,
+            u'$token': u'12345'
+        }
         with self._assertRequested('https://api.mixpanel.com/engage', expect_data):
             self.mp.people_set('amq', {'birth month': 'october', 'favorite color': 'purple'})
 
