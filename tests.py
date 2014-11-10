@@ -69,7 +69,7 @@ class MixpanelTestCase(unittest.TestCase):
 
     def test_track_meta(self):
         self.mp.track('ID', 'button press', {'size': 'big', 'color': 'blue'},
-            meta={'$ip': 0, '$ignore_time': True,})
+            meta={'ip': 0})
         self.assertEqual(self.consumer.log, [(
             'events', {
                 'event': 'button press',
@@ -82,8 +82,7 @@ class MixpanelTestCase(unittest.TestCase):
                     'mp_lib': 'python',
                     '$lib_version': mixpanel.VERSION,
                 },
-                '$ip': 0,
-                '$ignore_time': True,
+                'ip': 0,
             }
         )])
 
