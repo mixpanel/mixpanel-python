@@ -3,9 +3,11 @@ try:
 except ImportError:
     from distutils.core import setup
 
+from mixpanel import VERSION
+
 setup(
     name='mixpanel-py',
-    version='3.2.0',
+    version=VERSION,
     author='Mixpanel, Inc.',
     author_email='dev@mixpanel.com',
     packages=['mixpanel'],

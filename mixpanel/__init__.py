@@ -1,8 +1,17 @@
 import base64
 import json
 import time
-import urllib
-import urllib2
+
+try:
+    from urllib import urlencode
+except ImportError:
+    from urllib.parse import urlencode
+
+try:
+    from urllib2 import (Request, urlopen, HTTPError)
+except ImportError:
+    from urllib.error import HTTPError
+    from urllib.request import (Request, urlopen)
 
 """
 The mixpanel package allows you to easily track events and
@@ -15,7 +24,7 @@ The Consumer and BufferedConsumer classes allow callers to
 customize the IO characteristics of their tracking.
 """
 
-VERSION = '3.2.0'
+VERSION = '3.2.1'
 
 
 class Mixpanel(object):
@@ -338,21 +347,21 @@ class Consumer(object):
 
     def _write_request(self, request_url, json_message, api_key=None):
         data = {
-            'data': base64.b64encode(json_message),
+            'data': base64.b64encode(json_message.encode('utf-8')),
             'verbose': 1,
             'ip': 0,
         }
         if api_key:
             data.update({'api_key': api_key})
-        encoded_data = urllib.urlencode(data)
+        encoded_data = urlencode(data)
         try:
-            request = urllib2.Request(request_url, encoded_data)
-            response = urllib2.urlopen(request).read()
-        except urllib2.HTTPError as e:
+            request = Request(request_url, encoded_data.encode('utf-8'))
+            response = urlopen(request).read()
+        except HTTPError as e:
             raise MixpanelException(e)
 
         try:
-            response = json.loads(response)
+            response = json.loads(response.decode())
         except ValueError:
             raise MixpanelException('Cannot interpret Mixpanel server response: {0}'.format(response))
 
