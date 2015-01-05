@@ -371,7 +371,7 @@ class Consumer(object):
                 response = urllib.request.urlopen(request, timeout=self._request_timeout).read()
             else:
                 response = urllib.request.urlopen(request).read()
-        except urllib.error.HTTPError as e:
+        except urllib.error.URLError as e:
             raise six.raise_from(MixpanelException(e), e)
 
         try:
