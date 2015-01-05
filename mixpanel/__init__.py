@@ -348,8 +348,6 @@ class Consumer(object):
         try:
             request = urllib2.Request(request_url, encoded_data)
             response = urllib2.urlopen(request).read()
-        except urllib2.HTTPError as e:
-            raise MixpanelException(e)
         except urllib2.URLError as e:
             raise MixpanelException(e)
 
