@@ -350,6 +350,8 @@ class Consumer(object):
             response = urllib2.urlopen(request).read()
         except urllib2.HTTPError as e:
             raise MixpanelException(e)
+        except urllib2.URLError as e:
+            raise MixpanelException(e)
 
         try:
             response = json.loads(response)
