@@ -308,12 +308,13 @@ class Consumer(object):
     with one request for every call. This is the default consumer for Mixpanel
     objects- if you don't provide your own, you get one of these.
     """
-    def __init__(self, events_url=None, people_url=None, import_url=None):
+    def __init__(self, events_url=None, people_url=None, import_url=None, request_timeout=None):
         self._endpoints = {
             'events': events_url or 'https://api.mixpanel.com/track',
             'people': people_url or 'https://api.mixpanel.com/engage',
             'imports': import_url or 'https://api.mixpanel.com/import',
         }
+        self._request_timeout = request_timeout
 
     def send(self, endpoint, json_message, api_key=None):
         """
@@ -347,7 +348,13 @@ class Consumer(object):
         encoded_data = urllib.urlencode(data)
         try:
             request = urllib2.Request(request_url, encoded_data)
-            response = urllib2.urlopen(request).read()
+
+            # Note: We don't send timeout=None here, because the timeout in urllib2 defaults to
+            # an internal socket timeout, not None.
+            if self._request_timeout is not None:
+                response = urllib2.urlopen(request, timeout=self._request_timeout).read()
+            else:
+                response = urllib2.urlopen(request).read()
         except urllib2.HTTPError as e:
             raise MixpanelException(e)
 
@@ -372,8 +379,8 @@ class BufferedConsumer(object):
     when you're sure you're done sending them. calls to flush() will
     send all remaining unsent events being held by the BufferedConsumer.
     """
-    def __init__(self, max_size=50, events_url=None, people_url=None):
-        self._consumer = Consumer(events_url, people_url)
+    def __init__(self, max_size=50, events_url=None, people_url=None, request_timeout=None):
+        self._consumer = Consumer(events_url, people_url, request_timeout)
         self._buffers = {
             'events': [],
             'people': [],
