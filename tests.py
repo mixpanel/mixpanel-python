@@ -2,8 +2,10 @@
 import base64
 import contextlib
 import json
+import time
 import unittest
 import urlparse
+
 try:
     from mock import Mock, patch
 except ImportError:
@@ -16,8 +18,11 @@ class LogConsumer(object):
     def __init__(self):
         self.log = []
 
-    def send(self, endpoint, event):
-        self.log.append((endpoint, json.loads(event)))
+    def send(self, endpoint, event, api_key=None):
+        if api_key:
+            self.log.append((endpoint, json.loads(event), api_key))
+        else:
+            self.log.append((endpoint, json.loads(event)))
 
 class MixpanelTestCase(unittest.TestCase):
     def setUp(self):
@@ -40,6 +45,45 @@ class MixpanelTestCase(unittest.TestCase):
                     'mp_lib': 'python',
                     '$lib_version': mixpanel.VERSION,
                 }
+            }
+        )])
+
+    def test_import_data(self):
+        " Unit test for the `import_data` method. "
+        timestamp = time.time()
+        self.mp.import_data('MY_API_KEY', 'ID', 'button press', timestamp, {'size': 'big', 'color': 'blue'})
+        self.assertEqual(self.consumer.log, [(
+            'imports', {
+                'event': 'button press',
+                'properties': {
+                    'token': self.TOKEN,
+                    'size': 'big',
+                    'color': 'blue',
+                    'distinct_id': 'ID',
+                    'time': int(timestamp),
+                    'mp_lib': 'python',
+                    '$lib_version': mixpanel.VERSION,
+                },
+            },
+            'MY_API_KEY'
+        )])
+
+    def test_track_meta(self):
+        self.mp.track('ID', 'button press', {'size': 'big', 'color': 'blue'},
+            meta={'ip': 0})
+        self.assertEqual(self.consumer.log, [(
+            'events', {
+                'event': 'button press',
+                'properties': {
+                    'token': self.TOKEN,
+                    'size': 'big',
+                    'color': 'blue',
+                    'distinct_id': 'ID',
+                    'time': int(self.mp._now()),
+                    'mp_lib': 'python',
+                    '$lib_version': mixpanel.VERSION,
+                },
+                'ip': 0,
             }
         )])
 
@@ -138,26 +182,51 @@ class MixpanelTestCase(unittest.TestCase):
             }
         )])
 
-    def test_alias(self):
-        self.mp.alias('ALIAS','ORIGINAL ID')
+    def test_people_clear_charges(self):
+        self.mp.people_clear_charges('amq')
         self.assertEqual(self.consumer.log, [(
-            'events', {
-                'event': '$create_alias',
-                'properties': {
-                    'token': self.TOKEN,
-                    'distinct_id': 'ORIGINAL ID',
-                    'alias': 'ALIAS',
-                    'time': int(self.mp._now()),
-                    'mp_lib': 'python',
-                    '$lib_version': mixpanel.VERSION,
-                },
+            'people', {
+                '$time': int(self.mp._now() * 1000),
+                '$token': self.TOKEN,
+                '$distinct_id': 'amq',
+                '$unset': [ '$transactions' ],
             }
+        )])
 
+    def test_alias(self):
+        mock_response = Mock()
+        mock_response.read.return_value = '{"status":1, "error": null}'
+        with patch('urllib2.urlopen', return_value = mock_response) as urlopen:
+            self.mp.alias('ALIAS','ORIGINAL ID')
+            self.assertEqual(self.consumer.log, [])
+
+            self.assertEqual(urlopen.call_count, 1)
+            ((request,),_) = urlopen.call_args
+
+            self.assertEqual(request.get_full_url(), 'https://api.mixpanel.com/track')
+            self.assertEqual(request.get_data(), 'ip=0&data=eyJldmVudCI6IiRjcmVhdGVfYWxpYXMiLCJwcm9wZXJ0aWVzIjp7ImFsaWFzIjoiQUxJQVMiLCJ0b2tlbiI6IjEyMzQ1IiwiZGlzdGluY3RfaWQiOiJPUklHSU5BTCBJRCJ9fQ%3D%3D&verbose=1')
+
+
+    def test_people_meta(self):
+        self.mp.people_set('amq', {'birth month': 'october', 'favorite color': 'purple'},
+            meta={'$ip': 0, '$ignore_time': True})
+        self.assertEqual(self.consumer.log, [(
+            'people', {
+                '$time': int(self.mp._now() * 1000),
+                '$token': self.TOKEN,
+                '$distinct_id': 'amq',
+                '$set': {
+                    'birth month': 'october',
+                    'favorite color': 'purple',
+                },
+                '$ip': 0,
+                '$ignore_time': True,
+            }
         )])
 
 class ConsumerTestCase(unittest.TestCase):
     def setUp(self):
-        self.consumer = mixpanel.Consumer()
+        self.consumer = mixpanel.Consumer(request_timeout=30)
 
     @contextlib.contextmanager
     def _assertSends(self, expect_url, expect_data):
@@ -167,16 +236,21 @@ class ConsumerTestCase(unittest.TestCase):
             yield
 
             self.assertEqual(urlopen.call_count, 1)
-            ((request,),_) = urlopen.call_args
+
+            (call_args, kwargs) = urlopen.call_args
+            (request,) = call_args
+            timeout = kwargs.get('timeout', None)
+
             self.assertEqual(request.get_full_url(), expect_url)
             self.assertEqual(request.get_data(), expect_data)
+            self.assertEqual(timeout, self.consumer._request_timeout)
 
     def test_send_events(self):
-        with self._assertSends('https://api.mixpanel.com/track', 'data=IkV2ZW50Ig%3D%3D&verbose=1'):
+        with self._assertSends('https://api.mixpanel.com/track', 'ip=0&data=IkV2ZW50Ig%3D%3D&verbose=1'):
             self.consumer.send('events', '"Event"')
 
     def test_send_people(self):
-        with self._assertSends('https://api.mixpanel.com/engage','data=IlBlb3BsZSI%3D&verbose=1'):
+        with self._assertSends('https://api.mixpanel.com/engage','ip=0&data=IlBlb3BsZSI%3D&verbose=1'):
             self.consumer.send('people', '"People"')
 
 class BufferedConsumerTestCase(unittest.TestCase):
@@ -193,9 +267,14 @@ class BufferedConsumerTestCase(unittest.TestCase):
             self.consumer.flush()
 
             self.assertEqual(urlopen.call_count, 1)
-            ((request,),_) = urlopen.call_args
+
+            (call_args, kwargs) = urlopen.call_args
+            (request,) = call_args
+            timeout = kwargs.get('timeout', None)
+
             self.assertEqual(request.get_full_url(), 'https://api.mixpanel.com/track')
-            self.assertEqual(request.get_data(), 'data=WyJFdmVudCJd&verbose=1')
+            self.assertEqual(request.get_data(), 'ip=0&data=WyJFdmVudCJd&verbose=1')
+            self.assertIsNone(timeout)
 
     def test_buffer_fills_up(self):
         with patch('urllib2.urlopen', return_value = self.mock) as urlopen:
@@ -208,7 +287,7 @@ class BufferedConsumerTestCase(unittest.TestCase):
             self.assertEqual(urlopen.call_count, 1)
             ((request,),_) = urlopen.call_args
             self.assertEqual(request.get_full_url(), 'https://api.mixpanel.com/track')
-            self.assertEqual(request.get_data(), 'data=WyJFdmVudCIsIkV2ZW50IiwiRXZlbnQiLCJFdmVudCIsIkV2ZW50IiwiRXZlbnQiLCJFdmVudCIsIkV2ZW50IiwiRXZlbnQiLCJMYXN0IEV2ZW50Il0%3D&verbose=1')
+            self.assertEqual(request.get_data(), 'ip=0&data=WyJFdmVudCIsIkV2ZW50IiwiRXZlbnQiLCJFdmVudCIsIkV2ZW50IiwiRXZlbnQiLCJFdmVudCIsIkV2ZW50IiwiRXZlbnQiLCJMYXN0IEV2ZW50Il0%3D&verbose=1')
 
 class FunctionalTestCase(unittest.TestCase):
     def setUp(self):
