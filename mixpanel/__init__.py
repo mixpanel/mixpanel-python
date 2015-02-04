@@ -379,8 +379,8 @@ class BufferedConsumer(object):
     when you're sure you're done sending them. calls to flush() will
     send all remaining unsent events being held by the BufferedConsumer.
     """
-    def __init__(self, max_size=50, events_url=None, people_url=None, request_timeout=None):
-        self._consumer = Consumer(events_url, people_url, request_timeout)
+    def __init__(self, max_size=50, events_url=None, people_url=None, import_url=None, request_timeout=None):
+        self._consumer = Consumer(events_url, people_url, import_url, request_timeout)
         self._buffers = {
             'events': [],
             'people': [],
