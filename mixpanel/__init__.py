@@ -15,7 +15,7 @@ The Consumer and BufferedConsumer classes allow callers to
 customize the IO characteristics of their tracking.
 """
 
-VERSION = '3.2.0'
+VERSION = '4.0.1'
 
 
 class Mixpanel(object):
@@ -384,11 +384,11 @@ class BufferedConsumer(object):
         self._buffers = {
             'events': [],
             'people': [],
-            'imports': [],
+            'imports': {},
         }
         self._max_size = min(50, max_size)
 
-    def send(self, endpoint, json_message):
+    def send(self, endpoint, json_message, api_key=None):
         """
         Record an event or a profile update. Calls to send() will store
         the given message in memory, and (when enough messages have been stored)
@@ -407,10 +407,18 @@ class BufferedConsumer(object):
         if endpoint not in self._buffers:
             raise MixpanelException('No such endpoint "{0}". Valid endpoints are one of {1}'.format(self._buffers.keys()))
 
-        buf = self._buffers[endpoint]
+        if endpoint != 'imports':
+            buf = self._buffers[endpoint]
+        elif endpoint == 'imports':
+            if not api_key:
+                raise MixpanelException('An api_key must be provided with events to be imported')
+            else:
+                if api_key not in self._buffers[endpoint]:
+                    self._buffers[endpoint][api_key] = []
+                buf = self._buffers[endpoint][api_key]
         buf.append(json_message)
         if len(buf) >= self._max_size:
-            self._flush_endpoint(endpoint)
+            self._flush_endpoint(endpoint, api_key)
 
     def flush(self):
         """
@@ -429,17 +437,26 @@ class BufferedConsumer(object):
         :raises: MixpanelException
         """
         for endpoint in self._buffers.keys():
-            self._flush_endpoint(endpoint)
+            if endpoint == 'imports':
+                [self._flush_endpoint(endpoint, api_key) for api_key in self._buffers['imports'].keys()]
+            else:
+                self._flush_endpoint(endpoint)
 
-    def _flush_endpoint(self, endpoint):
-        buf = self._buffers[endpoint]
+    def _flush_endpoint(self, endpoint, api_key=None):
+        if not api_key:
+            buf = self._buffers[endpoint]
+        else:
+            buf = self._buffers[endpoint][api_key]
         while buf:
             batch = buf[:self._max_size]
             batch_json = '[{0}]'.format(','.join(batch))
             try:
-                self._consumer.send(endpoint, batch_json)
+                self._consumer.send(endpoint, batch_json, api_key)
             except MixpanelException as e:
                 e.message = 'batch_json'
                 e.endpoint = endpoint
             buf = buf[self._max_size:]
-        self._buffers[endpoint] = buf
+        if not api_key:
+            self._buffers[endpoint] = buf
+        else:
+            self._buffers[endpoint][api_key] = buf
