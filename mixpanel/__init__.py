@@ -409,7 +409,7 @@ class BufferedConsumer(object):
 
         if endpoint != 'imports':
             buf = self._buffers[endpoint]
-        elif endpoint == 'imports':
+        else:
             if not api_key:
                 raise MixpanelException('An api_key must be provided with events to be imported')
             else:
@@ -418,7 +418,7 @@ class BufferedConsumer(object):
                 buf = self._buffers[endpoint][api_key]
         buf.append(json_message)
         if len(buf) >= self._max_size:
-            self._flush_endpoint(endpoint, api_key)
+            self._flush(endpoint, buf, api_key)
 
     def flush(self):
         """
@@ -438,15 +438,11 @@ class BufferedConsumer(object):
         """
         for endpoint in self._buffers.keys():
             if endpoint == 'imports':
-                [self._flush_endpoint(endpoint, api_key) for api_key in self._buffers['imports'].keys()]
+                [self._flush(endpoint, self._buffers['imports'][api_key], api_key) for api_key in self._buffers['imports'].keys()]
             else:
-                self._flush_endpoint(endpoint)
+                self._flush_endpoint(endpoint, self._buffers[endpoint])
 
-    def _flush_endpoint(self, endpoint, api_key=None):
-        if not api_key:
-            buf = self._buffers[endpoint]
-        else:
-            buf = self._buffers[endpoint][api_key]
+    def _flush(self, endpoint, buf, api_key=None):
         while buf:
             batch = buf[:self._max_size]
             batch_json = '[{0}]'.format(','.join(batch))
