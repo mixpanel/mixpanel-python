@@ -438,9 +438,10 @@ class BufferedConsumer(object):
         """
         for endpoint in self._buffers.keys():
             if endpoint == 'imports':
-                [self._flush(endpoint, self._buffers['imports'][api_key], api_key) for api_key in self._buffers['imports'].keys()]
+                for api_key in self._buffers['imports'].keys():
+                    self._flush(endpoint, self._buffers['imports'][api_key], api_key)
             else:
-                self._flush_endpoint(endpoint, self._buffers[endpoint])
+                self._flush(endpoint, self._buffers[endpoint])
 
     def _flush(self, endpoint, buf, api_key=None):
         while buf:
