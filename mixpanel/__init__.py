@@ -1,9 +1,3 @@
-import base64
-import json
-import time
-import urllib
-import urllib2
-
 """
 The mixpanel package allows you to easily track events and
 update people properties from your python application.
@@ -14,6 +8,11 @@ sending people analytics updates.
 The Consumer and BufferedConsumer classes allow callers to
 customize the IO characteristics of their tracking.
 """
+import base64
+import json
+import time
+import urllib
+import urllib2
 
 VERSION = '3.2.0'
 
