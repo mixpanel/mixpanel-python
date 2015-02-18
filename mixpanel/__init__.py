@@ -44,7 +44,7 @@ class Mixpanel(object):
         Notes that an event has occurred, along with a distinct_id
         representing the source of that event (for example, a user id),
         an event name describing the event and a set of properties
-        describing that event. Properties are provided as a Hash with
+        describing that event. Properties are provided as a dict with
         string keys and strings, numbers or booleans as values.
 
           # Track that user "12345"'s credit card was declined
@@ -53,8 +53,8 @@ class Mixpanel(object):
           # Properties describe the circumstances of the event,
           # or aspects of the source or user associated with the event
           mp.track("12345", "Welcome Email Sent", {
-              'Email Template' => 'Pretty Pink Welcome',
-              'User Sign-up Cohort' => 'July 2013'
+              'Email Template': 'Pretty Pink Welcome',
+              'User Sign-up Cohort': 'July 2013'
           })
         """
         all_properties = {
