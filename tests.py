@@ -5,6 +5,7 @@ import json
 import time
 import unittest
 import urlparse
+
 try:
     from mock import Mock, patch
 except ImportError:
@@ -225,7 +226,7 @@ class MixpanelTestCase(unittest.TestCase):
 
 class ConsumerTestCase(unittest.TestCase):
     def setUp(self):
-        self.consumer = mixpanel.Consumer()
+        self.consumer = mixpanel.Consumer(request_timeout=30)
 
     @contextlib.contextmanager
     def _assertSends(self, expect_url, expect_data):
@@ -235,9 +236,14 @@ class ConsumerTestCase(unittest.TestCase):
             yield
 
             self.assertEqual(urlopen.call_count, 1)
-            ((request,),_) = urlopen.call_args
+
+            (call_args, kwargs) = urlopen.call_args
+            (request,) = call_args
+            timeout = kwargs.get('timeout', None)
+
             self.assertEqual(request.get_full_url(), expect_url)
             self.assertEqual(request.get_data(), expect_data)
+            self.assertEqual(timeout, self.consumer._request_timeout)
 
     def test_send_events(self):
         with self._assertSends('https://api.mixpanel.com/track', 'ip=0&data=IkV2ZW50Ig%3D%3D&verbose=1'):
@@ -261,9 +267,14 @@ class BufferedConsumerTestCase(unittest.TestCase):
             self.consumer.flush()
 
             self.assertEqual(urlopen.call_count, 1)
-            ((request,),_) = urlopen.call_args
+
+            (call_args, kwargs) = urlopen.call_args
+            (request,) = call_args
+            timeout = kwargs.get('timeout', None)
+
             self.assertEqual(request.get_full_url(), 'https://api.mixpanel.com/track')
             self.assertEqual(request.get_data(), 'ip=0&data=WyJFdmVudCJd&verbose=1')
+            self.assertIsNone(timeout)
 
     def test_buffer_fills_up(self):
         with patch('urllib2.urlopen', return_value = self.mock) as urlopen:
