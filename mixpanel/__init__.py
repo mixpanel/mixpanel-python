@@ -1,9 +1,3 @@
-import base64
-import json
-import time
-import urllib
-import urllib2
-
 """
 The mixpanel package allows you to easily track events and
 update people properties from your python application.
@@ -14,8 +8,13 @@ sending people analytics updates.
 The Consumer and BufferedConsumer classes allow callers to
 customize the IO characteristics of their tracking.
 """
+import base64
+import json
+import time
+import urllib
+import urllib2
 
-VERSION = '3.2.0'
+VERSION = '3.2.1'
 
 
 class Mixpanel(object):
@@ -40,12 +39,12 @@ class Mixpanel(object):
     def _now(self):
         return time.time()
 
-    def track(self, distinct_id, event_name, properties={}, meta={}):
+    def track(self, distinct_id, event_name, properties=None, meta=None):
         """
         Notes that an event has occurred, along with a distinct_id
         representing the source of that event (for example, a user id),
         an event name describing the event and a set of properties
-        describing that event. Properties are provided as a Hash with
+        describing that event. Properties are provided as a dict with
         string keys and strings, numbers or booleans as values.
 
           # Track that user "12345"'s credit card was declined
@@ -54,8 +53,8 @@ class Mixpanel(object):
           # Properties describe the circumstances of the event,
           # or aspects of the source or user associated with the event
           mp.track("12345", "Welcome Email Sent", {
-              'Email Template' => 'Pretty Pink Welcome',
-              'User Sign-up Cohort' => 'July 2013'
+              'Email Template': 'Pretty Pink Welcome',
+              'User Sign-up Cohort': 'July 2013'
           })
         """
         all_properties = {
@@ -65,15 +64,18 @@ class Mixpanel(object):
             'mp_lib': 'python',
             '$lib_version': VERSION,
         }
-        all_properties.update(properties)
+        if properties:
+            all_properties.update(properties)
         event = {
             'event': event_name,
             'properties': all_properties,
         }
-        event.update(meta)
+        if meta:
+            event.update(meta)
         self._consumer.send('events', json.dumps(event, separators=(',', ':')))
 
-    def import_data(self, api_key, distinct_id, event_name, timestamp, properties={}, meta={}):
+    def import_data(self, api_key, distinct_id, event_name, timestamp,
+                    properties=None, meta=None):
         """
         Allows data older than 5 days old to be sent to MixPanel.
 
@@ -105,15 +107,19 @@ class Mixpanel(object):
             'mp_lib': 'python',
             '$lib_version': VERSION,
         }
-        all_properties.update(properties)
+        if properties:
+            all_properties.update(properties)
         event = {
             'event': event_name,
             'properties': all_properties,
         }
-        event.update(meta)
-        self._consumer.send('imports', json.dumps(event, separators=(',', ':')), api_key)
+        if meta:
+            event.update(meta)
+        self._consumer.send(
+            'imports', json.dumps(event, separators=(',', ':')), api_key,
+        )
 
-    def alias(self, alias_id, original, meta={}):
+    def alias(self, alias_id, original, meta=None):
         """
         Gives custom alias to a people record.
 
@@ -137,10 +143,11 @@ class Mixpanel(object):
                 'token': self._token,
             },
         }
-        event.update(meta)
+        if meta:
+            event.update(meta)
         sync_consumer.send('events', json.dumps(event, separators=(',', ':')))
 
-    def people_set(self, distinct_id, properties, meta={}):
+    def people_set(self, distinct_id, properties, meta=None):
         """
         Set properties of a people record.
 
@@ -153,9 +160,9 @@ class Mixpanel(object):
         return self.people_update({
             '$distinct_id': distinct_id,
             '$set': properties,
-        }, meta=meta)
+        }, meta=meta or {})
 
-    def people_set_once(self, distinct_id, properties, meta={}):
+    def people_set_once(self, distinct_id, properties, meta=None):
         """
         Set immutable properties of a people record.
 
@@ -168,9 +175,9 @@ class Mixpanel(object):
         return self.people_update({
             '$distinct_id': distinct_id,
             '$set_once': properties,
-        }, meta=meta)
+        }, meta=meta or {})
 
-    def people_increment(self, distinct_id, properties, meta={}):
+    def people_increment(self, distinct_id, properties, meta=None):
         """
         Increments/decrements numerical properties of people record.
 
@@ -183,9 +190,9 @@ class Mixpanel(object):
         return self.people_update({
             '$distinct_id': distinct_id,
             '$add': properties,
-        }, meta=meta)
+        }, meta=meta or {})
 
-    def people_append(self, distinct_id, properties, meta={}):
+    def people_append(self, distinct_id, properties, meta=None):
         """
         Appends to the list associated with a property.
 
@@ -199,9 +206,9 @@ class Mixpanel(object):
         return self.people_update({
             '$distinct_id': distinct_id,
             '$append': properties,
-        }, meta=meta)
+        }, meta=meta or {})
 
-    def people_union(self, distinct_id, properties, meta={}):
+    def people_union(self, distinct_id, properties, meta=None):
         """
         Merges the values for a list associated with a property.
 
@@ -209,14 +216,14 @@ class Mixpanel(object):
         the request are merged with the existing list on the user profile,
         ignoring duplicate list values.
         Example:
-            mp.people_union('12345', { "Items purchased": ["socks", "shirts"] } )
+            mp.people_union('12345', {"Items purchased": ["socks", "shirts"]})
         """
         return self.people_update({
             '$distinct_id': distinct_id,
             '$union': properties,
-        }, meta=meta)
+        }, meta=meta or {})
 
-    def people_unset(self, distinct_id, properties, meta={}):
+    def people_unset(self, distinct_id, properties, meta=None):
         """
         Removes properties from a profile.
 
@@ -230,7 +237,7 @@ class Mixpanel(object):
             '$unset': properties,
         }, meta=meta)
 
-    def people_delete(self, distinct_id, meta={}):
+    def people_delete(self, distinct_id, meta=None):
         """
         Permanently deletes a profile.
 
@@ -242,9 +249,10 @@ class Mixpanel(object):
         return self.people_update({
             '$distinct_id': distinct_id,
             '$delete': "",
-        }, meta=meta)
+        }, meta=meta or None)
 
-    def people_track_charge(self, distinct_id, amount, properties={}, meta={}):
+    def people_track_charge(self, distinct_id, amount,
+                            properties=None, meta=None):
         """
         Tracks a charge to a user.
 
@@ -259,9 +267,11 @@ class Mixpanel(object):
             mp.people_track_charge('1234', 50, {'$time': "2013-04-01T09:02:00"})
         """
         properties.update({'$amount': amount})
-        return self.people_append(distinct_id, {'$transactions': properties}, meta=meta)
+        return self.people_append(
+            distinct_id, {'$transactions': properties or {}}, meta=meta or {}
+        )
 
-    def people_clear_charges(self, distinct_id, meta={}):
+    def people_clear_charges(self, distinct_id, meta=None):
         """
         Clears all charges from a user.
 
@@ -270,9 +280,11 @@ class Mixpanel(object):
             #clear all charges from user '1234'
             mp.people_clear_charges('1234')
         """
-        return self.people_unset(distinct_id, ["$transactions"], meta=meta)
+        return self.people_unset(
+            distinct_id, ["$transactions"], meta=meta or {},
+        )
 
-    def people_update(self, message, meta={}):
+    def people_update(self, message, meta=None):
         """
         Send a generic update to Mixpanel people analytics.
 
@@ -289,8 +301,11 @@ class Mixpanel(object):
             '$time': int(self._now() * 1000),
         }
         record.update(message)
-        record.update(meta)
-        self._consumer.send('people', json.dumps(record, separators=(',', ':')))
+        if meta:
+            record.update(meta)
+        self._consumer.send(
+            'people', json.dumps(record, separators=(',', ':')),
+        )
 
 
 class MixpanelException(Exception):
