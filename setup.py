@@ -11,7 +11,7 @@ setup(
     packages=['mixpanel'],
     url='https://github.com/mixpanel/mixpanel-python',
     description='Official Mixpanel library for Python',
-    long_description=open('README.txt').read(),
+    long_description=open('README.md').read(),
     classifiers=[
         'License :: OSI Approved :: Apache Software License',
         'Operating System :: OS Independent',
