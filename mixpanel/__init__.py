@@ -15,7 +15,7 @@ import time
 import urllib
 import urllib2
 
-VERSION = '3.2.0'
+VERSION = '4.0.1'
 
 
 class DatetimeSerializer(json.JSONEncoder):
