@@ -1,4 +1,3 @@
-
 import multiprocessing
 import random
 
@@ -41,10 +40,10 @@ def do_tracking(project_token, distinct_id, queue):
     mp = Mixpanel(project_token, consumer)
     for i in xrange(100):
         event = 'Tick'
-        mp.track(distinct_id, 'Tick', { 'Tick Number': i })
+        mp.track(distinct_id, event, {'Tick Number': i})
         print 'tick {0}'.format(i)
 
-    queue.put(None) # tell worker we're out of jobs
+    queue.put(None)  # tell worker we're out of jobs
 
 def do_sending(queue):
     '''
