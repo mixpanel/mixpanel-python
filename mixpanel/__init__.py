@@ -92,7 +92,7 @@ class Mixpanel(object):
     def import_data(self, api_key, distinct_id, event_name, timestamp,
                     properties=None, meta=None):
         """
-        Allows data older than 5 days old to be sent to MixPanel.
+        Allows data older than 5 days old to be sent to Mixpanel.
 
         API Notes:
         https://mixpanel.com/docs/api-documentation/importing-events-older-than-31-days
@@ -101,7 +101,7 @@ class Mixpanel(object):
         import datetime
         from your_app.conf import YOUR_MIXPANEL_TOKEN, YOUR_MIXPANEL_API_KEY
 
-        mp = MixPanel(YOUR_TOKEN)
+        mp = Mixpanel(YOUR_TOKEN)
 
         # Django queryset to get an old event
         old_event = SomeEvent.objects.get(create_date__lt=datetime.datetime.now() - datetime.timedelta.days(6))
