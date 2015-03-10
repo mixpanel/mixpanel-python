@@ -9,12 +9,27 @@ The Consumer and BufferedConsumer classes allow callers to
 customize the IO characteristics of their tracking.
 """
 import base64
+import datetime
 import json
 import time
 import urllib
 import urllib2
 
 VERSION = '3.2.0'
+
+
+class DatetimeSerializer(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, datetime.datetime):
+            fmt = '%Y-%m-%dT%H:%M:%S'
+            return obj.strftime(fmt)
+
+        return json.JSONEncoder.default(self, obj)
+
+
+def json_dumps(data):
+    # Separators are specified to eliminate whitespace.
+    return json.dumps(data, separators=(',', ':'), cls=DatetimeSerializer)
 
 
 class Mixpanel(object):
@@ -72,7 +87,7 @@ class Mixpanel(object):
         }
         if meta:
             event.update(meta)
-        self._consumer.send('events', json.dumps(event, separators=(',', ':')))
+        self._consumer.send('events', json_dumps(event))
 
     def import_data(self, api_key, distinct_id, event_name, timestamp,
                     properties=None, meta=None):
@@ -115,7 +130,7 @@ class Mixpanel(object):
         }
         if meta:
             event.update(meta)
-        self._consumer.send('imports', json.dumps(event, separators=(',', ':')), api_key)
+        self._consumer.send('imports', json_dumps(event), api_key)
 
     def alias(self, alias_id, original, meta=None):
         """
@@ -143,7 +158,7 @@ class Mixpanel(object):
         }
         if meta:
             event.update(meta)
-        sync_consumer.send('events', json.dumps(event, separators=(',', ':')))
+        sync_consumer.send('events', json_dumps(event))
 
     def people_set(self, distinct_id, properties, meta=None):
         """
@@ -301,7 +316,7 @@ class Mixpanel(object):
         record.update(message)
         if meta:
             record.update(meta)
-        self._consumer.send('people', json.dumps(record, separators=(',', ':')))
+        self._consumer.send('people', json_dumps(record))
 
 
 class MixpanelException(Exception):

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import base64
 import contextlib
+import datetime
 import json
 import time
 import unittest
@@ -190,6 +191,36 @@ class MixpanelTestCase(unittest.TestCase):
                 '$token': self.TOKEN,
                 '$distinct_id': 'amq',
                 '$unset': ['$transactions'],
+            }
+        )])
+
+    def test_people_set_created_date_string(self):
+        created = '2014-02-14T01:02:03'
+        self.mp.people_set('amq', {'$created': created, 'favorite color': 'purple'})
+        self.assertEqual(self.consumer.log, [(
+            'people', {
+                '$time': int(self.mp._now() * 1000),
+                '$token': self.TOKEN,
+                '$distinct_id': 'amq',
+                '$set': {
+                    '$created': created,
+                    'favorite color': 'purple',
+                },
+            }
+        )])
+
+    def test_people_set_created_date_datetime(self):
+        created = datetime.datetime(2014, 2, 14, 1, 2, 3)
+        self.mp.people_set('amq', {'$created': created, 'favorite color': 'purple'})
+        self.assertEqual(self.consumer.log, [(
+            'people', {
+                '$time': int(self.mp._now() * 1000),
+                '$token': self.TOKEN,
+                '$distinct_id': 'amq',
+                '$set': {
+                    '$created': '2014-02-14T01:02:03',
+                    'favorite color': 'purple',
+                },
             }
         )])
 
