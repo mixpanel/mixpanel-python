@@ -1,3 +1,6 @@
+v4.0.2
+* Fix packaging.
+
 v4.0.1
 * Fix mutable default arguments.
 * Allow serialization of datetime instances.
