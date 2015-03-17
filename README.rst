@@ -43,8 +43,8 @@ Additional Information
   additional features, maintained by Fredrik Svensson.
 
 
-.. |travis-badge| image:: https://travis-ci.org/mixpanel/mixpanel-ruby.svg?branch=master
-    :target: https://travis-ci.org/mixpanel/mixpanel-ruby
+.. |travis-badge| image:: https://travis-ci.org/mixpanel/mixpanel-python.svg?branch=master
+    :target: https://travis-ci.org/mixpanel/mixpanel-python
 .. _Help Docs: https://www.mixpanel.com/help/reference/python
 .. _Full Documentation: http://mixpanel.github.io/mixpanel-python/
 .. _mixpanel-python-async: https://github.com/jessepollak/mixpanel-python-async
