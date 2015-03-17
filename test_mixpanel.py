@@ -1,4 +1,5 @@
 import base64
+import cgi
 import contextlib
 import datetime
 import json
@@ -20,6 +21,16 @@ class LogConsumer(object):
             self.log.append((endpoint, json.loads(event), api_key))
         else:
             self.log.append((endpoint, json.loads(event)))
+
+
+# Convert a query string with base64 data into a dict for safe comparison.
+def qs(s):
+    blob = cgi.parse_qs(s)
+    if 'data' in blob:
+        if len(blob['data']) != 1:
+            pytest.fail('found multi-item data: %s' % blob['data'])
+        blob['data'] = json.loads(base64.b64decode(blob['data'][0]))
+    return blob
 
 
 class TestMixpanel:
@@ -48,7 +59,6 @@ class TestMixpanel:
         )]
 
     def test_import_data(self):
-        " Unit test for the `import_data` method. "
         timestamp = time.time()
         self.mp.import_data('MY_API_KEY', 'ID', 'button press', timestamp, {'size': 'big', 'color': 'blue'})
         assert self.consumer.log == [(
@@ -232,7 +242,8 @@ class TestMixpanel:
             ((request,), _) = urlopen.call_args
 
             assert request.get_full_url() == 'https://api.mixpanel.com/track'
-            assert request.get_data() == 'ip=0&data=eyJldmVudCI6IiRjcmVhdGVfYWxpYXMiLCJwcm9wZXJ0aWVzIjp7ImFsaWFzIjoiQUxJQVMiLCJ0b2tlbiI6IjEyMzQ1IiwiZGlzdGluY3RfaWQiOiJPUklHSU5BTCBJRCJ9fQ%3D%3D&verbose=1'
+            assert qs(request.get_data()) == \
+                qs('ip=0&data=eyJldmVudCI6IiRjcmVhdGVfYWxpYXMiLCJwcm9wZXJ0aWVzIjp7ImFsaWFzIjoiQUxJQVMiLCJ0b2tlbiI6IjEyMzQ1IiwiZGlzdGluY3RfaWQiOiJPUklHSU5BTCBJRCJ9fQ%3D%3D&verbose=1')
 
     def test_people_meta(self):
         self.mp.people_set('amq', {'birth month': 'october', 'favorite color': 'purple'},
@@ -272,7 +283,7 @@ class TestConsumer:
             timeout = kwargs.get('timeout', None)
 
             assert request.get_full_url() == expect_url
-            assert request.get_data() == expect_data
+            assert qs(request.get_data()) == qs(expect_data)
             assert timeout == self.consumer._request_timeout
 
     def test_send_events(self):
@@ -306,7 +317,7 @@ class TestBufferedConsumer:
             timeout = kwargs.get('timeout', None)
 
             assert request.get_full_url() == 'https://api.mixpanel.com/track'
-            assert request.get_data() == 'ip=0&data=WyJFdmVudCJd&verbose=1'
+            assert qs(request.get_data()) == qs('ip=0&data=WyJFdmVudCJd&verbose=1')
             assert timeout is None
 
     def test_buffer_fills_up(self):
@@ -320,7 +331,8 @@ class TestBufferedConsumer:
             assert urlopen.call_count == 1
             ((request,), _) = urlopen.call_args
             assert request.get_full_url() == 'https://api.mixpanel.com/track'
-            assert request.get_data() == 'ip=0&data=WyJFdmVudCIsIkV2ZW50IiwiRXZlbnQiLCJFdmVudCIsIkV2ZW50IiwiRXZlbnQiLCJFdmVudCIsIkV2ZW50IiwiRXZlbnQiLCJMYXN0IEV2ZW50Il0%3D&verbose=1'
+            assert qs(request.get_data()) == \
+                qs('ip=0&data=WyJFdmVudCIsIkV2ZW50IiwiRXZlbnQiLCJFdmVudCIsIkV2ZW50IiwiRXZlbnQiLCJFdmVudCIsIkV2ZW50IiwiRXZlbnQiLCJMYXN0IEV2ZW50Il0%3D&verbose=1')
 
 
 class TestFunctional:
