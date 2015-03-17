@@ -53,7 +53,7 @@ class TestMixpanel:
                     'distinct_id': 'ID',
                     'time': int(self.mp._now()),
                     'mp_lib': 'python',
-                    '$lib_version': mixpanel.VERSION,
+                    '$lib_version': mixpanel.__version__,
                 }
             }
         )]
@@ -71,7 +71,7 @@ class TestMixpanel:
                     'distinct_id': 'ID',
                     'time': int(timestamp),
                     'mp_lib': 'python',
-                    '$lib_version': mixpanel.VERSION,
+                    '$lib_version': mixpanel.__version__,
                 },
             },
             'MY_API_KEY'
@@ -90,7 +90,7 @@ class TestMixpanel:
                     'distinct_id': 'ID',
                     'time': int(self.mp._now()),
                     'mp_lib': 'python',
-                    '$lib_version': mixpanel.VERSION,
+                    '$lib_version': mixpanel.__version__,
                 },
                 'ip': 0,
             }
@@ -363,7 +363,7 @@ class TestFunctional:
     def test_track_functional(self):
         # XXX this includes $lib_version, which means the test breaks
         # every time we release.
-        expect_data = {u'event': {u'color': u'blue', u'size': u'big'}, u'properties': {u'mp_lib': u'python', u'token': u'12345', u'distinct_id': u'button press', u'$lib_version': unicode(mixpanel.VERSION), u'time': 1000}}
+        expect_data = {u'event': {u'color': u'blue', u'size': u'big'}, u'properties': {u'mp_lib': u'python', u'token': u'12345', u'distinct_id': u'button press', u'$lib_version': unicode(mixpanel.__version__), u'time': 1000}}
         with self._assertRequested('https://api.mixpanel.com/track', expect_data):
             self.mp.track('button press', {'size': 'big', 'color': 'blue'})
 
