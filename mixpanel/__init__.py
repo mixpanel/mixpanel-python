@@ -15,7 +15,8 @@ import time
 import urllib
 import urllib2
 
-VERSION = '4.0.2'
+__version__ = '4.0.2'
+VERSION = __version__  # TODO: remove when bumping major version.
 
 
 class DatetimeSerializer(json.JSONEncoder):
@@ -77,7 +78,7 @@ class Mixpanel(object):
             'distinct_id': distinct_id,
             'time': int(self._now()),
             'mp_lib': 'python',
-            '$lib_version': VERSION,
+            '$lib_version': __version__,
         }
         if properties:
             all_properties.update(properties)
@@ -120,7 +121,7 @@ class Mixpanel(object):
             'distinct_id': distinct_id,
             'time': int(timestamp),
             'mp_lib': 'python',
-            '$lib_version': VERSION,
+            '$lib_version': __version__,
         }
         if properties:
             all_properties.update(properties)
