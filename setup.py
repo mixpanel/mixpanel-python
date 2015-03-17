@@ -19,7 +19,7 @@ setup(
     name='mixpanel-py',
     version=find_version('mixpanel', '__init__.py'),
     description='Official Mixpanel library for Python',
-    long_description=read('README.md'),
+    long_description=read('README.rst'),
     url='https://github.com/mixpanel/mixpanel-python',
     author='Mixpanel, Inc.',
     author_email='dev@mixpanel.com',
