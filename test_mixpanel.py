@@ -7,6 +7,7 @@ import time
 import urlparse
 
 from mock import Mock, patch
+import pytest
 
 import mixpanel
 
