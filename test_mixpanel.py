@@ -362,8 +362,6 @@ class TestFunctional:
             assert payload == expect_data
 
     def test_track_functional(self):
-        # XXX this includes $lib_version, which means the test breaks
-        # every time we release.
         expect_data = {u'event': {u'color': u'blue', u'size': u'big'}, u'properties': {u'mp_lib': u'python', u'token': u'12345', u'distinct_id': u'button press', u'$lib_version': unicode(mixpanel.__version__), u'time': 1000}}
         with self._assertRequested('https://api.mixpanel.com/track', expect_data):
             self.mp.track('button press', {'size': 'big', 'color': 'blue'})
