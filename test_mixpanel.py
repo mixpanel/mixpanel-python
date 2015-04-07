@@ -1,13 +1,15 @@
+from __future__ import absolute_import, unicode_literals
 import base64
 import cgi
 import contextlib
 import datetime
 import json
 import time
-import urlparse
 
 from mock import Mock, patch
 import pytest
+import six
+from six.moves import range, urllib
 
 import mixpanel
 
@@ -26,11 +28,13 @@ class LogConsumer(object):
 
 # Convert a query string with base64 data into a dict for safe comparison.
 def qs(s):
+    if isinstance(s, six.binary_type):
+        s = s.decode('utf8')
     blob = cgi.parse_qs(s)
-    if 'data' in blob:
-        if len(blob['data']) != 1:
-            pytest.fail('found multi-item data: %s' % blob['data'])
-        blob['data'] = json.loads(base64.b64decode(blob['data'][0]))
+    if len(blob['data']) != 1:
+        pytest.fail('found multi-item data: %s' % blob['data'])
+    json_bytes = base64.b64decode(blob['data'][0])
+    blob['data'] = json.loads(json_bytes.decode('utf8'))
     return blob
 
 
@@ -235,15 +239,15 @@ class TestMixpanel:
 
     def test_alias(self):
         mock_response = Mock()
-        mock_response.read.return_value = '{"status":1, "error": null}'
-        with patch('urllib2.urlopen', return_value=mock_response) as urlopen:
+        mock_response.read.return_value = six.b('{"status":1, "error": null}')
+        with patch('six.moves.urllib.request.urlopen', return_value=mock_response) as urlopen:
             self.mp.alias('ALIAS', 'ORIGINAL ID')
             assert self.consumer.log == []
             assert urlopen.call_count == 1
             ((request,), _) = urlopen.call_args
 
             assert request.get_full_url() == 'https://api.mixpanel.com/track'
-            assert qs(request.get_data()) == \
+            assert qs(request.data) == \
                 qs('ip=0&data=eyJldmVudCI6IiRjcmVhdGVfYWxpYXMiLCJwcm9wZXJ0aWVzIjp7ImFsaWFzIjoiQUxJQVMiLCJ0b2tlbiI6IjEyMzQ1IiwiZGlzdGluY3RfaWQiOiJPUklHSU5BTCBJRCJ9fQ%3D%3D&verbose=1')
 
     def test_people_meta(self):
@@ -273,8 +277,8 @@ class TestConsumer:
     @contextlib.contextmanager
     def _assertSends(self, expect_url, expect_data):
         mock_response = Mock()
-        mock_response.read.return_value = '{"status":1, "error": null}'
-        with patch('urllib2.urlopen', return_value=mock_response) as urlopen:
+        mock_response.read.return_value = six.b('{"status":1, "error": null}')
+        with patch('six.moves.urllib.request.urlopen', return_value=mock_response) as urlopen:
             yield
 
             assert urlopen.call_count == 1
@@ -284,7 +288,7 @@ class TestConsumer:
             timeout = kwargs.get('timeout', None)
 
             assert request.get_full_url() == expect_url
-            assert qs(request.get_data()) == qs(expect_data)
+            assert qs(request.data) == qs(expect_data)
             assert timeout == self.consumer._request_timeout
 
     def test_send_events(self):
@@ -303,10 +307,10 @@ class TestBufferedConsumer:
         cls.MAX_LENGTH = 10
         cls.consumer = mixpanel.BufferedConsumer(cls.MAX_LENGTH)
         cls.mock = Mock()
-        cls.mock.read.return_value = '{"status":1, "error": null}'
+        cls.mock.read.return_value = six.b('{"status":1, "error": null}')
 
     def test_buffer_hold_and_flush(self):
-        with patch('urllib2.urlopen', return_value=self.mock) as urlopen:
+        with patch('six.moves.urllib.request.urlopen', return_value=self.mock) as urlopen:
             self.consumer.send('events', '"Event"')
             assert not self.mock.called
             self.consumer.flush()
@@ -318,12 +322,12 @@ class TestBufferedConsumer:
             timeout = kwargs.get('timeout', None)
 
             assert request.get_full_url() == 'https://api.mixpanel.com/track'
-            assert qs(request.get_data()) == qs('ip=0&data=WyJFdmVudCJd&verbose=1')
+            assert qs(request.data) == qs('ip=0&data=WyJFdmVudCJd&verbose=1')
             assert timeout is None
 
     def test_buffer_fills_up(self):
-        with patch('urllib2.urlopen', return_value=self.mock) as urlopen:
-            for i in xrange(self.MAX_LENGTH - 1):
+        with patch('six.moves.urllib.request.urlopen', return_value=self.mock) as urlopen:
+            for i in range(self.MAX_LENGTH - 1):
                 self.consumer.send('events', '"Event"')
                 assert not self.mock.called
 
@@ -332,7 +336,7 @@ class TestBufferedConsumer:
             assert urlopen.call_count == 1
             ((request,), _) = urlopen.call_args
             assert request.get_full_url() == 'https://api.mixpanel.com/track'
-            assert qs(request.get_data()) == \
+            assert qs(request.data) == \
                 qs('ip=0&data=WyJFdmVudCIsIkV2ZW50IiwiRXZlbnQiLCJFdmVudCIsIkV2ZW50IiwiRXZlbnQiLCJFdmVudCIsIkV2ZW50IiwiRXZlbnQiLCJMYXN0IEV2ZW50Il0%3D&verbose=1')
 
 
@@ -347,26 +351,26 @@ class TestFunctional:
     @contextlib.contextmanager
     def _assertRequested(self, expect_url, expect_data):
         mock_response = Mock()
-        mock_response.read.return_value = '{"status":1, "error": null}'
-        with patch('urllib2.urlopen', return_value=mock_response) as urlopen:
+        mock_response.read.return_value = six.b('{"status":1, "error": null}')
+        with patch('six.moves.urllib.request.urlopen', return_value=mock_response) as urlopen:
             yield
 
             assert urlopen.call_count == 1
             ((request,), _) = urlopen.call_args
             assert request.get_full_url() == expect_url
-            data = urlparse.parse_qs(request.get_data())
+            data = urllib.parse.parse_qs(request.data.decode('utf8'))
             assert len(data['data']) == 1
             payload_encoded = data['data'][0]
-            payload_json = base64.b64decode(payload_encoded)
+            payload_json = base64.b64decode(payload_encoded).decode('utf8')
             payload = json.loads(payload_json)
             assert payload == expect_data
 
     def test_track_functional(self):
-        expect_data = {u'event': {u'color': u'blue', u'size': u'big'}, u'properties': {u'mp_lib': u'python', u'token': u'12345', u'distinct_id': u'button press', u'$lib_version': unicode(mixpanel.__version__), u'time': 1000}}
+        expect_data = {'event': {'color': 'blue', 'size': 'big'}, 'properties': {'mp_lib': 'python', 'token': '12345', 'distinct_id': 'button press', '$lib_version': mixpanel.__version__, 'time': 1000}}
         with self._assertRequested('https://api.mixpanel.com/track', expect_data):
             self.mp.track('button press', {'size': 'big', 'color': 'blue'})
 
     def test_people_set_functional(self):
-        expect_data = {u'$distinct_id': u'amq', u'$set': {u'birth month': u'october', u'favorite color': u'purple'}, u'$time': 1000000, u'$token': u'12345'}
+        expect_data = {'$distinct_id': 'amq', '$set': {'birth month': 'october', 'favorite color': 'purple'}, '$time': 1000000, '$token': '12345'}
         with self._assertRequested('https://api.mixpanel.com/engage', expect_data):
             self.mp.people_set('amq', {'birth month': 'october', 'favorite color': 'purple'})

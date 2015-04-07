@@ -8,12 +8,14 @@ sending people analytics updates.
 The Consumer and BufferedConsumer classes allow callers to
 customize the IO characteristics of their tracking.
 """
+from __future__ import absolute_import, unicode_literals
 import base64
 import datetime
 import json
 import time
-import urllib
-import urllib2
+
+import six
+from six.moves import urllib
 
 __version__ = '4.0.2'
 VERSION = __version__  # TODO: remove when bumping major version.
@@ -366,27 +368,27 @@ class Consumer(object):
 
     def _write_request(self, request_url, json_message, api_key=None):
         data = {
-            'data': base64.b64encode(json_message),
+            'data': base64.b64encode(json_message.encode('utf8')),
             'verbose': 1,
             'ip': 0,
         }
         if api_key:
             data.update({'api_key': api_key})
-        encoded_data = urllib.urlencode(data)
+        encoded_data = urllib.parse.urlencode(data).encode('utf8')
         try:
-            request = urllib2.Request(request_url, encoded_data)
+            request = urllib.request.Request(request_url, encoded_data)
 
             # Note: We don't send timeout=None here, because the timeout in urllib2 defaults to
             # an internal socket timeout, not None.
             if self._request_timeout is not None:
-                response = urllib2.urlopen(request, timeout=self._request_timeout).read()
+                response = urllib.request.urlopen(request, timeout=self._request_timeout).read()
             else:
-                response = urllib2.urlopen(request).read()
-        except urllib2.HTTPError as e:
-            raise MixpanelException(e)
+                response = urllib.request.urlopen(request).read()
+        except urllib.error.HTTPError as e:
+            raise six.raise_from(MixpanelException(e), e)
 
         try:
-            response = json.loads(response)
+            response = json.loads(response.decode('utf8'))
         except ValueError:
             raise MixpanelException('Cannot interpret Mixpanel server response: {0}'.format(response))
 

@@ -24,11 +24,13 @@ setup(
     author='Mixpanel, Inc.',
     author_email='dev@mixpanel.com',
     license='Apache',
+    install_requires=['six'],
 
     classifiers=[
         'License :: OSI Approved :: Apache Software License',
         'Operating System :: OS Independent',
-        'Programming Language :: Python :: 2 :: Only',
+        'Programming Language :: Python :: 2',
+        'Programming Language :: Python :: 3',
     ],
 
     keywords='mixpanel analytics',
