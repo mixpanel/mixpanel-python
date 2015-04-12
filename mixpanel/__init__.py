@@ -382,7 +382,7 @@ class Consumer(object):
                 response = urllib2.urlopen(request, timeout=self._request_timeout).read()
             else:
                 response = urllib2.urlopen(request).read()
-        except urllib2.HTTPError as e:
+        except urllib2.URLError as e:
             raise MixpanelException(e)
 
         try:
