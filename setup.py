@@ -16,7 +16,7 @@ def find_version(*paths):
     return match.group(1)
 
 setup(
-    name='mixpanel-py',
+    name='mixpanel',
     version=find_version('mixpanel', '__init__.py'),
     description='Official Mixpanel library for Python',
     long_description=read('README.rst'),

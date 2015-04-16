@@ -10,7 +10,7 @@ Installation
 
 The library can be installed using pip::
 
-    pip install mixpanel-py
+    pip install mixpanel
 
 
 Getting Started
