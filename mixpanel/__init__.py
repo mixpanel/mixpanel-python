@@ -434,7 +434,7 @@ class BufferedConsumer(object):
         :raises: MixpanelException
         """
         if endpoint not in self._buffers:
-            raise MixpanelException('No such endpoint "{0}". Valid endpoints are one of {1}'.format(self._buffers.keys()))
+            raise MixpanelException('No such endpoint "{0}". Valid endpoints are one of {1}'.format(endpoint, self._buffers.keys()))
 
         buf = self._buffers[endpoint]
         buf.append(json_message)
