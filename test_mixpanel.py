@@ -196,6 +196,21 @@ class TestMixpanel:
             }
         )]
 
+    def test_people_track_charge_without_properties(self):
+        self.mp.people_track_charge('amq', 12.65)
+        assert self.consumer.log == [(
+            'people', {
+                '$time': int(self.mp._now() * 1000),
+                '$token': self.TOKEN,
+                '$distinct_id': 'amq',
+                '$append': {
+                    '$transactions': {
+                        '$amount': 12.65,
+                    },
+                },
+            }
+        )]
+
     def test_people_clear_charges(self):
         self.mp.people_clear_charges('amq')
         assert self.consumer.log == [(

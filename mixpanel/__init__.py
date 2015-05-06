@@ -282,6 +282,8 @@ class Mixpanel(object):
             #tracks a charge of $50 to user '1234' at a specific time
             mp.people_track_charge('1234', 50, {'$time': "2013-04-01T09:02:00"})
         """
+        if properties is None:
+            properties = {}
         properties.update({'$amount': amount})
         return self.people_append(
             distinct_id, {'$transactions': properties or {}}, meta=meta or {}
