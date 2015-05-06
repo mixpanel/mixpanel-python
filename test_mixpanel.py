@@ -347,6 +347,17 @@ class TestBufferedConsumer:
         with pytest.raises(mixpanel.MixpanelException):
             self.consumer.send('unknown', '1')
 
+    def test_useful_reraise_in_flush_endpoint(self):
+        error_mock = Mock()
+        error_mock.read.return_value = six.b('{"status": 0, "error": "arbitrary error"}')
+        broken_json = '{broken JSON'
+        with patch('six.moves.urllib.request.urlopen', return_value=error_mock):
+            self.consumer.send('events', broken_json)
+            with pytest.raises(mixpanel.MixpanelException) as excinfo:
+                self.consumer.flush()
+            assert excinfo.value.message == '[%s]' % broken_json
+            assert excinfo.value.endpoint == 'events'
+
 
 class TestFunctional:
 

@@ -467,8 +467,10 @@ class BufferedConsumer(object):
             batch_json = '[{0}]'.format(','.join(batch))
             try:
                 self._consumer.send(endpoint, batch_json)
-            except MixpanelException as e:
-                e.message = 'batch_json'
-                e.endpoint = endpoint
+            except MixpanelException as orig_e:
+                mp_e = MixpanelException(orig_e)
+                mp_e.message = batch_json
+                mp_e.endpoint = endpoint
+                raise six.raise_from(mp_e, orig_e)
             buf = buf[self._max_size:]
         self._buffers[endpoint] = buf
