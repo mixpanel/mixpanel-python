@@ -299,6 +299,10 @@ class TestConsumer:
         with self._assertSends('https://api.mixpanel.com/engage', 'ip=0&data=IlBlb3BsZSI%3D&verbose=1'):
             self.consumer.send('people', '"People"')
 
+    def test_unknown_endpoint(self):
+        with pytest.raises(mixpanel.MixpanelException):
+            self.consumer.send('unknown', '1')
+
 
 class TestBufferedConsumer:
 
@@ -338,6 +342,10 @@ class TestBufferedConsumer:
             assert request.get_full_url() == 'https://api.mixpanel.com/track'
             assert qs(request.data) == \
                 qs('ip=0&data=WyJFdmVudCIsIkV2ZW50IiwiRXZlbnQiLCJFdmVudCIsIkV2ZW50IiwiRXZlbnQiLCJFdmVudCIsIkV2ZW50IiwiRXZlbnQiLCJMYXN0IEV2ZW50Il0%3D&verbose=1')
+
+    def test_unknown_endpoint(self):
+        with pytest.raises(mixpanel.MixpanelException):
+            self.consumer.send('unknown', '1')
 
 
 class TestFunctional:
