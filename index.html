@@ -1,329 +1,572 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
-<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
-<html><head><title>Python: package mixpanel</title>
-</head><body bgcolor="#f0f0f8">
 
-<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="heading">
-<tr bgcolor="#7799ee">
-<td valign=bottom>&nbsp;<br>
-<font color="#ffffff" face="helvetica, arial">&nbsp;<br><big><big><strong>mixpanel</strong></big></big></font></td
-><td align=right valign=bottom
-><font color="#ffffff" face="helvetica, arial"><a href=".">index</a><br><a href="file:/home/joe/mixpanel-python/mixpanel/__init__.py">/home/joe/mixpanel-python/mixpanel/__init__.py</a></font></td></tr></table>
-    <p></p>
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Welcome to Mixpanel &mdash; mixpanel 4.0.2 documentation</title>
+    
+    <link rel="stylesheet" href="_static/mixpanel.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '4.0.2',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="mixpanel 4.0.2 documentation" href="#" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9">
+
+  </head>
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="#">mixpanel 4.0.2 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="module-mixpanel">
+<span id="welcome-to-mixpanel"></span><h1>Welcome to Mixpanel<a class="headerlink" href="#module-mixpanel" title="Permalink to this headline">¶</a></h1>
+<p>This is the official Mixpanel client library for Python.</p>
+<p>Mixpanel client libraries allow for tracking events and setting properties on
+People Analytics profiles from your server-side projects. This is the API
+documentation; you may also be interested in the higher-level <a class="reference external" href="https://mixpanel.com/help/reference/python">usage
+documentation</a>. If your users are interacting with your application via the
+web, you may also be interested in our <a class="reference external" href="https://mixpanel.com/help/reference/javascript">JavaScript library</a>.</p>
+<p><a class="reference internal" href="#mixpanel.Mixpanel" title="mixpanel.Mixpanel"><code class="xref py py-class docutils literal"><span class="pre">Mixpanel</span></code></a> is the primary class for tracking events and sending People
+Analytics updates. <a class="reference internal" href="#mixpanel.Consumer" title="mixpanel.Consumer"><code class="xref py py-class docutils literal"><span class="pre">Consumer</span></code></a> and <a class="reference internal" href="#mixpanel.BufferedConsumer" title="mixpanel.BufferedConsumer"><code class="xref py py-class docutils literal"><span class="pre">BufferedConsumer</span></code></a> allow
+callers to customize the IO characteristics of their tracking.</p>
+<div class="section" id="primary-interface">
+<h2>Primary interface<a class="headerlink" href="#primary-interface" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="mixpanel.Mixpanel">
+<em class="property">class </em><code class="descclassname">mixpanel.</code><code class="descname">Mixpanel</code><span class="sig-paren">(</span><em>token</em>, <em>consumer=None</em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel" title="Permalink to this definition">¶</a></dt>
+<dd><p>Instances of Mixpanel are used for all events and profile updates.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>token</strong> (<em>str</em>) &#8211; your project&#8217;s Mixpanel token</li>
+<li><strong>consumer</strong> &#8211; can be used to alter the behavior of tracking (default
+<a class="reference internal" href="#mixpanel.Consumer" title="mixpanel.Consumer"><code class="xref py py-class docutils literal"><span class="pre">Consumer</span></code></a>)</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p>See <a class="reference internal" href="#built-in-consumers">Built-in consumers</a> for details about the consumer interface.</p>
+<dl class="method">
+<dt id="mixpanel.Mixpanel.track">
+<code class="descname">track</code><span class="sig-paren">(</span><em>distinct_id</em>, <em>event_name</em>, <em>properties=None</em>, <em>meta=None</em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.track" title="Permalink to this definition">¶</a></dt>
+<dd><p>Record an event.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>distinct_id</strong> (<em>str</em>) &#8211; identifies the user triggering the event</li>
+<li><strong>event_name</strong> (<em>str</em>) &#8211; a name describing the event</li>
+<li><strong>properties</strong> (<em>dict</em>) &#8211; additional data to record; keys should be
+strings, and values should be strings, numbers, or booleans</li>
+<li><strong>meta</strong> (<em>dict</em>) &#8211; overrides Mixpanel special properties</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p><code class="docutils literal"><span class="pre">properties</span></code> should describe the circumstances of the event, or
+aspects of the source or user associated with it. <code class="docutils literal"><span class="pre">meta</span></code> is used
+(rarely) to override special values sent in the event object.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="mixpanel.Mixpanel.import_data">
+<code class="descname">import_data</code><span class="sig-paren">(</span><em>api_key</em>, <em>distinct_id</em>, <em>event_name</em>, <em>timestamp</em>, <em>properties=None</em>, <em>meta=None</em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.import_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Record an event that occured more than 5 days in the past.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>api_key</strong> (<em>str</em>) &#8211; your Mixpanel project&#8217;s API key</li>
+<li><strong>distinct_id</strong> (<em>str</em>) &#8211; identifies the user triggering the event</li>
+<li><strong>event_name</strong> (<em>str</em>) &#8211; a name describing the event</li>
+<li><strong>timestamp</strong> (<em>int</em>) &#8211; UTC seconds since epoch</li>
+<li><strong>properties</strong> (<em>dict</em>) &#8211; additional data to record; keys should be
+strings, and values should be strings, numbers, or booleans</li>
+<li><strong>meta</strong> (<em>dict</em>) &#8211; overrides Mixpanel special properties</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p>To avoid accidentally recording invalid events, the Mixpanel API&#8217;s
+<code class="docutils literal"><span class="pre">track</span></code> endpoint disallows events that occurred too long ago. This
+method can be used to import such events. See our online documentation
+for <a class="reference external" href="https://mixpanel.com/docs/api-documentation/importing-events-older-than-31-days">more details</a>.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="mixpanel.Mixpanel.alias">
+<code class="descname">alias</code><span class="sig-paren">(</span><em>alias_id</em>, <em>original</em>, <em>meta=None</em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.alias" title="Permalink to this definition">¶</a></dt>
+<dd><p>Apply a custom alias to a people record.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>alias_id</strong> (<em>str</em>) &#8211; the new distinct_id</li>
+<li><strong>original</strong> (<em>str</em>) &#8211; the previous distinct_id</li>
+<li><strong>meta</strong> (<em>dict</em>) &#8211; overrides Mixpanel special properties</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p>Immediately creates a one-way mapping between two <code class="docutils literal"><span class="pre">distinct_ids</span></code>.
+Events triggered by the new id will be associated with the existing
+user&#8217;s profile and behavior. See our online documentation for <a class="reference external" href="https://mixpanel.com/docs/integration-libraries/using-mixpanel-alias">more
+details</a>.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Calling this method <em>always</em> results in a synchronous HTTP request
+to Mixpanel servers, regardless of any custom consumer.</p>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="mixpanel.Mixpanel.people_set">
+<code class="descname">people_set</code><span class="sig-paren">(</span><em>distinct_id</em>, <em>properties</em>, <em>meta=None</em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.people_set" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set properties of a people record.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>distinct_id</strong> (<em>str</em>) &#8211; the profile to update</li>
+<li><strong>properties</strong> (<em>dict</em>) &#8211; properties to set</li>
+<li><strong>meta</strong> (<em>dict</em>) &#8211; overrides Mixpanel <a class="reference external" href="https://mixpanel.com/help/reference/http#people-analytics-updates">special properties</a></li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p>If the profile does not exist, creates a new profile with these properties.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="mixpanel.Mixpanel.people_set_once">
+<code class="descname">people_set_once</code><span class="sig-paren">(</span><em>distinct_id</em>, <em>properties</em>, <em>meta=None</em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.people_set_once" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set properties of a people record if they are not already set.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>distinct_id</strong> (<em>str</em>) &#8211; the profile to update</li>
+<li><strong>properties</strong> (<em>dict</em>) &#8211; properties to set</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p>Any properties that already exist on the profile will not be
+overwritten. If the profile does not exist, creates a new profile with
+these properties.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="mixpanel.Mixpanel.people_increment">
+<code class="descname">people_increment</code><span class="sig-paren">(</span><em>distinct_id</em>, <em>properties</em>, <em>meta=None</em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.people_increment" title="Permalink to this definition">¶</a></dt>
+<dd><p>Increment/decrement numerical properties of a people record.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>distinct_id</strong> (<em>str</em>) &#8211; the profile to update</li>
+<li><strong>properties</strong> (<em>dict</em>) &#8211; properties to increment/decrement; values
+should be numeric</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p>Adds numerical values to properties of a people record. Nonexistent
+properties on the record default to zero. Negative values in
+<code class="docutils literal"><span class="pre">properties</span></code> will decrement the given property.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="mixpanel.Mixpanel.people_append">
+<code class="descname">people_append</code><span class="sig-paren">(</span><em>distinct_id</em>, <em>properties</em>, <em>meta=None</em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.people_append" title="Permalink to this definition">¶</a></dt>
+<dd><p>Append to the list associated with a property.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>distinct_id</strong> (<em>str</em>) &#8211; the profile to update</li>
+<li><strong>properties</strong> (<em>dict</em>) &#8211; properties to append</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p>Adds items to list-style properties of a people record. Appending to
+nonexistent properties results in a list with a single element. For
+example:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">mp</span><span class="o">.</span><span class="n">people_append</span><span class="p">(</span><span class="s">&#39;123&#39;</span><span class="p">,</span> <span class="p">{</span><span class="s">&#39;Items&#39;</span><span class="p">:</span> <span class="s">&#39;Super Arm&#39;</span><span class="p">})</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="mixpanel.Mixpanel.people_union">
+<code class="descname">people_union</code><span class="sig-paren">(</span><em>distinct_id</em>, <em>properties</em>, <em>meta=None</em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.people_union" title="Permalink to this definition">¶</a></dt>
+<dd><p>Merge the values of a list associated with a property.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>distinct_id</strong> (<em>str</em>) &#8211; the profile to update</li>
+<li><strong>properties</strong> (<em>dict</em>) &#8211; properties to merge</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p>Merges list values in <code class="docutils literal"><span class="pre">properties</span></code> with existing list-style
+properties of a people record. Duplicate values are ignored. For
+example:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">mp</span><span class="o">.</span><span class="n">people_union</span><span class="p">(</span><span class="s">&#39;123&#39;</span><span class="p">,</span> <span class="p">{</span><span class="s">&#39;Items&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s">&#39;Super Arm&#39;</span><span class="p">,</span> <span class="s">&#39;Fire Storm&#39;</span><span class="p">]})</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="mixpanel.Mixpanel.people_unset">
+<code class="descname">people_unset</code><span class="sig-paren">(</span><em>distinct_id</em>, <em>properties</em>, <em>meta=None</em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.people_unset" title="Permalink to this definition">¶</a></dt>
+<dd><p>Permanently remove properties from a people record.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>distinct_id</strong> (<em>str</em>) &#8211; the profile to update</li>
+<li><strong>properties</strong> (<em>list</em>) &#8211; property names to remove</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="mixpanel.Mixpanel.people_delete">
+<code class="descname">people_delete</code><span class="sig-paren">(</span><em>distinct_id</em>, <em>meta=None</em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.people_delete" title="Permalink to this definition">¶</a></dt>
+<dd><p>Permanently delete a people record.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>distinct_id</strong> (<em>str</em>) &#8211; the profile to delete</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="mixpanel.Mixpanel.people_track_charge">
+<code class="descname">people_track_charge</code><span class="sig-paren">(</span><em>distinct_id</em>, <em>amount</em>, <em>properties=None</em>, <em>meta=None</em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.people_track_charge" title="Permalink to this definition">¶</a></dt>
+<dd><p>Track a charge on a people record.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>distinct_id</strong> (<em>str</em>) &#8211; the profile with which to associate the charge</li>
+<li><strong>amount</strong> (<em>numeric</em>) &#8211; number of dollars charged</li>
+<li><strong>properties</strong> (<em>dict</em>) &#8211; extra properties related to the transaction</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p>Record that you have charged the current user a certain amount of
+money. Charges recorded with this way will appear in the Mixpanel
+revenue report.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="mixpanel.Mixpanel.people_clear_charges">
+<code class="descname">people_clear_charges</code><span class="sig-paren">(</span><em>distinct_id</em>, <em>meta=None</em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.people_clear_charges" title="Permalink to this definition">¶</a></dt>
+<dd><p>Permanently clear all charges on a people record.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>distinct_id</strong> (<em>str</em>) &#8211; the profile whose charges will be cleared</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="mixpanel.Mixpanel.people_update">
+<code class="descname">people_update</code><span class="sig-paren">(</span><em>message</em>, <em>meta=None</em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.people_update" title="Permalink to this definition">¶</a></dt>
+<dd><p>Send a generic update to Mixpanel people analytics.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>message</strong> (<em>dict</em>) &#8211; the message to send</td>
+</tr>
+</tbody>
+</table>
+<p>Callers are responsible for formatting the update message as documented
+in the <a class="reference external" href="https://mixpanel.com/help/reference/http">Mixpanel HTTP specification</a>. This method may be useful if you
+want to use very new or experimental features of people analytics, but
+please use the other <code class="docutils literal"><span class="pre">people_*</span></code> methods where possible.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="built-in-consumers">
+<h2>Built-in consumers<a class="headerlink" href="#built-in-consumers" title="Permalink to this headline">¶</a></h2>
+<p>A consumer is any object with a <code class="docutils literal"><span class="pre">send</span></code> method which takes two arguments: a
+string <code class="docutils literal"><span class="pre">endpoint</span></code> name and a JSON-encoded <code class="docutils literal"><span class="pre">message</span></code>. <code class="docutils literal"><span class="pre">send</span></code> is
+responsible for appropriately encoding the message and sending it to the named
+<a class="reference external" href="https://mixpanel.com/help/reference/http">Mixpanel API</a> endpoint.</p>
+<p><a class="reference internal" href="#mixpanel.Mixpanel" title="mixpanel.Mixpanel"><code class="xref py py-class docutils literal"><span class="pre">Mixpanel</span></code></a> instances call their consumer&#8217;s <code class="docutils literal"><span class="pre">send</span></code> method at the end
+of each of their own method calls, after building the JSON message.</p>
+<dl class="class">
+<dt id="mixpanel.Consumer">
+<em class="property">class </em><code class="descclassname">mixpanel.</code><code class="descname">Consumer</code><span class="sig-paren">(</span><em>events_url=None</em>, <em>people_url=None</em>, <em>import_url=None</em>, <em>request_timeout=None</em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Consumer" title="Permalink to this definition">¶</a></dt>
+<dd><p>A consumer that sends an HTTP request directly to the Mixpanel service, one
+per call to <a class="reference internal" href="#mixpanel.Consumer.send" title="mixpanel.Consumer.send"><code class="xref py py-meth docutils literal"><span class="pre">send()</span></code></a>.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>events_url</strong> (<em>str</em>) &#8211; override the default events API endpoint</li>
+<li><strong>people_url</strong> (<em>str</em>) &#8211; override the default people API endpoint</li>
+<li><strong>import_url</strong> (<em>str</em>) &#8211; override the default import API endpoint</li>
+<li><strong>request_timeout</strong> (<em>int</em>) &#8211; connection timeout in seconds</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<dl class="method">
+<dt id="mixpanel.Consumer.send">
+<code class="descname">send</code><span class="sig-paren">(</span><em>endpoint</em>, <em>json_message</em>, <em>api_key=None</em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Consumer.send" title="Permalink to this definition">¶</a></dt>
+<dd><p>Immediately record an event or a profile update.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>endpoint</strong> (<em>&#8220;events&#8221; | &#8220;people&#8221; | &#8220;imports&#8221;</em>) &#8211; the Mixpanel API endpoint appropriate for the message</li>
+<li><strong>json_message</strong> (<em>str</em>) &#8211; a JSON message formatted for the endpoint</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name" colspan="2">Raises MixpanelException:</th></tr>
+<tr class="field-even field"><td>&nbsp;</td><td class="field-body"><p class="first last">if the endpoint doesn&#8217;t exist, the server is
+unreachable, or the message cannot be processed</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="mixpanel.BufferedConsumer">
+<em class="property">class </em><code class="descclassname">mixpanel.</code><code class="descname">BufferedConsumer</code><span class="sig-paren">(</span><em>max_size=50</em>, <em>events_url=None</em>, <em>people_url=None</em>, <em>import_url=None</em>, <em>request_timeout=None</em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.BufferedConsumer" title="Permalink to this definition">¶</a></dt>
+<dd><p>A consumer that maintains per-endpoint buffers of messages and then sends
+them in batches. This can save bandwidth and reduce the total amount of
+time required to post your events to Mixpanel.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Because <a class="reference internal" href="#mixpanel.BufferedConsumer" title="mixpanel.BufferedConsumer"><code class="xref py py-class docutils literal"><span class="pre">BufferedConsumer</span></code></a> holds events, you need to call
+<a class="reference internal" href="#mixpanel.BufferedConsumer.flush" title="mixpanel.BufferedConsumer.flush"><code class="xref py py-meth docutils literal"><span class="pre">flush()</span></code></a> when you&#8217;re sure you&#8217;re done sending them—for example,
+just before your program exits. Calls to <a class="reference internal" href="#mixpanel.BufferedConsumer.flush" title="mixpanel.BufferedConsumer.flush"><code class="xref py py-meth docutils literal"><span class="pre">flush()</span></code></a> will send all
+remaining unsent events being held by the instance.</p>
+</div>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>max_size</strong> (<em>int</em>) &#8211; number of <a class="reference internal" href="#mixpanel.BufferedConsumer.send" title="mixpanel.BufferedConsumer.send"><code class="xref py py-meth docutils literal"><span class="pre">send()</span></code></a> calls for a given endpoint to
+buffer before flushing automatically</li>
+<li><strong>events_url</strong> (<em>str</em>) &#8211; override the default events API endpoint</li>
+<li><strong>people_url</strong> (<em>str</em>) &#8211; override the default people API endpoint</li>
+<li><strong>import_url</strong> (<em>str</em>) &#8211; override the default import API endpoint</li>
+<li><strong>request_timeout</strong> (<em>int</em>) &#8211; connection timeout in seconds</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<dl class="method">
+<dt id="mixpanel.BufferedConsumer.send">
+<code class="descname">send</code><span class="sig-paren">(</span><em>endpoint</em>, <em>json_message</em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.BufferedConsumer.send" title="Permalink to this definition">¶</a></dt>
+<dd><p>Record an event or profile update.</p>
+<p>Internally, adds the message to a buffer, and then flushes the buffer
+if it has reached the configured maximum size. Note that exceptions
+raised may have been caused by a message buffered by an earlier call to
+<a class="reference internal" href="#mixpanel.BufferedConsumer.send" title="mixpanel.BufferedConsumer.send"><code class="xref py py-meth docutils literal"><span class="pre">send()</span></code></a>.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>endpoint</strong> (<em>&#8220;events&#8221; | &#8220;people&#8221; | &#8220;imports&#8221;</em>) &#8211; the Mixpanel API endpoint appropriate for the message</li>
+<li><strong>json_message</strong> (<em>str</em>) &#8211; a JSON message formatted for the endpoint</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name" colspan="2">Raises MixpanelException:</th></tr>
+<tr class="field-even field"><td>&nbsp;</td><td class="field-body"><p class="first last">if the endpoint doesn&#8217;t exist, the server is
+unreachable, or any buffered message cannot be processed</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="mixpanel.BufferedConsumer.flush">
+<code class="descname">flush</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.BufferedConsumer.flush" title="Permalink to this definition">¶</a></dt>
+<dd><p>Immediately send all buffered messages to Mixpanel.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name" colspan="2">Raises MixpanelException:</th></tr>
+<tr class="field-odd field"><td>&nbsp;</td><td class="field-body">if the server is unreachable or any buffered
+message cannot be processed</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="exceptions">
+<h2>Exceptions<a class="headerlink" href="#exceptions" title="Permalink to this headline">¶</a></h2>
+<dl class="exception">
+<dt id="mixpanel.MixpanelException">
+<em class="property">exception </em><code class="descclassname">mixpanel.</code><code class="descname">MixpanelException</code><a class="headerlink" href="#mixpanel.MixpanelException" title="Permalink to this definition">¶</a></dt>
+<dd><p>Raised by consumers when unable to send messages.</p>
+<p>This could be caused by a network outage or interruption, or by an invalid
+endpoint passed to <a class="reference internal" href="#mixpanel.Consumer.send" title="mixpanel.Consumer.send"><code class="xref py py-meth docutils literal"><span class="pre">Consumer.send()</span></code></a>.</p>
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="#">mixpanel</a></h1>
+
+
+
+<p class="blurb">The official Mixpanel client library for Python.</p>
+
+
+
+
+
+
+    
+
 <p>
-<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
-<tr bgcolor="#aa55cc">
-<td colspan=3 valign=bottom>&nbsp;<br>
-<font color="#ffffff" face="helvetica, arial"><big><strong>Package Contents</strong></big></font></td></tr>
+<a href="https://travis-ci.org/mixpanel/mixpanel-python">
+    <img
+        alt="https://secure.travis-ci.org/mixpanel/mixpanel-python.png?branch=master"
+        src="https://secure.travis-ci.org/mixpanel/mixpanel-python.png?branch=master"
+    >
+</a>
+</p>
+
+  <h3><a href="#">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Welcome to Mixpanel</a><ul>
+<li><a class="reference internal" href="#primary-interface">Primary interface</a></li>
+<li><a class="reference internal" href="#built-in-consumers">Built-in consumers</a></li>
+<li><a class="reference internal" href="#exceptions">Exceptions</a></li>
+</ul>
+</li>
+</ul>
+
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy; 2015, Mixpanel, Inc.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.2</a>
+      
+      |
+      <a href="_sources/index.txt"
+          rel="nofollow">Page source</a></li>
+    </div>
+
     
-<tr><td bgcolor="#aa55cc"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
-<td width="100%"><table width="100%" summary="list"><tr><td width="25%" valign=top></td><td width="25%" valign=top></td><td width="25%" valign=top></td><td width="25%" valign=top></td></tr></table></td></tr></table><p>
-<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
-<tr bgcolor="#ee77aa">
-<td colspan=3 valign=bottom>&nbsp;<br>
-<font color="#ffffff" face="helvetica, arial"><big><strong>Classes</strong></big></font></td></tr>
+
     
-<tr><td bgcolor="#ee77aa"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
-<td width="100%"><dl>
-<dt><font face="helvetica, arial"><a href="__builtin__.html#object">__builtin__.object</a>
-</font></dt><dd>
-<dl>
-<dt><font face="helvetica, arial"><a href="#BufferedConsumer">BufferedConsumer</a>
-</font></dt><dt><font face="helvetica, arial"><a href="#Consumer">Consumer</a>
-</font></dt><dt><font face="helvetica, arial"><a href="#Mixpanel">Mixpanel</a>
-</font></dt></dl>
-</dd>
-<dt><font face="helvetica, arial"><a href="exceptions.html#Exception">exceptions.Exception</a>(<a href="exceptions.html#BaseException">exceptions.BaseException</a>)
-</font></dt><dd>
-<dl>
-<dt><font face="helvetica, arial"><a href="#MixpanelException">MixpanelException</a>
-</font></dt></dl>
-</dd>
-</dl>
- <p>
-<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
-<tr bgcolor="#ffc8d8">
-<td colspan=3 valign=bottom>&nbsp;<br>
-<font color="#000000" face="helvetica, arial"><a name="BufferedConsumer">class <strong>BufferedConsumer</strong></a>(<a href="__builtin__.html#object">__builtin__.object</a>)</font></td></tr>
-    
-<tr bgcolor="#ffc8d8"><td rowspan=2><tt>&nbsp;&nbsp;&nbsp;</tt></td>
-<td colspan=2><tt><a href="#BufferedConsumer">BufferedConsumer</a>&nbsp;works&nbsp;just&nbsp;like&nbsp;<a href="#Consumer">Consumer</a>,&nbsp;but&nbsp;holds&nbsp;messages&nbsp;in<br>
-memory&nbsp;and&nbsp;sends&nbsp;them&nbsp;in&nbsp;batches.&nbsp;This&nbsp;can&nbsp;save&nbsp;bandwidth&nbsp;and<br>
-reduce&nbsp;the&nbsp;total&nbsp;amount&nbsp;of&nbsp;time&nbsp;required&nbsp;to&nbsp;post&nbsp;your&nbsp;events.<br>
-&nbsp;<br>
-Because&nbsp;BufferedConsumers&nbsp;hold&nbsp;events,&nbsp;you&nbsp;need&nbsp;to&nbsp;call&nbsp;<a href="#BufferedConsumer-flush">flush</a>()<br>
-when&nbsp;you're&nbsp;sure&nbsp;you're&nbsp;done&nbsp;sending&nbsp;them.&nbsp;calls&nbsp;to&nbsp;<a href="#BufferedConsumer-flush">flush</a>()&nbsp;will<br>
-send&nbsp;all&nbsp;remaining&nbsp;unsent&nbsp;events&nbsp;being&nbsp;held&nbsp;by&nbsp;the&nbsp;<a href="#BufferedConsumer">BufferedConsumer</a>.<br>&nbsp;</tt></td></tr>
-<tr><td>&nbsp;</td>
-<td width="100%">Methods defined here:<br>
-<dl><dt><a name="BufferedConsumer-__init__"><strong>__init__</strong></a>(self, max_size<font color="#909090">=50</font>, events_url<font color="#909090">=None</font>, people_url<font color="#909090">=None</font>)</dt></dl>
-
-<dl><dt><a name="BufferedConsumer-flush"><strong>flush</strong></a>(self)</dt><dd><tt>Send&nbsp;all&nbsp;remaining&nbsp;messages&nbsp;to&nbsp;<a href="#Mixpanel">Mixpanel</a>.&nbsp;BufferedConsumers&nbsp;will<br>
-flush&nbsp;automatically&nbsp;when&nbsp;you&nbsp;call&nbsp;<a href="#BufferedConsumer-send">send</a>(),&nbsp;but&nbsp;you&nbsp;will&nbsp;need&nbsp;to&nbsp;call<br>
-<a href="#BufferedConsumer-flush">flush</a>()&nbsp;when&nbsp;you&nbsp;are&nbsp;completely&nbsp;done&nbsp;using&nbsp;the&nbsp;consumer&nbsp;(for&nbsp;example,<br>
-when&nbsp;your&nbsp;application&nbsp;exits)&nbsp;to&nbsp;ensure&nbsp;there&nbsp;are&nbsp;no&nbsp;messages&nbsp;remaining<br>
-in&nbsp;memory.<br>
-&nbsp;<br>
-Calls&nbsp;to&nbsp;<a href="#BufferedConsumer-flush">flush</a>()&nbsp;may&nbsp;raise&nbsp;a&nbsp;<a href="#MixpanelException">MixpanelException</a>&nbsp;if&nbsp;there&nbsp;is&nbsp;a&nbsp;problem<br>
-communicating&nbsp;with&nbsp;the&nbsp;<a href="#Mixpanel">Mixpanel</a>&nbsp;servers.&nbsp;In&nbsp;this&nbsp;case,&nbsp;the&nbsp;exception<br>
-thrown&nbsp;will&nbsp;have&nbsp;a&nbsp;message&nbsp;property,&nbsp;containing&nbsp;the&nbsp;text&nbsp;of&nbsp;the&nbsp;message,<br>
-and&nbsp;an&nbsp;endpoint&nbsp;property&nbsp;containing&nbsp;the&nbsp;endpoint&nbsp;that&nbsp;failed.<br>
-&nbsp;<br>
-:raises:&nbsp;<a href="#MixpanelException">MixpanelException</a></tt></dd></dl>
-
-<dl><dt><a name="BufferedConsumer-send"><strong>send</strong></a>(self, endpoint, json_message)</dt><dd><tt>Record&nbsp;an&nbsp;event&nbsp;or&nbsp;a&nbsp;profile&nbsp;update.&nbsp;Calls&nbsp;to&nbsp;<a href="#BufferedConsumer-send">send</a>()&nbsp;will&nbsp;store<br>
-the&nbsp;given&nbsp;message&nbsp;in&nbsp;memory,&nbsp;and&nbsp;(when&nbsp;enough&nbsp;messages&nbsp;have&nbsp;been&nbsp;stored)<br>
-may&nbsp;trigger&nbsp;a&nbsp;request&nbsp;to&nbsp;<a href="#Mixpanel">Mixpanel</a>'s&nbsp;servers.<br>
-&nbsp;<br>
-Calls&nbsp;to&nbsp;<a href="#BufferedConsumer-send">send</a>()&nbsp;may&nbsp;throw&nbsp;an&nbsp;exception,&nbsp;but&nbsp;the&nbsp;exception&nbsp;may&nbsp;be<br>
-associated&nbsp;with&nbsp;the&nbsp;message&nbsp;given&nbsp;in&nbsp;an&nbsp;earlier&nbsp;call.&nbsp;If&nbsp;this&nbsp;is&nbsp;the&nbsp;case,<br>
-the&nbsp;resulting&nbsp;<a href="#MixpanelException">MixpanelException</a>&nbsp;e&nbsp;will&nbsp;have&nbsp;members&nbsp;e.message&nbsp;and&nbsp;e.endpoint<br>
-&nbsp;<br>
-:param&nbsp;endpoint:&nbsp;One&nbsp;of&nbsp;'events'&nbsp;or&nbsp;'people',&nbsp;the&nbsp;<a href="#Mixpanel">Mixpanel</a>&nbsp;endpoint&nbsp;for&nbsp;sending&nbsp;the&nbsp;data<br>
-:type&nbsp;endpoint:&nbsp;str&nbsp;(one&nbsp;of&nbsp;'events'&nbsp;or&nbsp;'people')<br>
-:param&nbsp;json_message:&nbsp;A&nbsp;json&nbsp;message&nbsp;formatted&nbsp;for&nbsp;the&nbsp;endpoint.<br>
-:type&nbsp;json_message:&nbsp;str<br>
-:raises:&nbsp;<a href="#MixpanelException">MixpanelException</a></tt></dd></dl>
-
-<hr>
-Data descriptors defined here:<br>
-<dl><dt><strong>__dict__</strong></dt>
-<dd><tt>dictionary&nbsp;for&nbsp;instance&nbsp;variables&nbsp;(if&nbsp;defined)</tt></dd>
-</dl>
-<dl><dt><strong>__weakref__</strong></dt>
-<dd><tt>list&nbsp;of&nbsp;weak&nbsp;references&nbsp;to&nbsp;the&nbsp;object&nbsp;(if&nbsp;defined)</tt></dd>
-</dl>
-</td></tr></table> <p>
-<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
-<tr bgcolor="#ffc8d8">
-<td colspan=3 valign=bottom>&nbsp;<br>
-<font color="#000000" face="helvetica, arial"><a name="Consumer">class <strong>Consumer</strong></a>(<a href="__builtin__.html#object">__builtin__.object</a>)</font></td></tr>
-    
-<tr bgcolor="#ffc8d8"><td rowspan=2><tt>&nbsp;&nbsp;&nbsp;</tt></td>
-<td colspan=2><tt>The&nbsp;simple&nbsp;consumer&nbsp;sends&nbsp;an&nbsp;HTTP&nbsp;request&nbsp;directly&nbsp;to&nbsp;the&nbsp;<a href="#Mixpanel">Mixpanel</a>&nbsp;service,<br>
-with&nbsp;one&nbsp;request&nbsp;for&nbsp;every&nbsp;call.&nbsp;This&nbsp;is&nbsp;the&nbsp;default&nbsp;consumer&nbsp;for&nbsp;<a href="#Mixpanel">Mixpanel</a><br>
-objects-&nbsp;if&nbsp;you&nbsp;don't&nbsp;provide&nbsp;your&nbsp;own,&nbsp;you&nbsp;get&nbsp;one&nbsp;of&nbsp;these.<br>&nbsp;</tt></td></tr>
-<tr><td>&nbsp;</td>
-<td width="100%">Methods defined here:<br>
-<dl><dt><a name="Consumer-__init__"><strong>__init__</strong></a>(self, events_url<font color="#909090">=None</font>, people_url<font color="#909090">=None</font>)</dt></dl>
-
-<dl><dt><a name="Consumer-send"><strong>send</strong></a>(self, endpoint, json_message)</dt><dd><tt>Record&nbsp;an&nbsp;event&nbsp;or&nbsp;a&nbsp;profile&nbsp;update.&nbsp;Send&nbsp;is&nbsp;the&nbsp;only&nbsp;method<br>
-associated&nbsp;with&nbsp;consumers.&nbsp;Will&nbsp;raise&nbsp;an&nbsp;exception&nbsp;if&nbsp;the&nbsp;endpoint<br>
-doesn't&nbsp;exist,&nbsp;if&nbsp;the&nbsp;server&nbsp;is&nbsp;unreachable&nbsp;or&nbsp;for&nbsp;some&nbsp;reason<br>
-can't&nbsp;process&nbsp;the&nbsp;message.<br>
-&nbsp;<br>
-All&nbsp;you&nbsp;need&nbsp;to&nbsp;do&nbsp;to&nbsp;write&nbsp;your&nbsp;own&nbsp;consumer&nbsp;is&nbsp;to&nbsp;implement<br>
-a&nbsp;send&nbsp;method&nbsp;of&nbsp;your&nbsp;own.<br>
-&nbsp;<br>
-:param&nbsp;endpoint:&nbsp;One&nbsp;of&nbsp;'events'&nbsp;or&nbsp;'people',&nbsp;the&nbsp;<a href="#Mixpanel">Mixpanel</a>&nbsp;endpoint&nbsp;for&nbsp;sending&nbsp;the&nbsp;data<br>
-:type&nbsp;endpoint:&nbsp;str&nbsp;(one&nbsp;of&nbsp;'events'&nbsp;or&nbsp;'people')<br>
-:param&nbsp;json_message:&nbsp;A&nbsp;json&nbsp;message&nbsp;formatted&nbsp;for&nbsp;the&nbsp;endpoint.<br>
-:type&nbsp;json_message:&nbsp;str<br>
-:raises:&nbsp;<a href="#MixpanelException">MixpanelException</a></tt></dd></dl>
-
-<hr>
-Data descriptors defined here:<br>
-<dl><dt><strong>__dict__</strong></dt>
-<dd><tt>dictionary&nbsp;for&nbsp;instance&nbsp;variables&nbsp;(if&nbsp;defined)</tt></dd>
-</dl>
-<dl><dt><strong>__weakref__</strong></dt>
-<dd><tt>list&nbsp;of&nbsp;weak&nbsp;references&nbsp;to&nbsp;the&nbsp;object&nbsp;(if&nbsp;defined)</tt></dd>
-</dl>
-</td></tr></table> <p>
-<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
-<tr bgcolor="#ffc8d8">
-<td colspan=3 valign=bottom>&nbsp;<br>
-<font color="#000000" face="helvetica, arial"><a name="Mixpanel">class <strong>Mixpanel</strong></a>(<a href="__builtin__.html#object">__builtin__.object</a>)</font></td></tr>
-    
-<tr bgcolor="#ffc8d8"><td rowspan=2><tt>&nbsp;&nbsp;&nbsp;</tt></td>
-<td colspan=2><tt>Use&nbsp;instances&nbsp;of&nbsp;<a href="#Mixpanel">Mixpanel</a>&nbsp;to&nbsp;track&nbsp;events&nbsp;and&nbsp;send&nbsp;<a href="#Mixpanel">Mixpanel</a><br>
-profile&nbsp;updates&nbsp;from&nbsp;your&nbsp;python&nbsp;code.<br>&nbsp;</tt></td></tr>
-<tr><td>&nbsp;</td>
-<td width="100%">Methods defined here:<br>
-<dl><dt><a name="Mixpanel-__init__"><strong>__init__</strong></a>(self, token, consumer<font color="#909090">=None</font>)</dt><dd><tt>Creates&nbsp;a&nbsp;new&nbsp;<a href="#Mixpanel">Mixpanel</a>&nbsp;<a href="__builtin__.html#object">object</a>,&nbsp;which&nbsp;can&nbsp;be&nbsp;used&nbsp;for&nbsp;all&nbsp;tracking.<br>
-&nbsp;<br>
-To&nbsp;use&nbsp;mixpanel,&nbsp;create&nbsp;a&nbsp;new&nbsp;<a href="#Mixpanel">Mixpanel</a>&nbsp;<a href="__builtin__.html#object">object</a>&nbsp;using&nbsp;your<br>
-token.&nbsp;&nbsp;Takes&nbsp;in&nbsp;a&nbsp;user&nbsp;token&nbsp;and&nbsp;an&nbsp;optional&nbsp;<a href="#Consumer">Consumer</a>&nbsp;(or<br>
-anything&nbsp;else&nbsp;with&nbsp;a&nbsp;send()&nbsp;method).&nbsp;If&nbsp;no&nbsp;consumer&nbsp;is<br>
-provided,&nbsp;<a href="#Mixpanel">Mixpanel</a>&nbsp;will&nbsp;use&nbsp;the&nbsp;default&nbsp;<a href="#Consumer">Consumer</a>,&nbsp;which<br>
-communicates&nbsp;one&nbsp;synchronous&nbsp;request&nbsp;for&nbsp;every&nbsp;message.</tt></dd></dl>
-
-<dl><dt><a name="Mixpanel-alias"><strong>alias</strong></a>(self, alias_id, original, meta<font color="#909090">={}</font>)</dt><dd><tt>Gives&nbsp;custom&nbsp;alias&nbsp;to&nbsp;a&nbsp;people&nbsp;record.<br>
-&nbsp;<br>
-Alias&nbsp;sends&nbsp;an&nbsp;update&nbsp;to&nbsp;our&nbsp;servers&nbsp;linking&nbsp;an&nbsp;existing&nbsp;distinct_id<br>
-with&nbsp;a&nbsp;new&nbsp;id,&nbsp;so&nbsp;that&nbsp;events&nbsp;and&nbsp;profile&nbsp;updates&nbsp;associated&nbsp;with&nbsp;the<br>
-new&nbsp;id&nbsp;will&nbsp;be&nbsp;associated&nbsp;with&nbsp;the&nbsp;existing&nbsp;user's&nbsp;profile&nbsp;and&nbsp;behavior.<br>
-Example:<br>
-&nbsp;&nbsp;&nbsp;&nbsp;mp.<a href="#Mixpanel-alias">alias</a>('amy@mixpanel.com',&nbsp;'13793')</tt></dd></dl>
-
-<dl><dt><a name="Mixpanel-people_append"><strong>people_append</strong></a>(self, distinct_id, properties, meta<font color="#909090">={}</font>)</dt><dd><tt>Appends&nbsp;to&nbsp;the&nbsp;list&nbsp;associated&nbsp;with&nbsp;a&nbsp;property.<br>
-&nbsp;<br>
-Takes&nbsp;a&nbsp;JSON&nbsp;<a href="__builtin__.html#object">object</a>&nbsp;containing&nbsp;keys&nbsp;and&nbsp;values,&nbsp;and&nbsp;appends&nbsp;each&nbsp;to&nbsp;a<br>
-list&nbsp;associated&nbsp;with&nbsp;the&nbsp;corresponding&nbsp;property&nbsp;name.&nbsp;$appending&nbsp;to&nbsp;a<br>
-property&nbsp;that&nbsp;doesn't&nbsp;exist&nbsp;will&nbsp;result&nbsp;in&nbsp;assigning&nbsp;a&nbsp;list&nbsp;with&nbsp;one<br>
-element&nbsp;to&nbsp;that&nbsp;property.<br>
-Example:<br>
-&nbsp;&nbsp;&nbsp;&nbsp;mp.<a href="#Mixpanel-people_append">people_append</a>('12345',&nbsp;{&nbsp;"Power&nbsp;Ups":&nbsp;"Bubble&nbsp;Lead"&nbsp;})</tt></dd></dl>
-
-<dl><dt><a name="Mixpanel-people_delete"><strong>people_delete</strong></a>(self, distinct_id, meta<font color="#909090">={}</font>)</dt><dd><tt>Permanently&nbsp;deletes&nbsp;a&nbsp;profile.<br>
-&nbsp;<br>
-Permanently&nbsp;delete&nbsp;the&nbsp;profile&nbsp;from&nbsp;<a href="#Mixpanel">Mixpanel</a>,&nbsp;along&nbsp;with&nbsp;all&nbsp;of&nbsp;its<br>
-properties.<br>
-Example:<br>
-&nbsp;&nbsp;&nbsp;&nbsp;mp.<a href="#Mixpanel-people_delete">people_delete</a>('12345')</tt></dd></dl>
-
-<dl><dt><a name="Mixpanel-people_increment"><strong>people_increment</strong></a>(self, distinct_id, properties, meta<font color="#909090">={}</font>)</dt><dd><tt>Increments/decrements&nbsp;numerical&nbsp;properties&nbsp;of&nbsp;people&nbsp;record.<br>
-&nbsp;<br>
-Takes&nbsp;in&nbsp;JSON&nbsp;<a href="__builtin__.html#object">object</a>&nbsp;with&nbsp;keys&nbsp;and&nbsp;numerical&nbsp;values.&nbsp;Adds&nbsp;numerical<br>
-values&nbsp;to&nbsp;current&nbsp;property&nbsp;of&nbsp;profile.&nbsp;If&nbsp;property&nbsp;doesn't&nbsp;exist&nbsp;adds<br>
-value&nbsp;to&nbsp;zero.&nbsp;Takes&nbsp;in&nbsp;negative&nbsp;values&nbsp;for&nbsp;subtraction.<br>
-Example:<br>
-&nbsp;&nbsp;&nbsp;&nbsp;mp.<a href="#Mixpanel-people_increment">people_increment</a>('12345',&nbsp;{'Coins&nbsp;Gathered':&nbsp;12})</tt></dd></dl>
-
-<dl><dt><a name="Mixpanel-people_set"><strong>people_set</strong></a>(self, distinct_id, properties, meta<font color="#909090">={}</font>)</dt><dd><tt>Set&nbsp;properties&nbsp;of&nbsp;a&nbsp;people&nbsp;record.<br>
-&nbsp;<br>
-Sets&nbsp;properties&nbsp;of&nbsp;a&nbsp;people&nbsp;record&nbsp;given&nbsp;in&nbsp;JSON&nbsp;<a href="__builtin__.html#object">object</a>.&nbsp;If&nbsp;the&nbsp;profile<br>
-does&nbsp;not&nbsp;exist,&nbsp;creates&nbsp;new&nbsp;profile&nbsp;with&nbsp;these&nbsp;properties.<br>
-Example:<br>
-&nbsp;&nbsp;&nbsp;&nbsp;mp.<a href="#Mixpanel-people_set">people_set</a>('12345',&nbsp;{'Address':&nbsp;'1313&nbsp;Mockingbird&nbsp;Lane',<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'Birthday':&nbsp;'1948-01-01'})</tt></dd></dl>
-
-<dl><dt><a name="Mixpanel-people_set_once"><strong>people_set_once</strong></a>(self, distinct_id, properties, meta<font color="#909090">={}</font>)</dt><dd><tt>Set&nbsp;immutable&nbsp;properties&nbsp;of&nbsp;a&nbsp;people&nbsp;record.<br>
-&nbsp;<br>
-Sets&nbsp;properties&nbsp;of&nbsp;a&nbsp;people&nbsp;record&nbsp;given&nbsp;in&nbsp;JSON&nbsp;<a href="__builtin__.html#object">object</a>.&nbsp;If&nbsp;the&nbsp;profile<br>
-does&nbsp;not&nbsp;exist,&nbsp;creates&nbsp;new&nbsp;profile&nbsp;with&nbsp;these&nbsp;properties.&nbsp;Does&nbsp;not<br>
-overwrite&nbsp;existing&nbsp;property&nbsp;values.<br>
-Example:<br>
-&nbsp;&nbsp;&nbsp;&nbsp;mp.<a href="#Mixpanel-people_set_once">people_set_once</a>('12345',&nbsp;{'First&nbsp;Login':&nbsp;"2013-04-01T13:20:00"})</tt></dd></dl>
-
-<dl><dt><a name="Mixpanel-people_track_charge"><strong>people_track_charge</strong></a>(self, distinct_id, amount, properties<font color="#909090">={}</font>, meta<font color="#909090">={}</font>)</dt><dd><tt>Tracks&nbsp;a&nbsp;charge&nbsp;to&nbsp;a&nbsp;user.<br>
-&nbsp;<br>
-Record&nbsp;that&nbsp;you&nbsp;have&nbsp;charged&nbsp;the&nbsp;current&nbsp;user&nbsp;a&nbsp;certain&nbsp;amount&nbsp;of<br>
-money.&nbsp;Charges&nbsp;recorded&nbsp;with&nbsp;track_charge&nbsp;will&nbsp;appear&nbsp;in&nbsp;the&nbsp;<a href="#Mixpanel">Mixpanel</a><br>
-revenue&nbsp;report.<br>
-Example:<br>
-&nbsp;&nbsp;&nbsp;&nbsp;#tracks&nbsp;a&nbsp;charge&nbsp;of&nbsp;$50&nbsp;to&nbsp;user&nbsp;'1234'<br>
-&nbsp;&nbsp;&nbsp;&nbsp;mp.track_charge('1234',&nbsp;50)<br>
-&nbsp;<br>
-&nbsp;&nbsp;&nbsp;&nbsp;#tracks&nbsp;a&nbsp;charge&nbsp;of&nbsp;$50&nbsp;to&nbsp;user&nbsp;'1234'&nbsp;at&nbsp;a&nbsp;specific&nbsp;time<br>
-&nbsp;&nbsp;&nbsp;&nbsp;mp.track_charge('1234',&nbsp;50,&nbsp;{'$time':&nbsp;"2013-04-01T09:02:00"})</tt></dd></dl>
-
-<dl><dt><a name="Mixpanel-people_union"><strong>people_union</strong></a>(self, distinct_id, properties, meta<font color="#909090">={}</font>)</dt><dd><tt>Merges&nbsp;the&nbsp;values&nbsp;for&nbsp;a&nbsp;list&nbsp;associated&nbsp;with&nbsp;a&nbsp;property.<br>
-&nbsp;<br>
-Takes&nbsp;a&nbsp;JSON&nbsp;<a href="__builtin__.html#object">object</a>&nbsp;containing&nbsp;keys&nbsp;and&nbsp;list&nbsp;values.&nbsp;The&nbsp;list&nbsp;values&nbsp;in<br>
-the&nbsp;request&nbsp;are&nbsp;merged&nbsp;with&nbsp;the&nbsp;existing&nbsp;list&nbsp;on&nbsp;the&nbsp;user&nbsp;profile,<br>
-ignoring&nbsp;duplicate&nbsp;list&nbsp;values.<br>
-Example:<br>
-&nbsp;&nbsp;&nbsp;&nbsp;mp.<a href="#Mixpanel-people_union">people_union</a>('12345',&nbsp;{&nbsp;"Items&nbsp;purchased":&nbsp;["socks",&nbsp;"shirts"]&nbsp;}&nbsp;)</tt></dd></dl>
-
-<dl><dt><a name="Mixpanel-people_unset"><strong>people_unset</strong></a>(self, distinct_id, properties, meta<font color="#909090">={}</font>)</dt><dd><tt>Removes&nbsp;properties&nbsp;from&nbsp;a&nbsp;profile.<br>
-&nbsp;<br>
-Takes&nbsp;a&nbsp;JSON&nbsp;list&nbsp;of&nbsp;string&nbsp;property&nbsp;names,&nbsp;and&nbsp;permanently&nbsp;removes&nbsp;the<br>
-properties&nbsp;and&nbsp;their&nbsp;values&nbsp;from&nbsp;a&nbsp;profile.<br>
-Example:<br>
-&nbsp;&nbsp;&nbsp;&nbsp;mp.<a href="#Mixpanel-people_unset">people_unset</a>('12345',&nbsp;["Days&nbsp;Overdue"])</tt></dd></dl>
-
-<dl><dt><a name="Mixpanel-people_update"><strong>people_update</strong></a>(self, message, meta<font color="#909090">={}</font>)</dt><dd><tt>Send&nbsp;a&nbsp;generic&nbsp;update&nbsp;to&nbsp;<a href="#Mixpanel">Mixpanel</a>&nbsp;people&nbsp;analytics.<br>
-Caller&nbsp;is&nbsp;responsible&nbsp;for&nbsp;formatting&nbsp;the&nbsp;update&nbsp;message,&nbsp;as<br>
-documented&nbsp;in&nbsp;the&nbsp;<a href="#Mixpanel">Mixpanel</a>&nbsp;HTTP&nbsp;specification,&nbsp;and&nbsp;passing<br>
-the&nbsp;message&nbsp;as&nbsp;a&nbsp;dict&nbsp;to&nbsp;update.&nbsp;This<br>
-method&nbsp;might&nbsp;be&nbsp;useful&nbsp;if&nbsp;you&nbsp;want&nbsp;to&nbsp;use&nbsp;very&nbsp;new<br>
-or&nbsp;experimental&nbsp;features&nbsp;of&nbsp;people&nbsp;analytics&nbsp;from&nbsp;python<br>
-The&nbsp;<a href="#Mixpanel">Mixpanel</a>&nbsp;HTTP&nbsp;tracking&nbsp;API&nbsp;is&nbsp;documented&nbsp;at<br>
-https://mixpanel.com/help/reference/http</tt></dd></dl>
-
-<dl><dt><a name="Mixpanel-track"><strong>track</strong></a>(self, distinct_id, event_name, properties<font color="#909090">={}</font>, meta<font color="#909090">={}</font>)</dt><dd><tt>Notes&nbsp;that&nbsp;an&nbsp;event&nbsp;has&nbsp;occurred,&nbsp;along&nbsp;with&nbsp;a&nbsp;distinct_id<br>
-representing&nbsp;the&nbsp;source&nbsp;of&nbsp;that&nbsp;event&nbsp;(for&nbsp;example,&nbsp;a&nbsp;user&nbsp;id),<br>
-an&nbsp;event&nbsp;name&nbsp;describing&nbsp;the&nbsp;event&nbsp;and&nbsp;a&nbsp;set&nbsp;of&nbsp;properties<br>
-describing&nbsp;that&nbsp;event.&nbsp;Properties&nbsp;are&nbsp;provided&nbsp;as&nbsp;a&nbsp;Hash&nbsp;with<br>
-string&nbsp;keys&nbsp;and&nbsp;strings,&nbsp;numbers&nbsp;or&nbsp;booleans&nbsp;as&nbsp;values.<br>
-&nbsp;<br>
-&nbsp;&nbsp;#&nbsp;Track&nbsp;that&nbsp;user&nbsp;"12345"'s&nbsp;credit&nbsp;card&nbsp;was&nbsp;declined<br>
-&nbsp;&nbsp;mp.<a href="#Mixpanel-track">track</a>("12345",&nbsp;"Credit&nbsp;Card&nbsp;Declined")<br>
-&nbsp;<br>
-&nbsp;&nbsp;#&nbsp;Properties&nbsp;describe&nbsp;the&nbsp;circumstances&nbsp;of&nbsp;the&nbsp;event,<br>
-&nbsp;&nbsp;#&nbsp;or&nbsp;aspects&nbsp;of&nbsp;the&nbsp;source&nbsp;or&nbsp;user&nbsp;associated&nbsp;with&nbsp;the&nbsp;event<br>
-&nbsp;&nbsp;mp.<a href="#Mixpanel-track">track</a>("12345",&nbsp;"Welcome&nbsp;Email&nbsp;Sent",&nbsp;{<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'Email&nbsp;Template'&nbsp;=&gt;&nbsp;'Pretty&nbsp;Pink&nbsp;Welcome',<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'User&nbsp;Sign-up&nbsp;Cohort'&nbsp;=&gt;&nbsp;'July&nbsp;2013'<br>
-&nbsp;&nbsp;})</tt></dd></dl>
-
-<hr>
-Data descriptors defined here:<br>
-<dl><dt><strong>__dict__</strong></dt>
-<dd><tt>dictionary&nbsp;for&nbsp;instance&nbsp;variables&nbsp;(if&nbsp;defined)</tt></dd>
-</dl>
-<dl><dt><strong>__weakref__</strong></dt>
-<dd><tt>list&nbsp;of&nbsp;weak&nbsp;references&nbsp;to&nbsp;the&nbsp;object&nbsp;(if&nbsp;defined)</tt></dd>
-</dl>
-</td></tr></table> <p>
-<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
-<tr bgcolor="#ffc8d8">
-<td colspan=3 valign=bottom>&nbsp;<br>
-<font color="#000000" face="helvetica, arial"><a name="MixpanelException">class <strong>MixpanelException</strong></a>(<a href="exceptions.html#Exception">exceptions.Exception</a>)</font></td></tr>
-    
-<tr bgcolor="#ffc8d8"><td rowspan=2><tt>&nbsp;&nbsp;&nbsp;</tt></td>
-<td colspan=2><tt>MixpanelExceptions&nbsp;will&nbsp;be&nbsp;thrown&nbsp;if&nbsp;the&nbsp;server&nbsp;can't&nbsp;recieve<br>
-our&nbsp;events&nbsp;or&nbsp;updates&nbsp;for&nbsp;some&nbsp;reason-&nbsp;for&nbsp;example,&nbsp;if&nbsp;we&nbsp;can't<br>
-connect&nbsp;to&nbsp;the&nbsp;Internet.<br>&nbsp;</tt></td></tr>
-<tr><td>&nbsp;</td>
-<td width="100%"><dl><dt>Method resolution order:</dt>
-<dd><a href="#MixpanelException">MixpanelException</a></dd>
-<dd><a href="exceptions.html#Exception">exceptions.Exception</a></dd>
-<dd><a href="exceptions.html#BaseException">exceptions.BaseException</a></dd>
-<dd><a href="__builtin__.html#object">__builtin__.object</a></dd>
-</dl>
-<hr>
-Data descriptors defined here:<br>
-<dl><dt><strong>__weakref__</strong></dt>
-<dd><tt>list&nbsp;of&nbsp;weak&nbsp;references&nbsp;to&nbsp;the&nbsp;object&nbsp;(if&nbsp;defined)</tt></dd>
-</dl>
-<hr>
-Methods inherited from <a href="exceptions.html#Exception">exceptions.Exception</a>:<br>
-<dl><dt><a name="MixpanelException-__init__"><strong>__init__</strong></a>(...)</dt><dd><tt>x.<a href="#MixpanelException-__init__">__init__</a>(...)&nbsp;initializes&nbsp;x;&nbsp;see&nbsp;help(type(x))&nbsp;for&nbsp;signature</tt></dd></dl>
-
-<hr>
-Data and other attributes inherited from <a href="exceptions.html#Exception">exceptions.Exception</a>:<br>
-<dl><dt><strong>__new__</strong> = &lt;built-in method __new__ of type object&gt;<dd><tt>T.<a href="#MixpanelException-__new__">__new__</a>(S,&nbsp;...)&nbsp;-&gt;&nbsp;a&nbsp;new&nbsp;<a href="__builtin__.html#object">object</a>&nbsp;with&nbsp;type&nbsp;S,&nbsp;a&nbsp;subtype&nbsp;of&nbsp;T</tt></dl>
-
-<hr>
-Methods inherited from <a href="exceptions.html#BaseException">exceptions.BaseException</a>:<br>
-<dl><dt><a name="MixpanelException-__delattr__"><strong>__delattr__</strong></a>(...)</dt><dd><tt>x.<a href="#MixpanelException-__delattr__">__delattr__</a>('name')&nbsp;&lt;==&gt;&nbsp;del&nbsp;x.name</tt></dd></dl>
-
-<dl><dt><a name="MixpanelException-__getattribute__"><strong>__getattribute__</strong></a>(...)</dt><dd><tt>x.<a href="#MixpanelException-__getattribute__">__getattribute__</a>('name')&nbsp;&lt;==&gt;&nbsp;x.name</tt></dd></dl>
-
-<dl><dt><a name="MixpanelException-__getitem__"><strong>__getitem__</strong></a>(...)</dt><dd><tt>x.<a href="#MixpanelException-__getitem__">__getitem__</a>(y)&nbsp;&lt;==&gt;&nbsp;x[y]</tt></dd></dl>
-
-<dl><dt><a name="MixpanelException-__getslice__"><strong>__getslice__</strong></a>(...)</dt><dd><tt>x.<a href="#MixpanelException-__getslice__">__getslice__</a>(i,&nbsp;j)&nbsp;&lt;==&gt;&nbsp;x[i:j]<br>
-&nbsp;<br>
-Use&nbsp;of&nbsp;negative&nbsp;indices&nbsp;is&nbsp;not&nbsp;supported.</tt></dd></dl>
-
-<dl><dt><a name="MixpanelException-__reduce__"><strong>__reduce__</strong></a>(...)</dt></dl>
-
-<dl><dt><a name="MixpanelException-__repr__"><strong>__repr__</strong></a>(...)</dt><dd><tt>x.<a href="#MixpanelException-__repr__">__repr__</a>()&nbsp;&lt;==&gt;&nbsp;repr(x)</tt></dd></dl>
-
-<dl><dt><a name="MixpanelException-__setattr__"><strong>__setattr__</strong></a>(...)</dt><dd><tt>x.<a href="#MixpanelException-__setattr__">__setattr__</a>('name',&nbsp;value)&nbsp;&lt;==&gt;&nbsp;x.name&nbsp;=&nbsp;value</tt></dd></dl>
-
-<dl><dt><a name="MixpanelException-__setstate__"><strong>__setstate__</strong></a>(...)</dt></dl>
-
-<dl><dt><a name="MixpanelException-__str__"><strong>__str__</strong></a>(...)</dt><dd><tt>x.<a href="#MixpanelException-__str__">__str__</a>()&nbsp;&lt;==&gt;&nbsp;str(x)</tt></dd></dl>
-
-<dl><dt><a name="MixpanelException-__unicode__"><strong>__unicode__</strong></a>(...)</dt></dl>
-
-<hr>
-Data descriptors inherited from <a href="exceptions.html#BaseException">exceptions.BaseException</a>:<br>
-<dl><dt><strong>__dict__</strong></dt>
-</dl>
-<dl><dt><strong>args</strong></dt>
-</dl>
-<dl><dt><strong>message</strong></dt>
-</dl>
-</td></tr></table></td></tr></table><p>
-<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
-<tr bgcolor="#55aa55">
-<td colspan=3 valign=bottom>&nbsp;<br>
-<font color="#ffffff" face="helvetica, arial"><big><strong>Data</strong></big></font></td></tr>
-    
-<tr><td bgcolor="#55aa55"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
-<td width="100%"><strong>VERSION</strong> = '3.0.0'</td></tr></table>
-</body></html>
+  </body>
+</html>

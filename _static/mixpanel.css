@@ -1,0 +1,5 @@
+@import 'alabaster.css';
+
+div.sphinxsidebar h3 {
+  margin-top: 1em;
+}
