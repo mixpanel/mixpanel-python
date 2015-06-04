@@ -1,3 +1,10 @@
+v4.1.0
+* Add support for Python 3.
+* Rename mixpanel.VERSION to mixpanel.__version__.
+* Move from `mixpanel-py` to `mixpanel` on PyPI.
+* Fix exception handling in `BufferedConsumer`.
+* Fix `people_track_charge` calls without properties.
+
 v4.0.2
 * Fix packaging.
 
