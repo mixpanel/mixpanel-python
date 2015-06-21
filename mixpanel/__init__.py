@@ -440,6 +440,7 @@ class BufferedConsumer(object):
 
     def _flush_endpoint(self, endpoint):
         buf = self._buffers[endpoint]
+        self._buffers[endpoint] = []
         while buf:
             batch = buf[:self._max_size]
             batch_json = '[{0}]'.format(','.join(batch))
@@ -451,4 +452,3 @@ class BufferedConsumer(object):
                 mp_e.endpoint = endpoint
                 raise six.raise_from(mp_e, orig_e)
             buf = buf[self._max_size:]
-        self._buffers[endpoint] = buf
