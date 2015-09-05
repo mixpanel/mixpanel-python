@@ -2,6 +2,7 @@ from __future__ import absolute_import, unicode_literals
 import base64
 import cgi
 import contextlib
+import decimal
 import datetime
 import json
 import time
@@ -24,6 +25,13 @@ class LogConsumer(object):
             self.log.append((endpoint, json.loads(event), api_key))
         else:
             self.log.append((endpoint, json.loads(event)))
+
+
+class MixPanelDataSerializer(mixpanel.DatetimeSerializer):
+    def default(self, obj):
+        if isinstance(obj, decimal.Decimal):
+            return float(obj)
+        return super(MixPanelDataSerializer, self).default(obj)
 
 
 # Convert a query string with base64 data into a dict for safe comparison.
@@ -62,6 +70,31 @@ class TestMixpanel:
                 }
             }
         )]
+
+    def test_with_non_json_serializable_field(self):
+        with pytest.raises(TypeError) as excinfo:   
+            self.mp.track('ID', 'button press', {'size': 'big', 'color': 'blue', 'width': decimal.Decimal('12.05')})
+        assert excinfo.value.message == "Decimal('12.05') is not JSON serializable"
+
+        self.mp._serializer = MixPanelDataSerializer
+        self.mp.track('ID', 'button press', {'size': 'big', 'color': 'blue', 'width': decimal.Decimal('12.05')})
+        assert self.consumer.log == [(
+            'events', {
+                'event': 'button press',
+                'properties': {
+                    'token': self.TOKEN,
+                    'size': 'big',
+                    'color': 'blue',
+                    'width': 12.05,
+                    'distinct_id': 'ID',
+                    'time': int(self.mp._now()),
+                    'mp_lib': 'python',
+                    '$lib_version': mixpanel.__version__,
+                }
+            }
+        )]
+
+
 
     def test_import_data(self):
         timestamp = time.time()
