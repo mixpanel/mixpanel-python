@@ -36,27 +36,29 @@ class DatetimeSerializer(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 
-def json_dumps(data):
-    # Separators are specified to eliminate whitespace.
-    return json.dumps(data, separators=(',', ':'), cls=DatetimeSerializer)
-
-
 class Mixpanel(object):
     """Instances of Mixpanel are used for all events and profile updates.
 
     :param str token: your project's Mixpanel token
     :param consumer: can be used to alter the behavior of tracking (default
         :class:`~.Consumer`)
+    :param serlializer: can be used to specify your own JSON serlializer (default
+        :class:`~.DatetimeSerializer`)
 
     See `Built-in consumers`_ for details about the consumer interface.
     """
 
-    def __init__(self, token, consumer=None):
+    def __init__(self, token, consumer=None, serializer=None):
         self._token = token
         self._consumer = consumer or Consumer()
+        self._serializer = serializer or DatetimeSerializer
 
     def _now(self):
         return time.time()
+
+    def _json_dumps(self, data):
+        # Separators are specified to eliminate whitespace.
+        return json.dumps(data, separators=(',', ':'), cls=self._serializer)
 
     def track(self, distinct_id, event_name, properties=None, meta=None):
         """Record an event.
@@ -86,7 +88,7 @@ class Mixpanel(object):
         }
         if meta:
             event.update(meta)
-        self._consumer.send('events', json_dumps(event))
+        self._consumer.send('events', self._json_dumps(event))
 
     def import_data(self, api_key, distinct_id, event_name, timestamp,
                     properties=None, meta=None):
@@ -121,7 +123,7 @@ class Mixpanel(object):
         }
         if meta:
             event.update(meta)
-        self._consumer.send('imports', json_dumps(event), api_key)
+        self._consumer.send('imports', self._json_dumps(event), api_key)
 
     def alias(self, alias_id, original, meta=None):
         """Apply a custom alias to a people record.
@@ -151,7 +153,7 @@ class Mixpanel(object):
         }
         if meta:
             event.update(meta)
-        sync_consumer.send('events', json_dumps(event))
+        sync_consumer.send('events', self._json_dumps(event))
 
     def people_set(self, distinct_id, properties, meta=None):
         """Set properties of a people record.
@@ -302,7 +304,7 @@ class Mixpanel(object):
         record.update(message)
         if meta:
             record.update(meta)
-        self._consumer.send('people', json_dumps(record))
+        self._consumer.send('people', self._json_dumps(record))
 
 
 class MixpanelException(Exception):
