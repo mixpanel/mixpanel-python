@@ -74,7 +74,7 @@ class TestMixpanel:
     def test_with_non_json_serializable_field(self):
         with pytest.raises(TypeError) as excinfo:   
             self.mp.track('ID', 'button press', {'size': 'big', 'color': 'blue', 'width': decimal.Decimal('12.05')})
-        assert excinfo.value.message == "Decimal('12.05') is not JSON serializable"
+        assert str(excinfo.value) == "Decimal('12.05') is not JSON serializable"
 
         self.mp._serializer = MixPanelDataSerializer
         self.mp.track('ID', 'button press', {'size': 'big', 'color': 'blue', 'width': decimal.Decimal('12.05')})
