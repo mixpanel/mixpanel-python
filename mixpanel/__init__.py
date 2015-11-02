@@ -23,7 +23,7 @@ import time
 import six
 from six.moves import urllib
 
-__version__ = '4.1.0'
+__version__ = '4.2.0'
 VERSION = __version__  # TODO: remove when bumping major version.
 
 
@@ -47,10 +47,13 @@ class Mixpanel(object):
     :param str token: your project's Mixpanel token
     :param consumer: can be used to alter the behavior of tracking (default
         :class:`~.Consumer`)
-    :param serializer json.JSONEncoder: a JSONEncoder subclass used to handle
+    :param json.JSONEncoder serializer: a JSONEncoder subclass used to handle
         JSON serialization (default :class:`~.DatetimeSerializer`)
 
     See `Built-in consumers`_ for details about the consumer interface.
+
+    .. versionadded:: 4.2.0
+        The *serializer* parameter.
     """
 
     def __init__(self, token, consumer=None, serializer=DatetimeSerializer):
