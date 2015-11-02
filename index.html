@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Welcome to Mixpanel &mdash; mixpanel 4.1.0 documentation</title>
+    <title>Welcome to Mixpanel &mdash; mixpanel 4.2.0 documentation</title>
     
     <link rel="stylesheet" href="_static/mixpanel.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -14,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    './',
-        VERSION:     '4.1.0',
+        VERSION:     '4.2.0',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,7 +23,7 @@
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
-    <link rel="top" title="mixpanel 4.1.0 documentation" href="#" />
+    <link rel="top" title="mixpanel 4.2.0 documentation" href="#" />
    
   
   <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9">
@@ -39,7 +39,7 @@
         <li class="right" >
           <a href="py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="#">mixpanel 4.1.0 documentation</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="#">mixpanel 4.2.0 documentation</a> &raquo;</li> 
       </ul>
     </div>  
 
@@ -63,7 +63,7 @@ callers to customize the IO characteristics of their tracking.</p>
 <h2>Primary interface<a class="headerlink" href="#primary-interface" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
 <dt id="mixpanel.Mixpanel">
-<em class="property">class </em><code class="descclassname">mixpanel.</code><code class="descname">Mixpanel</code><span class="sig-paren">(</span><em>token</em>, <em>consumer=None</em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">mixpanel.</code><code class="descname">Mixpanel</code><span class="sig-paren">(</span><em>token</em>, <em>consumer=None</em>, <em>serializer=&lt;class 'mixpanel.DatetimeSerializer'&gt;</em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel" title="Permalink to this definition">¶</a></dt>
 <dd><p>Instances of Mixpanel are used for all events and profile updates.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
@@ -73,12 +73,17 @@ callers to customize the IO characteristics of their tracking.</p>
 <li><strong>token</strong> (<em>str</em>) &#8211; your project&#8217;s Mixpanel token</li>
 <li><strong>consumer</strong> &#8211; can be used to alter the behavior of tracking (default
 <a class="reference internal" href="#mixpanel.Consumer" title="mixpanel.Consumer"><code class="xref py py-class docutils literal"><span class="pre">Consumer</span></code></a>)</li>
+<li><strong>serializer</strong> (<em>json.JSONEncoder</em>) &#8211; a JSONEncoder subclass used to handle
+JSON serialization (default <code class="xref py py-class docutils literal"><span class="pre">DatetimeSerializer</span></code>)</li>
 </ul>
 </td>
 </tr>
 </tbody>
 </table>
 <p>See <a class="reference internal" href="#built-in-consumers">Built-in consumers</a> for details about the consumer interface.</p>
+<div class="versionadded">
+<p><span class="versionmodified">New in version 4.2.0: </span>The <em>serializer</em> parameter.</p>
+</div>
 <dl class="method">
 <dt id="mixpanel.Mixpanel.track">
 <code class="descname">track</code><span class="sig-paren">(</span><em>distinct_id</em>, <em>event_name</em>, <em>properties=None</em>, <em>meta=None</em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.track" title="Permalink to this definition">¶</a></dt>
