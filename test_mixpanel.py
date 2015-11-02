@@ -3,6 +3,7 @@ import base64
 import cgi
 import contextlib
 import datetime
+import decimal
 import json
 import time
 
@@ -279,6 +280,33 @@ class TestMixpanel:
                 },
                 '$ip': 0,
                 '$ignore_time': True,
+            }
+        )]
+
+    def test_custom_json_serializer(self):
+        decimal_string = '12.05'
+        with pytest.raises(TypeError) as excinfo:
+            self.mp.track('ID', 'button press', {'size': decimal.Decimal(decimal_string)})
+        assert "Decimal('%s') is not JSON serializable" % decimal_string in str(excinfo.value)
+
+        class CustomSerializer(mixpanel.DatetimeSerializer):
+            def default(self, obj):
+                if isinstance(obj, decimal.Decimal):
+                    return obj.to_eng_string()
+
+        self.mp._serializer = CustomSerializer
+        self.mp.track('ID', 'button press', {'size': decimal.Decimal(decimal_string)})
+        assert self.consumer.log == [(
+            'events', {
+                'event': 'button press',
+                'properties': {
+                    'token': self.TOKEN,
+                    'size': decimal_string,
+                    'distinct_id': 'ID',
+                    'time': int(self.mp._now()),
+                    'mp_lib': 'python',
+                    '$lib_version': mixpanel.__version__,
+                }
             }
         )]
 

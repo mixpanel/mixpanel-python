@@ -36,9 +36,9 @@ class DatetimeSerializer(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 
-def json_dumps(data):
+def json_dumps(data, cls=None):
     # Separators are specified to eliminate whitespace.
-    return json.dumps(data, separators=(',', ':'), cls=DatetimeSerializer)
+    return json.dumps(data, separators=(',', ':'), cls=cls)
 
 
 class Mixpanel(object):
@@ -47,13 +47,16 @@ class Mixpanel(object):
     :param str token: your project's Mixpanel token
     :param consumer: can be used to alter the behavior of tracking (default
         :class:`~.Consumer`)
+    :param serializer json.JSONEncoder: a JSONEncoder subclass used to handle
+        JSON serialization (default :class:`~.DatetimeSerializer`)
 
     See `Built-in consumers`_ for details about the consumer interface.
     """
 
-    def __init__(self, token, consumer=None):
+    def __init__(self, token, consumer=None, serializer=DatetimeSerializer):
         self._token = token
         self._consumer = consumer or Consumer()
+        self._serializer = serializer
 
     def _now(self):
         return time.time()
@@ -86,7 +89,7 @@ class Mixpanel(object):
         }
         if meta:
             event.update(meta)
-        self._consumer.send('events', json_dumps(event))
+        self._consumer.send('events', json_dumps(event, cls=self._serializer))
 
     def import_data(self, api_key, distinct_id, event_name, timestamp,
                     properties=None, meta=None):
@@ -121,7 +124,7 @@ class Mixpanel(object):
         }
         if meta:
             event.update(meta)
-        self._consumer.send('imports', json_dumps(event), api_key)
+        self._consumer.send('imports', json_dumps(event, cls=self._serializer), api_key)
 
     def alias(self, alias_id, original, meta=None):
         """Apply a custom alias to a people record.
@@ -151,7 +154,7 @@ class Mixpanel(object):
         }
         if meta:
             event.update(meta)
-        sync_consumer.send('events', json_dumps(event))
+        sync_consumer.send('events', json_dumps(event, cls=self._serializer))
 
     def people_set(self, distinct_id, properties, meta=None):
         """Set properties of a people record.
@@ -302,7 +305,7 @@ class Mixpanel(object):
         record.update(message)
         if meta:
             record.update(meta)
-        self._consumer.send('people', json_dumps(record))
+        self._consumer.send('people', json_dumps(record, cls=self._serializer))
 
 
 class MixpanelException(Exception):
