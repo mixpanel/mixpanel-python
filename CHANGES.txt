@@ -1,3 +1,6 @@
+v4.3.1
+* Fix bug preventing use of `import_data` with a `BufferedConsumer`.
+
 v4.3.0
 * Catch URLError when tracking data.
 
