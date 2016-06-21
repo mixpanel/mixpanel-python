@@ -401,6 +401,11 @@ class TestBufferedConsumer:
             assert excinfo.value.message == '[%s]' % broken_json
             assert excinfo.value.endpoint == 'events'
 
+    def test_import_data_receives_api_key(self):
+        # Ensure BufferedConsumer.send accepts the API_KEY parameter needed for
+        # import_data; see #62.
+        self.consumer.send('imports', '"Event"', api_key='MY_API_KEY')
+
 
 class TestFunctional:
 
