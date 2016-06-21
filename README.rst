@@ -39,8 +39,6 @@ Additional Information
 * `Full Documentation`_
 * mixpanel-python-async_; a third party tool for sending data asynchronously
   from the tracking python process.
-* mixpanel-py3_; a Python 3-only fork of this library that includes some
-  additional features, maintained by Fredrik Svensson.
 
 
 .. |travis-badge| image:: https://travis-ci.org/mixpanel/mixpanel-python.svg?branch=master
@@ -48,4 +46,3 @@ Additional Information
 .. _Help Docs: https://www.mixpanel.com/help/reference/python
 .. _Full Documentation: http://mixpanel.github.io/mixpanel-python/
 .. _mixpanel-python-async: https://github.com/jessepollak/mixpanel-python-async
-.. _mixpanel-py3: https://github.com/MyGGaN/mixpanel-python
