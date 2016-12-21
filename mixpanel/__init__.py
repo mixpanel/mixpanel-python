@@ -372,7 +372,7 @@ class Consumer(object):
             else:
                 response = urllib.request.urlopen(request).read()
         except urllib.error.URLError as e:
-            raise six.raise_from(MixpanelException(e), e)
+            six.raise_from(MixpanelException(e), e)
 
         try:
             response = json.loads(response.decode('utf8'))
@@ -455,6 +455,6 @@ class BufferedConsumer(object):
                 mp_e = MixpanelException(orig_e)
                 mp_e.message = batch_json
                 mp_e.endpoint = endpoint
-                raise six.raise_from(mp_e, orig_e)
+                six.raise_from(mp_e, orig_e)
             buf = buf[self._max_size:]
         self._buffers[endpoint] = buf
