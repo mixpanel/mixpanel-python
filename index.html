@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Welcome to Mixpanel &mdash; mixpanel 4.3.1 documentation</title>
+    <title>Welcome to Mixpanel &mdash; mixpanel 4.3.2 documentation</title>
     
     <link rel="stylesheet" href="_static/mixpanel.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -14,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    './',
-        VERSION:     '4.3.1',
+        VERSION:     '4.3.2',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,7 +23,7 @@
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
-    <link rel="top" title="mixpanel 4.3.1 documentation" href="#" />
+    <link rel="top" title="mixpanel 4.3.2 documentation" href="#" />
    
   
   <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9">
@@ -39,7 +39,7 @@
         <li class="right" >
           <a href="py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="#">mixpanel 4.3.1 documentation</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="#">mixpanel 4.3.2 documentation</a> &raquo;</li> 
       </ul>
     </div>  
 
@@ -401,6 +401,7 @@ per call to <a class="reference internal" href="#mixpanel.Consumer.send" title="
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
 <li><strong>endpoint</strong> (<em>&#8220;events&#8221; | &#8220;people&#8221; | &#8220;imports&#8221;</em>) &#8211; the Mixpanel API endpoint appropriate for the message</li>
 <li><strong>json_message</strong> (<em>str</em>) &#8211; a JSON message formatted for the endpoint</li>
+<li><strong>api_key</strong> (<em>str</em>) &#8211; your Mixpanel project&#8217;s API key</li>
 </ul>
 </td>
 </tr>
@@ -459,6 +460,7 @@ raised may have been caused by a message buffered by an earlier call to
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
 <li><strong>endpoint</strong> (<em>&#8220;events&#8221; | &#8220;people&#8221; | &#8220;imports&#8221;</em>) &#8211; the Mixpanel API endpoint appropriate for the message</li>
 <li><strong>json_message</strong> (<em>str</em>) &#8211; a JSON message formatted for the endpoint</li>
+<li><strong>api_key</strong> (<em>str</em>) &#8211; your Mixpanel project&#8217;s API key</li>
 </ul>
 </td>
 </tr>
@@ -469,6 +471,9 @@ unreachable, or any buffered message cannot be processed</p>
 </tr>
 </tbody>
 </table>
+<div class="versionadded">
+<p><span class="versionmodified">New in version 4.3.2: </span>The <em>api_key</em> parameter.</p>
+</div>
 </dd></dl>
 
 <dl class="method">
