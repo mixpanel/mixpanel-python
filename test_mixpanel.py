@@ -353,40 +353,32 @@ class TestBufferedConsumer:
     def setup_class(cls):
         cls.MAX_LENGTH = 10
         cls.consumer = mixpanel.BufferedConsumer(cls.MAX_LENGTH)
-        cls.mock = Mock()
-        cls.mock.read.return_value = six.b('{"status":1, "error": null}')
+        cls.consumer._consumer = LogConsumer()
+        cls.log = cls.consumer._consumer.log
+
+    def setup_method(self):
+        del self.log[:]
 
     def test_buffer_hold_and_flush(self):
-        with patch('six.moves.urllib.request.urlopen', return_value=self.mock) as urlopen:
-            self.consumer.send('events', '"Event"')
-            assert not self.mock.called
-            self.consumer.flush()
-
-            assert urlopen.call_count == 1
-
-            (call_args, kwargs) = urlopen.call_args
-            (request,) = call_args
-            timeout = kwargs.get('timeout', None)
-
-            assert request.get_full_url() == 'https://api.mixpanel.com/track'
-            assert qs(request.data) == qs('ip=0&data=WyJFdmVudCJd&verbose=1')
-            assert timeout is None
+        self.consumer.send('events', '"Event"')
+        assert len(self.log) == 0
+        self.consumer.flush()
+        assert self.log == [('events', ['Event'])]
 
     def test_buffer_fills_up(self):
-        with patch('six.moves.urllib.request.urlopen', return_value=self.mock) as urlopen:
-            for i in range(self.MAX_LENGTH - 1):
-                self.consumer.send('events', '"Event"')
-                assert not self.mock.called
+        for i in range(self.MAX_LENGTH - 1):
+            self.consumer.send('events', '"Event"')
+        assert len(self.log) == 0
 
-            self.consumer.send('events', '"Last Event"')
+        self.consumer.send('events', '"Last Event"')
+        assert len(self.log) == 1
+        assert self.log == [('events', [
+            'Event', 'Event', 'Event', 'Event', 'Event',
+            'Event', 'Event', 'Event', 'Event', 'Last Event',
+        ])]
 
-            assert urlopen.call_count == 1
-            ((request,), _) = urlopen.call_args
-            assert request.get_full_url() == 'https://api.mixpanel.com/track'
-            assert qs(request.data) == \
-                qs('ip=0&data=WyJFdmVudCIsIkV2ZW50IiwiRXZlbnQiLCJFdmVudCIsIkV2ZW50IiwiRXZlbnQiLCJFdmVudCIsIkV2ZW50IiwiRXZlbnQiLCJMYXN0IEV2ZW50Il0%3D&verbose=1')
-
-    def test_unknown_endpoint(self):
+    def test_unknown_endpoint_raises_on_send(self):
+        # Ensure the exception isn't hidden until a flush.
         with pytest.raises(mixpanel.MixpanelException):
             self.consumer.send('unknown', '1')
 
@@ -394,10 +386,11 @@ class TestBufferedConsumer:
         error_mock = Mock()
         error_mock.read.return_value = six.b('{"status": 0, "error": "arbitrary error"}')
         broken_json = '{broken JSON'
+        consumer = mixpanel.BufferedConsumer(2)
         with patch('six.moves.urllib.request.urlopen', return_value=error_mock):
-            self.consumer.send('events', broken_json)
+            consumer.send('events', broken_json)
             with pytest.raises(mixpanel.MixpanelException) as excinfo:
-                self.consumer.flush()
+                consumer.flush()
             assert excinfo.value.message == '[%s]' % broken_json
             assert excinfo.value.endpoint == 'events'
 
