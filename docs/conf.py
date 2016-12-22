@@ -20,7 +20,7 @@ master_doc = 'index'
 project = u'mixpanel'
 copyright = u' 2016, Mixpanel, Inc.'
 author = u'Mixpanel <dev@mixpanel.com>'
-version = release = '4.3.1'
+version = release = '4.3.2'
 exclude_patterns = ['_build']
 pygments_style = 'sphinx'
 
