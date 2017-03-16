@@ -287,7 +287,7 @@ class TestMixpanel:
         decimal_string = '12.05'
         with pytest.raises(TypeError) as excinfo:
             self.mp.track('ID', 'button press', {'size': decimal.Decimal(decimal_string)})
-        assert "Decimal('%s') is not JSON serializable" % decimal_string in str(excinfo.value)
+        assert "not JSON serializable" in str(excinfo.value)
 
         class CustomSerializer(mixpanel.DatetimeSerializer):
             def default(self, obj):
