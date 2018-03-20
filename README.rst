@@ -4,6 +4,8 @@ mixpanel-python |travis-badge|
 This is the official Mixpanel Python library. This library allows for
 server-side integration of Mixpanel.
 
+NOTE - this differs from the mixpanel-api module, which is designed to allow Mixpanel users to rapidly and easily utilize our export APIs to accomplish common tasks such as people/event exports, imports, people profile transform, deletions, etc: https://github.com/mixpanel/mixpanel_api
+
 
 Installation
 ------------
