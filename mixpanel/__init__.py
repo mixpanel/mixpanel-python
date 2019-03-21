@@ -251,6 +251,22 @@ class Mixpanel(object):
             '$unset': properties,
         }, meta=meta)
 
+    def people_remove(self, distinct_id, properties, meta=None):
+        """Remove a value from the list associated with a property.
+
+        :param str distinct_id: the profile to update
+        :param dict properties: properties to remove
+
+        Removes items from list-style properties of a people record.
+        For example::
+
+            mp.people_remove('123', {'Items': 'Super Arm'})
+        """
+        return self.people_update({
+            '$distinct_id': distinct_id,
+            '$remove': properties,
+        }, meta=meta or {})
+    
     def people_delete(self, distinct_id, meta=None):
         """Permanently delete a people record.
 
