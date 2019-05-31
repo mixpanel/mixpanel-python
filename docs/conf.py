@@ -18,9 +18,9 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'mixpanel'
-copyright = u' 2016, Mixpanel, Inc.'
+copyright = u' 2019, Mixpanel, Inc.'
 author = u'Mixpanel <dev@mixpanel.com>'
-version = release = '4.3.2'
+version = release = '4.4.0'
 exclude_patterns = ['_build']
 pygments_style = 'sphinx'
 

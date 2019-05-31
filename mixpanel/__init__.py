@@ -23,7 +23,7 @@ import time
 import six
 from six.moves import urllib
 
-__version__ = '4.3.2'
+__version__ = '4.4.0'
 VERSION = __version__  # TODO: remove when bumping major version.
 
 

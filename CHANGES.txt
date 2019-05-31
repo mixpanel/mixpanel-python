@@ -1,3 +1,6 @@
+v4.4.0
+* Add `people_remove`.
+
 v4.3.2
 * Fix bug preventing use of `import_data` with a `BufferedConsumer`.
 
