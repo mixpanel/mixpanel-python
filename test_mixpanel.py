@@ -181,6 +181,17 @@ class TestMixpanel:
             }
         )]
 
+    def test_people_remove(self):
+        self.mp.people_remove('amq', {'Albums': 'Diamond Dogs'})
+        assert self.consumer.log == [(
+            'people', {
+                '$time': int(self.mp._now() * 1000),
+                '$token': self.TOKEN,
+                '$distinct_id': 'amq',
+                '$remove': {'Albums': 'Diamond Dogs'},
+            }
+        )]
+
     def test_people_track_charge(self):
         self.mp.people_track_charge('amq', 12.65, {'$time': '2013-04-01T09:02:00'})
         assert self.consumer.log == [(
