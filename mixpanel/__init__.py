@@ -252,7 +252,7 @@ class Mixpanel(object):
         }, meta=meta)
 
     def people_remove(self, distinct_id, properties, meta=None):
-        """Remove a value from the list associated with a property.
+        """Permanently remove a value from the list associated with a property.
 
         :param str distinct_id: the profile to update
         :param dict properties: properties to remove
