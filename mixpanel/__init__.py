@@ -266,7 +266,7 @@ class Mixpanel(object):
             '$distinct_id': distinct_id,
             '$remove': properties,
         }, meta=meta or {})
-    
+
     def people_delete(self, distinct_id, meta=None):
         """Permanently delete a people record.
 
@@ -462,12 +462,12 @@ class Consumer(object):
 
     :param str events_url: override the default events API endpoint
     :param str people_url: override the default people API endpoint
-    :param str groups_url: override the default groups API endpoint
     :param str import_url: override the default import API endpoint
     :param int request_timeout: connection timeout in seconds
+    :param str groups_url: override the default groups API endpoint
     """
 
-    def __init__(self, events_url=None, people_url=None, groups_url=None, import_url=None, request_timeout=None):
+    def __init__(self, events_url=None, people_url=None, import_url=None, request_timeout=None, groups_url=None):
         self._endpoints = {
             'events': events_url or 'https://api.mixpanel.com/track',
             'people': people_url or 'https://api.mixpanel.com/engage',
@@ -539,12 +539,12 @@ class BufferedConsumer(object):
         buffer before flushing automatically
     :param str events_url: override the default events API endpoint
     :param str people_url: override the default people API endpoint
-    :param str groups_url: override the default groups API endpoint
     :param str import_url: override the default import API endpoint
     :param int request_timeout: connection timeout in seconds
+    :param str groups_url: override the default groups API endpoint
     """
-    def __init__(self, max_size=50, events_url=None, people_url=None, groups_url=None, import_url=None, request_timeout=None):
-        self._consumer = Consumer(events_url, people_url, groups_url, import_url, request_timeout)
+    def __init__(self, max_size=50, events_url=None, people_url=None, import_url=None, request_timeout=None, groups_url=None):
+        self._consumer = Consumer(events_url, people_url, import_url, request_timeout, groups_url)
         self._buffers = {
             'events': [],
             'people': [],
