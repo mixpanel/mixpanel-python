@@ -166,7 +166,7 @@ class Mixpanel(object):
         :param dict properties: properties to set
         :param dict meta: overrides Mixpanel `special properties`_
 
-        .. _`special properties`: https://mixpanel.com/help/reference/http#people-analytics-updates
+        .. _`special properties`: https://developer.mixpanel.com/docs/http#section-storing-user-profiles
 
         If the profile does not exist, creates a new profile with these properties.
         """
