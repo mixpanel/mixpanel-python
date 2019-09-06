@@ -266,7 +266,7 @@ class Mixpanel(object):
             '$distinct_id': distinct_id,
             '$remove': properties,
         }, meta=meta or {})
-    
+
     def people_delete(self, distinct_id, meta=None):
         """Permanently delete a people record.
 
@@ -327,6 +327,125 @@ class Mixpanel(object):
         self._consumer.send('people', json_dumps(record, cls=self._serializer))
 
 
+    def group_set(self, group_key, group_id, properties, meta=None):
+        """Set properties of a group profile.
+
+        :param str group_key: the group key, e.g. 'company'
+        :param str group_id: the group to update
+        :param dict properties: properties to set
+        :param dict meta: overrides Mixpanel `special properties`_
+
+        .. _`special properties`: https://mixpanel.com/help/reference/http#people-analytics-updates
+
+        If the profile does not exist, creates a new profile with these properties.
+        """
+        return self.group_update({
+            '$group_key': group_key,
+            '$group_id': group_id,
+            '$set': properties,
+        }, meta=meta or {})
+
+    def group_set_once(self, group_key, group_id, properties, meta=None):
+        """Set properties of a group profile if they are not already set.
+
+        :param str group_key: the group key, e.g. 'company'
+        :param str group_id: the group to update
+        :param dict properties: properties to set
+
+        Any properties that already exist on the profile will not be
+        overwritten. If the profile does not exist, creates a new profile with
+        these properties.
+        """
+        return self.group_update({
+            '$group_key': group_key,
+            '$group_id': group_id,
+            '$set_once': properties,
+        }, meta=meta or {})
+
+    def group_union(self, group_key, group_id, properties, meta=None):
+        """Merge the values of a list associated with a property.
+
+        :param str group_key: the group key, e.g. 'company'
+        :param str group_id: the group to update
+        :param dict properties: properties to merge
+
+        Merges list values in ``properties`` with existing list-style
+        properties of a group profile. Duplicate values are ignored. For
+        example::
+
+            mp.group_union('company', 'Acme Inc.', {'Items': ['Super Arm', 'Fire Storm']})
+        """
+        return self.group_update({
+            '$group_key': group_key,
+            '$group_id': group_id,
+            '$union': properties,
+        }, meta=meta or {})
+
+    def group_unset(self, group_key, group_id, properties, meta=None):
+        """Permanently remove properties from a group profile.
+
+        :param str group_key: the group key, e.g. 'company'
+        :param str group_id: the group to update
+        :param list properties: property names to remove
+        """
+        return self.group_update({
+            '$group_key': group_key,
+            '$group_id': group_id,
+            '$unset': properties,
+        }, meta=meta)
+
+    def group_remove(self, group_key, group_id, properties, meta=None):
+        """Permanently remove a value from the list associated with a property.
+
+        :param str group_key: the group key, e.g. 'company'
+        :param str group_id: the group to update
+        :param dict properties: properties to remove
+
+        Removes items from list-style properties of a group profile.
+        For example::
+
+            mp.group_remove('company', 'Acme Inc.', {'Items': 'Super Arm'})
+        """
+        return self.group_update({
+            '$group_key': group_key,
+            '$group_id': group_id,
+            '$remove': properties,
+        }, meta=meta or {})
+
+    def group_delete(self, group_key, group_id, meta=None):
+        """Permanently delete a group profile.
+
+        :param str group_key: the group key, e.g. 'company'
+        :param str group_id: the group to delete
+        """
+        return self.group_update({
+            '$group_key': group_key,
+            '$group_id': group_id,
+            '$delete': "",
+        }, meta=meta or None)
+
+    def group_update(self, message, meta=None):
+        """Send a generic group profile update
+
+        :param dict message: the message to send
+
+        Callers are responsible for formatting the update message as documented
+        in the `Mixpanel HTTP specification`_. This method may be useful if you
+        want to use very new or experimental features, but
+        please use the other ``group_*`` methods where possible.
+
+        .. _`Mixpanel HTTP specification`: https://mixpanel.com/help/reference/http
+        """
+        record = {
+            '$token': self._token,
+            '$time': int(self._now() * 1000),
+        }
+        record.update(message)
+        if meta:
+            record.update(meta)
+        self._consumer.send('groups', json_dumps(record, cls=self._serializer))
+
+
 class MixpanelException(Exception):
     """Raised by consumers when unable to send messages.
 
@@ -345,12 +464,14 @@ class Consumer(object):
     :param str people_url: override the default people API endpoint
     :param str import_url: override the default import API endpoint
     :param int request_timeout: connection timeout in seconds
+    :param str groups_url: override the default groups API endpoint
     """
 
-    def __init__(self, events_url=None, people_url=None, import_url=None, request_timeout=None):
+    def __init__(self, events_url=None, people_url=None, import_url=None, request_timeout=None, groups_url=None):
         self._endpoints = {
             'events': events_url or 'https://api.mixpanel.com/track',
             'people': people_url or 'https://api.mixpanel.com/engage',
+            'groups': groups_url or 'https://api.mixpanel.com/groups',
             'imports': import_url or 'https://api.mixpanel.com/import',
         }
         self._request_timeout = request_timeout
@@ -420,12 +541,14 @@ class BufferedConsumer(object):
     :param str people_url: override the default people API endpoint
     :param str import_url: override the default import API endpoint
     :param int request_timeout: connection timeout in seconds
+    :param str groups_url: override the default groups API endpoint
     """
-    def __init__(self, max_size=50, events_url=None, people_url=None, import_url=None, request_timeout=None):
-        self._consumer = Consumer(events_url, people_url, import_url, request_timeout)
+    def __init__(self, max_size=50, events_url=None, people_url=None, import_url=None, request_timeout=None, groups_url=None):
+        self._consumer = Consumer(events_url, people_url, import_url, request_timeout, groups_url)
         self._buffers = {
             'events': [],
             'people': [],
+            'groups': [],
             'imports': [],
         }
         self._max_size = min(50, max_size)

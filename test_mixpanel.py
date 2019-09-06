@@ -294,6 +294,74 @@ class TestMixpanel:
             }
         )]
 
+    def test_group_set(self):
+        self.mp.group_set('company', 'amq', {'birth month': 'october', 'favorite color': 'purple'})
+        assert self.consumer.log == [(
+            'groups', {
+                '$time': int(self.mp._now() * 1000),
+                '$token': self.TOKEN,
+                '$group_key': 'company',
+                '$group_id': 'amq',
+                '$set': {
+                    'birth month': 'october',
+                    'favorite color': 'purple',
+                },
+            }
+        )]
+
+    def test_group_set_once(self):
+        self.mp.group_set_once('company', 'amq', {'birth month': 'october', 'favorite color': 'purple'})
+        assert self.consumer.log == [(
+            'groups', {
+                '$time': int(self.mp._now() * 1000),
+                '$token': self.TOKEN,
+                '$group_key': 'company',
+                '$group_id': 'amq',
+                '$set_once': {
+                    'birth month': 'october',
+                    'favorite color': 'purple',
+                },
+            }
+        )]
+
+    def test_group_union(self):
+        self.mp.group_union('company', 'amq', {'Albums': ['Diamond Dogs']})
+        assert self.consumer.log == [(
+            'groups', {
+                '$time': int(self.mp._now() * 1000),
+                '$token': self.TOKEN,
+                '$group_key': 'company',
+                '$group_id': 'amq',
+                '$union': {
+                    'Albums': ['Diamond Dogs'],
+                },
+            }
+        )]
+
+    def test_group_unset(self):
+        self.mp.group_unset('company', 'amq', ['Albums', 'Singles'])
+        assert self.consumer.log == [(
+            'groups', {
+                '$time': int(self.mp._now() * 1000),
+                '$token': self.TOKEN,
+                '$group_key': 'company',
+                '$group_id': 'amq',
+                '$unset': ['Albums', 'Singles'],
+            }
+        )]
+
+    def test_group_remove(self):
+        self.mp.group_remove('company', 'amq', {'Albums': 'Diamond Dogs'})
+        assert self.consumer.log == [(
+            'groups', {
+                '$time': int(self.mp._now() * 1000),
+                '$token': self.TOKEN,
+                '$group_key': 'company',
+                '$group_id': 'amq',
+                '$remove': {'Albums': 'Diamond Dogs'},
+            }
+        )]
+
     def test_custom_json_serializer(self):
         decimal_string = '12.05'
         with pytest.raises(TypeError) as excinfo:
