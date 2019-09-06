@@ -7,8 +7,8 @@ documentation; you may also be interested in the higher-level `usage
 documentation`_. If your users are interacting with your application via the
 web, you may also be interested in our `JavaScript library`_.
 
-.. _`Javascript library`: https://mixpanel.com/help/reference/javascript
-.. _`usage documentation`: https://mixpanel.com/help/reference/python
+.. _`Javascript library`: https://developer.mixpanel.com/docs/javascript
+.. _`usage documentation`: https://developer.mixpanel.com/docs/python
 
 :class:`~.Mixpanel` is the primary class for tracking events and sending People
 Analytics updates. :class:`~.Consumer` and :class:`~.BufferedConsumer` allow
@@ -110,7 +110,7 @@ class Mixpanel(object):
         ``track`` endpoint disallows events that occurred too long ago. This
         method can be used to import such events. See our online documentation
         for `more details
-        <https://mixpanel.com/docs/api-documentation/importing-events-older-than-31-days>`__.
+        <https://developer.mixpanel.com/docs/importing-old-events>`__.
         """
         all_properties = {
             'token': self._token,
@@ -315,7 +315,7 @@ class Mixpanel(object):
         want to use very new or experimental features of people analytics, but
         please use the other ``people_*`` methods where possible.
 
-        .. _`Mixpanel HTTP specification`: https://mixpanel.com/help/reference/http
+        .. _`Mixpanel HTTP specification`: https://developer.mixpanel.com/docs/http
         """
         record = {
             '$token': self._token,
@@ -434,7 +434,7 @@ class Mixpanel(object):
         want to use very new or experimental features, but
         please use the other ``group_*`` methods where possible.
 
-        .. _`Mixpanel HTTP specification`: https://mixpanel.com/help/reference/http
+        .. _`Mixpanel HTTP specification`: https://developer.mixpanel.com/docs/http
         """
         record = {
             '$token': self._token,
