@@ -1,6 +1,5 @@
 from __future__ import absolute_import, unicode_literals
 import base64
-import cgi
 import contextlib
 import datetime
 import decimal
@@ -31,7 +30,7 @@ class LogConsumer(object):
 def qs(s):
     if isinstance(s, six.binary_type):
         s = s.decode('utf8')
-    blob = cgi.parse_qs(s)
+    blob = urllib.parse.parse_qs(s)
     if len(blob['data']) != 1:
         pytest.fail('found multi-item data: %s' % blob['data'])
     json_bytes = base64.b64decode(blob['data'][0])
