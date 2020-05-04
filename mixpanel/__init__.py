@@ -130,17 +130,18 @@ class Mixpanel(object):
         self._consumer.send('imports', json_dumps(event, cls=self._serializer), api_key)
 
     def alias(self, alias_id, original, meta=None):
-        """Apply a custom alias to a people record.
+        """Creates an alias which Mixpanel will use to remap one id to another.
 
-        :param str alias_id: the new distinct_id
-        :param str original: the previous distinct_id
+        :param str alias_id: A distinct_id to be merged with the original
+            distinct_id. Each alias can only map to one distinct_id.
+        :param str original: A distinct_id to be merged with alias_id.
         :param dict meta: overrides Mixpanel special properties
 
         Immediately creates a one-way mapping between two ``distinct_ids``.
         Events triggered by the new id will be associated with the existing
         user's profile and behavior. See our online documentation for `more
         details
-        <https://mixpanel.com/docs/integration-libraries/using-mixpanel-alias>`__.
+        <https://developer.mixpanel.com/docs/http#section-create-alias>`__.
 
         .. note::
             Calling this method *always* results in a synchronous HTTP request
