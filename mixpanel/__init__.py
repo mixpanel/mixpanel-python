@@ -163,12 +163,19 @@ class Mixpanel(object):
     def merge(self, distinct_id1, distinct_id2, meta=None):
         """
         Merges the two given distinct_ids.
+
+        :param str distinct_id1: The first distinct_id to merge.
+        :param str distinct_id2: The second (other) distinct_id to merge.
+        :param dict meta: overrides Mixpanel special properties
+
+        See our online documentation for `more
+        details
+        <https://developer.mixpanel.com/docs/http#merge>`__.
         """
-        sync_consumer = Consumer()
         event = {
             'event': '$merge',
             'properties': {
-                'distinct_ids': [distinct_id1, distinct_id2],
+                '$distinct_ids': [distinct_id1, distinct_id2],
                 'token': self._token,
             },
         }
