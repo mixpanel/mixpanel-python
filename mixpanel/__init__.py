@@ -160,6 +160,22 @@ class Mixpanel(object):
             event.update(meta)
         sync_consumer.send('events', json_dumps(event, cls=self._serializer))
 
+    def merge(self, distinct_id1, distinct_id2, meta=None):
+        """
+        Merges the two given distinct_ids.
+        """
+        sync_consumer = Consumer()
+        event = {
+            'event': '$merge',
+            'properties': {
+                'distinct_ids': [distinct_id1, distinct_id2],
+                'token': self._token,
+            },
+        }
+        if meta:
+            event.update(meta)
+        self._consumer.send('imports', json_dumps(event, cls=self._serializer))
+
     def people_set(self, distinct_id, properties, meta=None):
         """Set properties of a people record.
 
