@@ -264,6 +264,7 @@ class TestMixpanel:
         )]
 
     def test_alias(self):
+        # More complicated since alias() forces a synchronous call.
         mock_response = Mock()
         mock_response.read.return_value = six.b('{"status":1, "error": null}')
         with patch('six.moves.urllib.request.urlopen', return_value=mock_response) as urlopen:
@@ -275,6 +276,21 @@ class TestMixpanel:
             assert request.get_full_url() == 'https://api.mixpanel.com/track'
             assert qs(request.data) == \
                 qs('ip=0&data=eyJldmVudCI6IiRjcmVhdGVfYWxpYXMiLCJwcm9wZXJ0aWVzIjp7ImFsaWFzIjoiQUxJQVMiLCJ0b2tlbiI6IjEyMzQ1IiwiZGlzdGluY3RfaWQiOiJPUklHSU5BTCBJRCJ9fQ%3D%3D&verbose=1')
+
+    def test_merge(self):
+        self.mp.merge('my_good_api_key', 'd1', 'd2')
+
+        assert self.consumer.log == [(
+            'imports',
+            {
+                'event': '$merge',
+                'properties': {
+                    '$distinct_ids': ['d1', 'd2'],
+                    'token': self.TOKEN,
+                }
+            },
+            'my_good_api_key',
+        )]
 
     def test_people_meta(self):
         self.mp.people_set('amq', {'birth month': 'october', 'favorite color': 'purple'},

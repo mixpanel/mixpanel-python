@@ -160,6 +160,30 @@ class Mixpanel(object):
             event.update(meta)
         sync_consumer.send('events', json_dumps(event, cls=self._serializer))
 
+    def merge(self, api_key, distinct_id1, distinct_id2, meta=None):
+        """
+        Merges the two given distinct_ids.
+
+        :param str api_key: Your Mixpanel project's API key.
+        :param str distinct_id1: The first distinct_id to merge.
+        :param str distinct_id2: The second (other) distinct_id to merge.
+        :param dict meta: overrides Mixpanel special properties
+
+        See our online documentation for `more
+        details
+        <https://developer.mixpanel.com/docs/http#merge>`__.
+        """
+        event = {
+            'event': '$merge',
+            'properties': {
+                '$distinct_ids': [distinct_id1, distinct_id2],
+                'token': self._token,
+            },
+        }
+        if meta:
+            event.update(meta)
+        self._consumer.send('imports', json_dumps(event, cls=self._serializer), api_key)
+
     def people_set(self, distinct_id, properties, meta=None):
         """Set properties of a people record.
 
