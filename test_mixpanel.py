@@ -278,16 +278,18 @@ class TestMixpanel:
                 qs('ip=0&data=eyJldmVudCI6IiRjcmVhdGVfYWxpYXMiLCJwcm9wZXJ0aWVzIjp7ImFsaWFzIjoiQUxJQVMiLCJ0b2tlbiI6IjEyMzQ1IiwiZGlzdGluY3RfaWQiOiJPUklHSU5BTCBJRCJ9fQ%3D%3D&verbose=1')
 
     def test_merge(self):
-        self.mp.merge('d1', 'd2')
+        self.mp.merge('my_good_api_key', 'd1', 'd2')
 
         assert self.consumer.log == [(
-            'imports', {
+            'imports',
+            {
                 'event': '$merge',
                 'properties': {
                     '$distinct_ids': ['d1', 'd2'],
                     'token': self.TOKEN,
                 }
-            }
+            },
+            'my_good_api_key',
         )]
 
     def test_people_meta(self):
