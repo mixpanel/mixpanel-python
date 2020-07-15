@@ -1,3 +1,11 @@
+Release process::
+
+1. Document all changes in CHANGES.rst.
+2. Tag in git.
+3. Create a release in github.
+4. Rebuild docs and publish to GitHub Pages (if appropriate -- see below)
+5. Publish to PyPI. (see below)
+
 Run tests::
 
   tox
