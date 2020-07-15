@@ -464,6 +464,22 @@ of each of their own method calls, after building the JSON message.</p>
 <em class="property">class </em><code class="sig-prename descclassname">mixpanel.</code><code class="sig-name descname">Consumer</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">events_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">people_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">import_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">request_timeout</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">groups_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">api_host</span><span class="o">=</span><span class="default_value">'api.mixpanel.com'</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Consumer" title="Permalink to this definition">¶</a></dt>
 <dd><p>A consumer that sends an HTTP request directly to the Mixpanel service, one
 per call to <a class="reference internal" href="#mixpanel.Consumer.send" title="mixpanel.Consumer.send"><code class="xref py py-meth docutils literal notranslate"><span class="pre">send()</span></code></a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>events_url</strong> (<em>str</em>) – override the default events API endpoint</p></li>
+<li><p><strong>people_url</strong> (<em>str</em>) – override the default people API endpoint</p></li>
+<li><p><strong>import_url</strong> (<em>str</em>) – override the default import API endpoint</p></li>
+<li><p><strong>request_timeout</strong> (<em>int</em>) – connection timeout in seconds</p></li>
+<li><p><strong>groups_url</strong> (<em>str</em>) – override the default groups API endpoint</p></li>
+<li><p><strong>api_host</strong> (<em>str</em>) – the Mixpanel API domain where all requests should be
+issued (unless overridden by above URLs).</p></li>
+</ul>
+</dd>
+</dl>
+<div class="versionadded">
+<p><span class="versionmodified added">New in version 4.6.0: </span>The <em>api_host</em> parameter.</p>
+</div>
 <dl class="py method">
 <dt id="mixpanel.Consumer.send">
 <code class="sig-name descname">send</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">endpoint</span></em>, <em class="sig-param"><span class="n">json_message</span></em>, <em class="sig-param"><span class="n">api_key</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Consumer.send" title="Permalink to this definition">¶</a></dt>
@@ -491,6 +507,24 @@ unreachable, or the message cannot be processed</p>
 <dd><p>A consumer that maintains per-endpoint buffers of messages and then sends
 them in batches. This can save bandwidth and reduce the total amount of
 time required to post your events to Mixpanel.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>max_size</strong> (<em>int</em>) – number of <a class="reference internal" href="#mixpanel.BufferedConsumer.send" title="mixpanel.BufferedConsumer.send"><code class="xref py py-meth docutils literal notranslate"><span class="pre">send()</span></code></a> calls for a given endpoint to
+buffer before flushing automatically</p></li>
+<li><p><strong>events_url</strong> (<em>str</em>) – override the default events API endpoint</p></li>
+<li><p><strong>people_url</strong> (<em>str</em>) – override the default people API endpoint</p></li>
+<li><p><strong>import_url</strong> (<em>str</em>) – override the default import API endpoint</p></li>
+<li><p><strong>request_timeout</strong> (<em>int</em>) – connection timeout in seconds</p></li>
+<li><p><strong>groups_url</strong> (<em>str</em>) – override the default groups API endpoint</p></li>
+<li><p><strong>api_host</strong> (<em>str</em>) – the Mixpanel API domain where all requests should be
+issued (unless overridden by above URLs).</p></li>
+</ul>
+</dd>
+</dl>
+<div class="versionadded">
+<p><span class="versionmodified added">New in version 4.6.0: </span>The <em>api_host</em> parameter.</p>
+</div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Because <a class="reference internal" href="#mixpanel.BufferedConsumer" title="mixpanel.BufferedConsumer"><code class="xref py py-class docutils literal notranslate"><span class="pre">BufferedConsumer</span></code></a> holds events, you need to call
