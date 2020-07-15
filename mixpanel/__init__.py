@@ -482,20 +482,26 @@ class Consumer(object):
     """
     A consumer that sends an HTTP request directly to the Mixpanel service, one
     per call to :meth:`~.send`.
-
-    :param str events_url: override the default events API endpoint
-    :param str people_url: override the default people API endpoint
-    :param str import_url: override the default import API endpoint
-    :param int request_timeout: connection timeout in seconds
-    :param str groups_url: override the default groups API endpoint
     """
 
-    def __init__(self, events_url=None, people_url=None, import_url=None, request_timeout=None, groups_url=None):
+    def __init__(self, events_url=None, people_url=None, import_url=None,
+            request_timeout=None, groups_url=None, api_host="api.mixpanel.com"):
+        """
+        Create a Consumer.
+
+        :param str events_url: override the default events API endpoint
+        :param str people_url: override the default people API endpoint
+        :param str import_url: override the default import API endpoint
+        :param int request_timeout: connection timeout in seconds
+        :param str groups_url: override the default groups API endpoint
+        :param str api_host: the Mixpanel API domain where all requests should be
+            issued (unless overridden by above URLs).
+        """
         self._endpoints = {
-            'events': events_url or 'https://api.mixpanel.com/track',
-            'people': people_url or 'https://api.mixpanel.com/engage',
-            'groups': groups_url or 'https://api.mixpanel.com/groups',
-            'imports': import_url or 'https://api.mixpanel.com/import',
+            'events': events_url or 'https://{}/track'.format(api_host),
+            'people': people_url or 'https://{}/engage'.format(api_host),
+            'groups': groups_url or 'https://{}/groups'.format(api_host),
+            'imports': import_url or 'https://{}/import'.format(api_host),
         }
         self._request_timeout = request_timeout
 
@@ -557,17 +563,21 @@ class BufferedConsumer(object):
         :meth:`~.flush` when you're sure you're done sending them—for example,
         just before your program exits. Calls to :meth:`~.flush` will send all
         remaining unsent events being held by the instance.
-
-    :param int max_size: number of :meth:`~.send` calls for a given endpoint to
-        buffer before flushing automatically
-    :param str events_url: override the default events API endpoint
-    :param str people_url: override the default people API endpoint
-    :param str import_url: override the default import API endpoint
-    :param int request_timeout: connection timeout in seconds
-    :param str groups_url: override the default groups API endpoint
     """
-    def __init__(self, max_size=50, events_url=None, people_url=None, import_url=None, request_timeout=None, groups_url=None):
-        self._consumer = Consumer(events_url, people_url, import_url, request_timeout, groups_url)
+    def __init__(self, max_size=50, events_url=None, people_url=None, import_url=None,
+            request_timeout=None, groups_url=None, api_host="api.mixpanel.com"):
+        """
+        :param int max_size: number of :meth:`~.send` calls for a given endpoint to
+            buffer before flushing automatically
+        :param str events_url: override the default events API endpoint
+        :param str people_url: override the default people API endpoint
+        :param str import_url: override the default import API endpoint
+        :param int request_timeout: connection timeout in seconds
+        :param str groups_url: override the default groups API endpoint
+        :param str api_host: the Mixpanel API domain where all requests should be
+            issued (unless overridden by above URLs).
+        """
+        self._consumer = Consumer(events_url, people_url, import_url, request_timeout, groups_url, api_host)
         self._buffers = {
             'events': [],
             'people': [],
