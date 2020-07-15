@@ -24,7 +24,10 @@ setup(
     author='Mixpanel, Inc.',
     author_email='dev@mixpanel.com',
     license='Apache',
-    install_requires=['six >= 1.9.0'],
+    install_requires=[
+        'six >= 1.9.0',
+        'requests >= 2.0.0',
+    ],
 
     classifiers=[
         'License :: OSI Approved :: Apache Software License',

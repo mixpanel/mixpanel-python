@@ -20,6 +20,7 @@ import datetime
 import json
 import time
 
+import requests
 import six
 from six.moves import urllib
 
@@ -498,16 +499,9 @@ class Consumer(object):
         }
         if api_key:
             data.update({'api_key': api_key})
-        encoded_data = urllib.parse.urlencode(data).encode('utf8')
-        try:
-            request = urllib.request.Request(request_url, encoded_data)
 
-            # Note: We don't send timeout=None here, because the timeout in urllib2 defaults to
-            # an internal socket timeout, not None.
-            if self._request_timeout is not None:
-                response = urllib.request.urlopen(request, timeout=self._request_timeout).read()
-            else:
-                response = urllib.request.urlopen(request).read()
+        requests.post(request_url, data=data, timeout=self._request_timeout)
+
         except urllib.error.URLError as e:
             six.raise_from(MixpanelException(e), e)
 
