@@ -412,7 +412,10 @@ class TestConsumer:
         cls.consumer = mixpanel.Consumer(request_timeout=30)
 
     @contextlib.contextmanager
-    def _assertSends(self, expect_url, expect_data):
+    def _assertSends(self, expect_url, expect_data, consumer=None):
+        if consumer is None:
+            consumer = self.consumer
+
         mock_response = Mock()
         mock_response.read.return_value = six.b('{"status":1, "error": null}')
         with patch('six.moves.urllib.request.urlopen', return_value=mock_response) as urlopen:
@@ -426,7 +429,7 @@ class TestConsumer:
 
             assert request.get_full_url() == expect_url
             assert qs(request.data) == qs(expect_data)
-            assert timeout == self.consumer._request_timeout
+            assert timeout == consumer._request_timeout
 
     def test_send_events(self):
         with self._assertSends('https://api.mixpanel.com/track', 'ip=0&data=IkV2ZW50Ig%3D%3D&verbose=1'):
@@ -435,6 +438,13 @@ class TestConsumer:
     def test_send_people(self):
         with self._assertSends('https://api.mixpanel.com/engage', 'ip=0&data=IlBlb3BsZSI%3D&verbose=1'):
             self.consumer.send('people', '"People"')
+
+    def test_consumer_override_api_host(self):
+        consumer = mixpanel.Consumer(api_host="api-eu.mixpanel.com")
+        with self._assertSends('https://api-eu.mixpanel.com/track', 'ip=0&data=IkV2ZW50Ig%3D%3D&verbose=1', consumer=consumer):
+            consumer.send('events', '"Event"')
+        with self._assertSends('https://api-eu.mixpanel.com/engage', 'ip=0&data=IlBlb3BsZSI%3D&verbose=1', consumer=consumer):
+            consumer.send('people', '"People"')
 
     def test_unknown_endpoint(self):
         with pytest.raises(mixpanel.MixpanelException):
