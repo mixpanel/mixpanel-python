@@ -15,14 +15,13 @@ Analytics updates. :class:`~.Consumer` and :class:`~.BufferedConsumer` allow
 callers to customize the IO characteristics of their tracking.
 """
 from __future__ import absolute_import, unicode_literals
-import base64
 import datetime
 import json
 import time
 
-import requests
 import six
 from six.moves import urllib
+import urllib3
 
 __version__ = '4.5.0'
 VERSION = __version__  # TODO: remove when bumping major version.
@@ -475,6 +474,7 @@ class Consumer(object):
             'imports': import_url or 'https://api.mixpanel.com/import',
         }
         self._request_timeout = request_timeout
+        self._http = urllib3.PoolManager()
 
     def send(self, endpoint, json_message, api_key=None):
         """Immediately record an event or a profile update.
@@ -493,20 +493,20 @@ class Consumer(object):
 
     def _write_request(self, request_url, json_message, api_key=None):
         data = {
-            'data': base64.b64encode(json_message.encode('utf8')),
+            'data': json_message.encode('utf8'),
             'verbose': 1,
             'ip': 0,
         }
         if api_key:
             data.update({'api_key': api_key})
 
-        requests.post(request_url, data=data, timeout=self._request_timeout)
-
-        except urllib.error.URLError as e:
+        try:
+            r = self._http.request('GET', request_url, fields=data)
+        except Exception as e:
             six.raise_from(MixpanelException(e), e)
 
         try:
-            response = json.loads(response.decode('utf8'))
+            response = json.loads(r.data.decode('utf8'))
         except ValueError:
             raise MixpanelException('Cannot interpret Mixpanel server response: {0}'.format(response))
 
