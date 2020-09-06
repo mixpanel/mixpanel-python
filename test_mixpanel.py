@@ -263,7 +263,7 @@ class TestMixpanel:
 
             assert url == 'https://api.mixpanel.com/track'
             expected_data = {"event":"$create_alias","properties":{"alias":"ALIAS","token":"12345","distinct_id":"ORIGINAL ID"}}
-            assert json.loads(kwargs["fields"]["data"].decode("utf-8")) == expected_data
+            assert json.loads(kwargs["fields"]["data"]) == expected_data
 
     def test_people_meta(self):
         self.mp.people_set('amq', {'birth month': 'october', 'favorite color': 'purple'},
@@ -400,11 +400,11 @@ class TestConsumer:
             # assert timeout == self.consumer._request_timeout
 
     def test_send_events(self):
-        with self._assertSends('https://api.mixpanel.com/track', {"ip": 0, "verbose": 1, "data": b'{"foo":"bar"}'}):
+        with self._assertSends('https://api.mixpanel.com/track', {"ip": 0, "verbose": 1, "data": '{"foo":"bar"}'}):
             self.consumer.send('events', '{"foo":"bar"}')
 
     def test_send_people(self):
-        with self._assertSends('https://api.mixpanel.com/engage', {"ip": 0, "verbose": 1, "data": b'{"foo":"bar"}'}):
+        with self._assertSends('https://api.mixpanel.com/engage', {"ip": 0, "verbose": 1, "data": '{"foo":"bar"}'}):
             self.consumer.send('people', '{"foo":"bar"}')
 
     def test_unknown_endpoint(self):
@@ -485,7 +485,7 @@ class TestFunctional:
             data = data["fields"]["data"]
             assert method == 'GET'
             assert url == expect_url
-            payload = json.loads(data.decode("utf-8"))
+            payload = json.loads(data)
             assert payload == expect_data
 
     def test_track_functional(self):

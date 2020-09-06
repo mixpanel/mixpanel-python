@@ -492,7 +492,7 @@ class Consumer(object):
 
     def _write_request(self, request_url, json_message, api_key=None):
         data = {
-            'data': json_message.encode('utf8'),
+            'data': json_message,
             'verbose': 1,
             'ip': 0,
         }
