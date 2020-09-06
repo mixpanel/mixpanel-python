@@ -9,7 +9,6 @@ import time
 from mock import Mock, patch
 import pytest
 import six
-import urllib3
 from six.moves import range
 
 import mixpanel
