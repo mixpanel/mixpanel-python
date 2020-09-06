@@ -21,9 +21,10 @@ import time
 import uuid
 
 import six
+from six.moves import range
 import urllib3
 
-__version__ = '4.6.0'
+__version__ = '4.7.0'
 VERSION = __version__  # TODO: remove when bumping major version.
 
 
@@ -509,11 +510,17 @@ class Consumer(object):
             'groups': groups_url or 'https://{}/groups'.format(api_host),
             'imports': import_url or 'https://{}/import'.format(api_host),
         }
-        self._request_timeout = request_timeout
-        self._http = urllib3.PoolManager()
-
-    def _make_retry_config(self):
-        return urllib3.Retry(connect=2, read=2, method_whitelist={'POST'})
+        retry_config = urllib3.Retry(
+            connect=3,
+            read=2,
+            status=3,
+            method_whitelist={'POST'},
+            status_forcelist=set(range(500, 600)),
+        )
+        self._http = urllib3.PoolManager(
+            retries=retry_config,
+            timeout=urllib3.Timeout(request_timeout),
+        )
 
     def send(self, endpoint, json_message, api_key=None):
         """Immediately record an event or a profile update.
@@ -545,7 +552,6 @@ class Consumer(object):
                 request_url,
                 fields=data,
                 encode_multipart=False, # URL-encode payload in POST body.
-                retries=self._make_retry_config(),
             )
         except Exception as e:
             six.raise_from(MixpanelException(e), e)

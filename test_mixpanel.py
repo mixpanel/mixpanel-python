@@ -10,6 +10,7 @@ from mock import Mock, patch
 import pytest
 import six
 from six.moves import range
+import urllib3
 
 import mixpanel
 
@@ -444,7 +445,6 @@ class TestConsumer:
 
 
 class TestBufferedConsumer:
-
     @classmethod
     def setup_class(cls):
         cls.MAX_LENGTH = 10
