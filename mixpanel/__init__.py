@@ -41,6 +41,10 @@ def json_dumps(data, cls=None):
     return json.dumps(data, separators=(',', ':'), cls=cls)
 
 
+def make_insert_id():
+    return uuid.uuid1().hex
+
+
 class Mixpanel(object):
     """Instances of Mixpanel are used for all events and profile updates.
 
@@ -81,7 +85,7 @@ class Mixpanel(object):
             'token': self._token,
             'distinct_id': distinct_id,
             'time': int(self._now()),
-            '$insert_id': uuid.uuid4().hex,
+            '$insert_id': make_insert_id(),
             'mp_lib': 'python',
             '$lib_version': __version__,
         }
@@ -117,7 +121,7 @@ class Mixpanel(object):
             'token': self._token,
             'distinct_id': distinct_id,
             'time': int(timestamp),
-            '$insert_id': uuid.uuid4().hex,
+            '$insert_id': make_insert_id(),
             'mp_lib': 'python',
             '$lib_version': __version__,
         }
@@ -506,9 +510,10 @@ class Consumer(object):
             'imports': import_url or 'https://{}/import'.format(api_host),
         }
         self._request_timeout = request_timeout
+        self._http = urllib3.PoolManager()
 
-        retry_config = urllib3.Retry(connect=2, read=2, method_whitelist={'POST'})
-        self._http = urllib3.PoolManager(retries=retry_config)
+    def _make_retry_config(self):
+        return urllib3.Retry(connect=2, read=2, method_whitelist={'POST'})
 
     def send(self, endpoint, json_message, api_key=None):
         """Immediately record an event or a profile update.
@@ -535,19 +540,25 @@ class Consumer(object):
             data.update({'api_key': api_key})
 
         try:
-            r = self._http.request('POST', request_url, fields=data, encode_multipart=False)
+            response = self._http.request(
+                'POST',
+                request_url,
+                fields=data,
+                encode_multipart=False, # URL-encode payload in POST body.
+                retries=self._make_retry_config(),
+            )
         except Exception as e:
             six.raise_from(MixpanelException(e), e)
 
         try:
-            response = json.loads(r.data.decode('utf-8'))
+            response_dict = json.loads(response.data.decode('utf-8'))
         except ValueError:
-            raise MixpanelException('Cannot interpret Mixpanel server response: {0}'.format(response))
+            raise MixpanelException('Cannot interpret Mixpanel server response: {0}'.format(response.data))
 
-        if response['status'] != 1:
-            raise MixpanelException('Mixpanel error: {0}'.format(response['error']))
+        if response_dict['status'] != 1:
+            raise MixpanelException('Mixpanel error: {0}'.format(response_dict['error']))
 
-        return True
+        return True  # <- TODO: remove return val with major release.
 
 
 class BufferedConsumer(object):
