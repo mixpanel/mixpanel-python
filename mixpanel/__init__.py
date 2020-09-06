@@ -18,6 +18,7 @@ from __future__ import absolute_import, unicode_literals
 import datetime
 import json
 import time
+import uuid
 
 import six
 import urllib3
@@ -80,6 +81,7 @@ class Mixpanel(object):
             'token': self._token,
             'distinct_id': distinct_id,
             'time': int(self._now()),
+            '$insert_id': uuid.uuid4().hex,
             'mp_lib': 'python',
             '$lib_version': __version__,
         }
@@ -115,6 +117,7 @@ class Mixpanel(object):
             'token': self._token,
             'distinct_id': distinct_id,
             'time': int(timestamp),
+            '$insert_id': uuid.uuid4().hex,
             'mp_lib': 'python',
             '$lib_version': __version__,
         }
@@ -503,7 +506,9 @@ class Consumer(object):
             'imports': import_url or 'https://{}/import'.format(api_host),
         }
         self._request_timeout = request_timeout
-        self._http = urllib3.PoolManager()
+
+        retry_config = urllib3.Retry(connect=2, read=2, method_whitelist={'POST'})
+        self._http = urllib3.PoolManager(retries=retry_config)
 
     def send(self, endpoint, json_message, api_key=None):
         """Immediately record an event or a profile update.

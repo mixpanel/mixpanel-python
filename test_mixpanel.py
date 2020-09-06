@@ -36,7 +36,7 @@ class TestMixpanel:
         self.mp._now = lambda: 1000.1
 
     def test_track(self):
-        self.mp.track('ID', 'button press', {'size': 'big', 'color': 'blue'})
+        self.mp.track('ID', 'button press', {'size': 'big', 'color': 'blue', '$insert_id': 'abc123'})
         assert self.consumer.log == [(
             'events', {
                 'event': 'button press',
@@ -46,6 +46,7 @@ class TestMixpanel:
                     'color': 'blue',
                     'distinct_id': 'ID',
                     'time': int(self.mp._now()),
+                    '$insert_id': 'abc123',
                     'mp_lib': 'python',
                     '$lib_version': mixpanel.__version__,
                 }
@@ -54,7 +55,7 @@ class TestMixpanel:
 
     def test_import_data(self):
         timestamp = time.time()
-        self.mp.import_data('MY_API_KEY', 'ID', 'button press', timestamp, {'size': 'big', 'color': 'blue'})
+        self.mp.import_data('MY_API_KEY', 'ID', 'button press', timestamp, {'size': 'big', 'color': 'blue', '$insert_id': 'abc123'})
         assert self.consumer.log == [(
             'imports', {
                 'event': 'button press',
@@ -64,6 +65,7 @@ class TestMixpanel:
                     'color': 'blue',
                     'distinct_id': 'ID',
                     'time': int(timestamp),
+                    '$insert_id': 'abc123',
                     'mp_lib': 'python',
                     '$lib_version': mixpanel.__version__,
                 },
@@ -72,7 +74,7 @@ class TestMixpanel:
         )]
 
     def test_track_meta(self):
-        self.mp.track('ID', 'button press', {'size': 'big', 'color': 'blue'},
+        self.mp.track('ID', 'button press', {'size': 'big', 'color': 'blue', '$insert_id': 'abc123'},
                       meta={'ip': 0})
         assert self.consumer.log == [(
             'events', {
@@ -83,6 +85,7 @@ class TestMixpanel:
                     'color': 'blue',
                     'distinct_id': 'ID',
                     'time': int(self.mp._now()),
+                    '$insert_id': 'abc123',
                     'mp_lib': 'python',
                     '$lib_version': mixpanel.__version__,
                 },
@@ -379,7 +382,7 @@ class TestMixpanel:
                     return obj.to_eng_string()
 
         self.mp._serializer = CustomSerializer
-        self.mp.track('ID', 'button press', {'size': decimal.Decimal(decimal_string)})
+        self.mp.track('ID', 'button press', {'size': decimal.Decimal(decimal_string), '$insert_id': 'abc123'})
         assert self.consumer.log == [(
             'events', {
                 'event': 'button press',
@@ -388,6 +391,7 @@ class TestMixpanel:
                     'size': decimal_string,
                     'distinct_id': 'ID',
                     'time': int(self.mp._now()),
+                    '$insert_id': 'abc123',
                     'mp_lib': 'python',
                     '$lib_version': mixpanel.__version__,
                 }
@@ -517,9 +521,9 @@ class TestFunctional:
             assert payload == expect_data
 
     def test_track_functional(self):
-        expect_data = {'event': {'color': 'blue', 'size': 'big'}, 'properties': {'mp_lib': 'python', 'token': '12345', 'distinct_id': 'button press', '$lib_version': mixpanel.__version__, 'time': 1000}}
+        expect_data = {'event': 'button_press', 'properties': {'size': 'big', 'color': 'blue', 'mp_lib': 'python', 'token': '12345', 'distinct_id': 'player1', '$lib_version': mixpanel.__version__, 'time': 1000, '$insert_id': 'xyz1200'}}
         with self._assertRequested('https://api.mixpanel.com/track', expect_data):
-            self.mp.track('button press', {'size': 'big', 'color': 'blue'})
+            self.mp.track('player1', 'button_press', {'size': 'big', 'color': 'blue', '$insert_id': 'xyz1200'})
 
     def test_people_set_functional(self):
         expect_data = {'$distinct_id': 'amq', '$set': {'birth month': 'october', 'favorite color': 'purple'}, '$time': 1000000, '$token': '12345'}
