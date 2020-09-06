@@ -20,7 +20,6 @@ import json
 import time
 
 import six
-from six.moves import urllib
 import urllib3
 
 __version__ = '4.5.0'

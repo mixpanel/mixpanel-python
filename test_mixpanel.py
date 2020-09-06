@@ -10,7 +10,7 @@ from mock import Mock, patch
 import pytest
 import six
 import urllib3
-from six.moves import range, urllib
+from six.moves import range
 
 import mixpanel
 
@@ -449,10 +449,10 @@ class TestBufferedConsumer:
 
     def test_useful_reraise_in_flush_endpoint(self):
         error_mock = Mock()
-        error_mock.read.return_value = six.b('{"status": 0, "error": "arbitrary error"}')
+        error_mock.data = six.b('{"status": 0, "error": "arbitrary error"}')
         broken_json = '{broken JSON'
         consumer = mixpanel.BufferedConsumer(2)
-        with patch('six.moves.urllib.request.urlopen', return_value=error_mock):
+        with patch('mixpanel.urllib3.PoolManager.request', return_value=error_mock):
             consumer.send('events', broken_json)
             with pytest.raises(mixpanel.MixpanelException) as excinfo:
                 consumer.flush()
@@ -475,7 +475,8 @@ class TestFunctional:
 
     @contextlib.contextmanager
     def _assertRequested(self, expect_url, expect_data):
-        res = urllib3.response.HTTPResponse(body=b'{"status": 1, "error": null}')
+        res = Mock()
+        res.data = six.b('{"status": 1, "error": null}')
         with patch('mixpanel.urllib3.PoolManager.request', return_value=res) as req:
             yield
 
