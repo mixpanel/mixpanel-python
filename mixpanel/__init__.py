@@ -500,12 +500,12 @@ class Consumer(object):
             data.update({'api_key': api_key})
 
         try:
-            r = self._http.request('GET', request_url, fields=data)
+            r = self._http.request('POST', request_url, fields=data, encode_multipart=False)
         except Exception as e:
             six.raise_from(MixpanelException(e), e)
 
         try:
-            response = json.loads(r.data.decode('utf8'))
+            response = json.loads(r.data.decode('utf-8'))
         except ValueError:
             raise MixpanelException('Cannot interpret Mixpanel server response: {0}'.format(response))
 

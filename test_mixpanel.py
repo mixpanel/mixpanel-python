@@ -261,6 +261,7 @@ class TestMixpanel:
             assert req.call_count == 1
             ((method, url), kwargs) = req.call_args
 
+            assert method == 'POST'
             assert url == 'https://api.mixpanel.com/track'
             expected_data = {"event":"$create_alias","properties":{"alias":"ALIAS","token":"12345","distinct_id":"ORIGINAL ID"}}
             assert json.loads(kwargs["fields"]["data"]) == expected_data
@@ -393,6 +394,7 @@ class TestConsumer:
             assert req.call_count == 1
             (call_args, kwargs) = req.call_args
             (method, url) = call_args
+            assert method == 'POST'
             assert url == expect_url
             assert kwargs["fields"] == expect_data
             # FIXME
@@ -483,7 +485,7 @@ class TestFunctional:
             assert req.call_count == 1
             ((method, url,), data) = req.call_args
             data = data["fields"]["data"]
-            assert method == 'GET'
+            assert method == 'POST'
             assert url == expect_url
             payload = json.loads(data)
             assert payload == expect_data
