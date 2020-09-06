@@ -1,3 +1,8 @@
+v4.6.0
+* Add `$merge` support.
+* Support for overriding API host for, say, making calls to EU APIs.
+* Updates to `$alias` documentation.
+
 v4.5.0
 * Add Mixpanel Groups API functionality.
 

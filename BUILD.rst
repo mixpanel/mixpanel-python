@@ -1,3 +1,13 @@
+Release process::
+
+1. Document all changes in CHANGES.rst.
+2. Update __version__ in __init__.py.
+3. Update version in docs/conf.py
+4. Tag the version in git.
+5. Create a release in GitHub. https://github.com/mixpanel/mixpanel-python/releases
+6. Rebuild docs and publish to GitHub Pages (if appropriate -- see below)
+7. Publish to PyPI. (see below)
+
 Run tests::
 
   tox

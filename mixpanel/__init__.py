@@ -22,7 +22,7 @@ import time
 import six
 import urllib3
 
-__version__ = '4.5.0'
+__version__ = '4.6.0'
 VERSION = __version__  # TODO: remove when bumping major version.
 
 
@@ -158,6 +158,30 @@ class Mixpanel(object):
         if meta:
             event.update(meta)
         sync_consumer.send('events', json_dumps(event, cls=self._serializer))
+
+    def merge(self, api_key, distinct_id1, distinct_id2, meta=None):
+        """
+        Merges the two given distinct_ids.
+
+        :param str api_key: Your Mixpanel project's API key.
+        :param str distinct_id1: The first distinct_id to merge.
+        :param str distinct_id2: The second (other) distinct_id to merge.
+        :param dict meta: overrides Mixpanel special properties
+
+        See our online documentation for `more
+        details
+        <https://developer.mixpanel.com/docs/http#merge>`__.
+        """
+        event = {
+            'event': '$merge',
+            'properties': {
+                '$distinct_ids': [distinct_id1, distinct_id2],
+                'token': self._token,
+            },
+        }
+        if meta:
+            event.update(meta)
+        self._consumer.send('imports', json_dumps(event, cls=self._serializer), api_key)
 
     def people_set(self, distinct_id, properties, meta=None):
         """Set properties of a people record.
@@ -463,14 +487,20 @@ class Consumer(object):
     :param str import_url: override the default import API endpoint
     :param int request_timeout: connection timeout in seconds
     :param str groups_url: override the default groups API endpoint
+    :param str api_host: the Mixpanel API domain where all requests should be
+        issued (unless overridden by above URLs).
+
+    .. versionadded:: 4.6.0
+        The *api_host* parameter.
     """
 
-    def __init__(self, events_url=None, people_url=None, import_url=None, request_timeout=None, groups_url=None):
+    def __init__(self, events_url=None, people_url=None, import_url=None,
+            request_timeout=None, groups_url=None, api_host="api.mixpanel.com"):
         self._endpoints = {
-            'events': events_url or 'https://api.mixpanel.com/track',
-            'people': people_url or 'https://api.mixpanel.com/engage',
-            'groups': groups_url or 'https://api.mixpanel.com/groups',
-            'imports': import_url or 'https://api.mixpanel.com/import',
+            'events': events_url or 'https://{}/track'.format(api_host),
+            'people': people_url or 'https://{}/engage'.format(api_host),
+            'groups': groups_url or 'https://{}/groups'.format(api_host),
+            'imports': import_url or 'https://{}/import'.format(api_host),
         }
         self._request_timeout = request_timeout
         self._http = urllib3.PoolManager()
@@ -521,12 +551,6 @@ class BufferedConsumer(object):
     them in batches. This can save bandwidth and reduce the total amount of
     time required to post your events to Mixpanel.
 
-    .. note::
-        Because :class:`~.BufferedConsumer` holds events, you need to call
-        :meth:`~.flush` when you're sure you're done sending them—for example,
-        just before your program exits. Calls to :meth:`~.flush` will send all
-        remaining unsent events being held by the instance.
-
     :param int max_size: number of :meth:`~.send` calls for a given endpoint to
         buffer before flushing automatically
     :param str events_url: override the default events API endpoint
@@ -534,9 +558,21 @@ class BufferedConsumer(object):
     :param str import_url: override the default import API endpoint
     :param int request_timeout: connection timeout in seconds
     :param str groups_url: override the default groups API endpoint
+    :param str api_host: the Mixpanel API domain where all requests should be
+        issued (unless overridden by above URLs).
+
+    .. versionadded:: 4.6.0
+        The *api_host* parameter.
+
+    .. note::
+        Because :class:`~.BufferedConsumer` holds events, you need to call
+        :meth:`~.flush` when you're sure you're done sending them—for example,
+        just before your program exits. Calls to :meth:`~.flush` will send all
+        remaining unsent events being held by the instance.
     """
-    def __init__(self, max_size=50, events_url=None, people_url=None, import_url=None, request_timeout=None, groups_url=None):
-        self._consumer = Consumer(events_url, people_url, import_url, request_timeout, groups_url)
+    def __init__(self, max_size=50, events_url=None, people_url=None, import_url=None,
+            request_timeout=None, groups_url=None, api_host="api.mixpanel.com"):
+        self._consumer = Consumer(events_url, people_url, import_url, request_timeout, groups_url, api_host)
         self._buffers = {
             'events': [],
             'people': [],

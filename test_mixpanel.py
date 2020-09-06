@@ -253,6 +253,7 @@ class TestMixpanel:
         )]
 
     def test_alias(self):
+        # More complicated since alias() forces a synchronous call.
         mock_response = Mock()
         mock_response.data = six.b('{"status": 1, "error": null}')
         with patch('mixpanel.urllib3.PoolManager.request', return_value=mock_response) as req:
@@ -265,6 +266,21 @@ class TestMixpanel:
             assert url == 'https://api.mixpanel.com/track'
             expected_data = {"event":"$create_alias","properties":{"alias":"ALIAS","token":"12345","distinct_id":"ORIGINAL ID"}}
             assert json.loads(kwargs["fields"]["data"]) == expected_data
+
+    def test_merge(self):
+        self.mp.merge('my_good_api_key', 'd1', 'd2')
+
+        assert self.consumer.log == [(
+            'imports',
+            {
+                'event': '$merge',
+                'properties': {
+                    '$distinct_ids': ['d1', 'd2'],
+                    'token': self.TOKEN,
+                }
+            },
+            'my_good_api_key',
+        )]
 
     def test_people_meta(self):
         self.mp.people_set('amq', {'birth month': 'october', 'favorite color': 'purple'},
@@ -385,7 +401,10 @@ class TestConsumer:
         cls.consumer = mixpanel.Consumer(request_timeout=30)
 
     @contextlib.contextmanager
-    def _assertSends(self, expect_url, expect_data):
+    def _assertSends(self, expect_url, expect_data, consumer=None):
+        if consumer is None:
+            consumer = self.consumer
+
         mock_response = Mock()
         mock_response.data = six.b('{"status": 1, "error": null}')
         with patch('mixpanel.urllib3.PoolManager.request', return_value=mock_response) as req:
@@ -408,6 +427,13 @@ class TestConsumer:
     def test_send_people(self):
         with self._assertSends('https://api.mixpanel.com/engage', {"ip": 0, "verbose": 1, "data": '{"foo":"bar"}'}):
             self.consumer.send('people', '{"foo":"bar"}')
+
+    def test_consumer_override_api_host(self):
+        consumer = mixpanel.Consumer(api_host="api-eu.mixpanel.com")
+        with self._assertSends('https://api-eu.mixpanel.com/track', {"ip": 0, "verbose": 1, "data": '{"foo":"bar"}'}, consumer=consumer):
+            consumer.send('events', '{"foo":"bar"}')
+        with self._assertSends('https://api-eu.mixpanel.com/engage', {"ip": 0, "verbose": 1, "data": '{"foo":"bar"}'}, consumer=consumer):
+            consumer.send('people', '{"foo":"bar"}')
 
     def test_unknown_endpoint(self):
         with pytest.raises(mixpanel.MixpanelException):
