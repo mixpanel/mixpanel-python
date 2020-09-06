@@ -481,13 +481,11 @@ class TestFunctional:
             yield
 
             assert req.call_count == 1
-            print(req.call_args)
             ((method, url,), data) = req.call_args
             data = data["fields"]["data"]
-            print(method, url, data)
             assert method == 'GET'
             assert url == expect_url
-            payload = json.loads(data)
+            payload = json.loads(data.decode("utf-8"))
             assert payload == expect_data
 
     def test_track_functional(self):
