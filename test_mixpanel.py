@@ -34,6 +34,7 @@ class TestMixpanel:
         self.consumer = LogConsumer()
         self.mp = mixpanel.Mixpanel(self.TOKEN, consumer=self.consumer)
         self.mp._now = lambda: 1000.1
+        self.mp._make_insert_id = lambda: "abcdefg"
 
     def test_track(self):
         self.mp.track('ID', 'button press', {'size': 'big', 'color': 'blue', '$insert_id': 'abc123'})
@@ -57,8 +58,24 @@ class TestMixpanel:
         self.mp.track('ID', 'button press', {'size': 'big'})
         props = self.consumer.log[0][1]["properties"]
         assert "$insert_id" in props
-        assert isinstance(props["$insert_id"], six.text_types)
+        assert isinstance(props["$insert_id"], six.text_type)
         assert len(props["$insert_id"]) > 0
+
+    def test_track_empty(self):
+        self.mp.track('person_xyz', 'login', {})
+        assert self.consumer.log == [(
+            'events', {
+                'event': 'login',
+                'properties': {
+                    'token': self.TOKEN,
+                    'distinct_id': 'person_xyz',
+                    'time': int(self.mp._now()),
+                    '$insert_id': self.mp._make_insert_id(),
+                    'mp_lib': 'python',
+                    '$lib_version': mixpanel.__version__,
+                },
+            },
+        )]
 
     def test_import_data(self):
         timestamp = time.time()
