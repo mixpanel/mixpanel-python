@@ -57,7 +57,7 @@ class TestMixpanel:
         self.mp.track('ID', 'button press', {'size': 'big'})
         props = self.consumer.log[0][1]["properties"]
         assert "$insert_id" in props
-        assert isinstance(props["$insert_id"], str)
+        assert isinstance(props["$insert_id"], six.text_types)
         assert len(props["$insert_id"]) > 0
 
     def test_import_data(self):
