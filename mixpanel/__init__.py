@@ -357,7 +357,6 @@ class Mixpanel(object):
             record.update(meta)
         self._consumer.send('people', json_dumps(record, cls=self._serializer))
 
-
     def group_set(self, group_key, group_id, properties, meta=None):
         """Set properties of a group profile.
 
@@ -530,7 +529,7 @@ class Consumer(object):
         """Immediately record an event or a profile update.
 
         :param endpoint: the Mixpanel API endpoint appropriate for the message
-        :type endpoint: "events" | "people" | "imports"
+        :type endpoint: "events" | "people" | "groups" | "imports"
         :param str json_message: a JSON message formatted for the endpoint
         :param str api_key: your Mixpanel project's API key
         :raises MixpanelException: if the endpoint doesn't exist, the server is
@@ -623,7 +622,7 @@ class BufferedConsumer(object):
         :meth:`~.send`.
 
         :param endpoint: the Mixpanel API endpoint appropriate for the message
-        :type endpoint: "events" | "people" | "imports"
+        :type endpoint: "events" | "people" | "groups" | "imports"
         :param str json_message: a JSON message formatted for the endpoint
         :param str api_key: your Mixpanel project's API key
         :raises MixpanelException: if the endpoint doesn't exist, the server is
