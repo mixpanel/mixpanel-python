@@ -32,7 +32,7 @@ class TestMixpanel:
 
     def setup_method(self, method):
         self.consumer = LogConsumer()
-        self.mp = mixpanel.Mixpanel('12345', consumer=self.consumer)
+        self.mp = mixpanel.Mixpanel(self.TOKEN, consumer=self.consumer)
         self.mp._now = lambda: 1000.1
 
     def test_track(self):
@@ -52,6 +52,13 @@ class TestMixpanel:
                 }
             }
         )]
+
+    def test_track_makes_insert_id(self):
+        self.mp.track('ID', 'button press', {'size': 'big'})
+        props = self.consumer.log[0][1]["properties"]
+        assert "$insert_id" in props
+        assert isinstance(props["$insert_id"], str)
+        assert len(props["$insert_id"]) > 0
 
     def test_import_data(self):
         timestamp = time.time()

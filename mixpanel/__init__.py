@@ -42,10 +42,6 @@ def json_dumps(data, cls=None):
     return json.dumps(data, separators=(',', ':'), cls=cls)
 
 
-def make_insert_id():
-    return uuid.uuid1().hex
-
-
 class Mixpanel(object):
     """Instances of Mixpanel are used for all events and profile updates.
 
@@ -69,6 +65,9 @@ class Mixpanel(object):
     def _now(self):
         return time.time()
 
+    def _make_insert_id(self):
+        return uuid.uuid1().hex
+
     def track(self, distinct_id, event_name, properties=None, meta=None):
         """Record an event.
 
@@ -86,7 +85,7 @@ class Mixpanel(object):
             'token': self._token,
             'distinct_id': distinct_id,
             'time': int(self._now()),
-            '$insert_id': make_insert_id(),
+            '$insert_id': self._make_insert_id(),
             'mp_lib': 'python',
             '$lib_version': __version__,
         }
@@ -122,7 +121,7 @@ class Mixpanel(object):
             'token': self._token,
             'distinct_id': distinct_id,
             'time': int(timestamp),
-            '$insert_id': make_insert_id(),
+            '$insert_id': self._make_insert_id(),
             'mp_lib': 'python',
             '$lib_version': __version__,
         }
@@ -497,13 +496,19 @@ class Consumer(object):
     :param str groups_url: override the default groups API endpoint
     :param str api_host: the Mixpanel API domain where all requests should be
         issued (unless overridden by above URLs).
+    :param int retry_limit: number of times to retry each retry in case of
+        connection or HTTP 5xx error.
+    :param int retry_backoff_factor: In case of retries, controls sleep time. e.g.,
+        sleep seconds = {backoff_factor} * (2 ** ({num total retries} - 1)).
 
     .. versionadded:: 4.6.0
         The *api_host* parameter.
     """
 
     def __init__(self, events_url=None, people_url=None, import_url=None,
-            request_timeout=None, groups_url=None, api_host="api.mixpanel.com"):
+            request_timeout=None, groups_url=None, api_host="api.mixpanel.com",
+            retry_limit=5, retry_backoff_factor=0.0):
+        # TODO: With next major version, make the above args kwarg-only, and reorder them.
         self._endpoints = {
             'events': events_url or 'https://{}/track'.format(api_host),
             'people': people_url or 'https://{}/engage'.format(api_host),
@@ -511,9 +516,8 @@ class Consumer(object):
             'imports': import_url or 'https://{}/import'.format(api_host),
         }
         retry_config = urllib3.Retry(
-            connect=3,
-            read=2,
-            status=3,
+            total=retry_limit,
+            backoff_factor=retry_backoff_factor,
             method_whitelist={'POST'},
             status_forcelist=set(range(500, 600)),
         )
@@ -582,6 +586,10 @@ class BufferedConsumer(object):
     :param str groups_url: override the default groups API endpoint
     :param str api_host: the Mixpanel API domain where all requests should be
         issued (unless overridden by above URLs).
+    :param int retry_limit: number of times to retry each retry in case of
+        connection or HTTP 5xx error.
+    :param int retry_backoff_factor: In case of retries, controls sleep time. e.g.,
+        sleep seconds = {backoff_factor} * (2 ** ({num total retries} - 1)).
 
     .. versionadded:: 4.6.0
         The *api_host* parameter.
@@ -593,8 +601,10 @@ class BufferedConsumer(object):
         remaining unsent events being held by the instance.
     """
     def __init__(self, max_size=50, events_url=None, people_url=None, import_url=None,
-            request_timeout=None, groups_url=None, api_host="api.mixpanel.com"):
-        self._consumer = Consumer(events_url, people_url, import_url, request_timeout, groups_url, api_host)
+            request_timeout=None, groups_url=None, api_host="api.mixpanel.com",
+            retry_limit=5, retry_backoff_factor=0.0):
+        self._consumer = Consumer(events_url, people_url, import_url, request_timeout,
+            groups_url, api_host, retry_limit, retry_backoff_factor)
         self._buffers = {
             'events': [],
             'people': [],
