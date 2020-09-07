@@ -66,7 +66,7 @@ class Mixpanel(object):
         return time.time()
 
     def _make_insert_id(self):
-        return uuid.uuid1().hex
+        return uuid.uuid4().hex
 
     def track(self, distinct_id, event_name, properties=None, meta=None):
         """Record an event.
