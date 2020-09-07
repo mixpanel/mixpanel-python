@@ -497,9 +497,9 @@ class Consumer(object):
     :param str api_host: the Mixpanel API domain where all requests should be
         issued (unless overridden by above URLs).
     :param int retry_limit: number of times to retry each retry in case of
-        connection or HTTP 5xx error.
+        connection or HTTP 5xx error; 0 to fail after first attempt.
     :param int retry_backoff_factor: In case of retries, controls sleep time. e.g.,
-        sleep seconds = {backoff_factor} * (2 ** ({num total retries} - 1)).
+        sleep_seconds = backoff_factor * (2 ^ (num_total_retries - 1)).
 
     .. versionadded:: 4.6.0
         The *api_host* parameter.
@@ -507,7 +507,7 @@ class Consumer(object):
 
     def __init__(self, events_url=None, people_url=None, import_url=None,
             request_timeout=None, groups_url=None, api_host="api.mixpanel.com",
-            retry_limit=5, retry_backoff_factor=0.0):
+            retry_limit=4, retry_backoff_factor=0.25):
         # TODO: With next major version, make the above args kwarg-only, and reorder them.
         self._endpoints = {
             'events': events_url or 'https://{}/track'.format(api_host),
@@ -587,9 +587,9 @@ class BufferedConsumer(object):
     :param str api_host: the Mixpanel API domain where all requests should be
         issued (unless overridden by above URLs).
     :param int retry_limit: number of times to retry each retry in case of
-        connection or HTTP 5xx error.
+        connection or HTTP 5xx error; 0 to fail after first attempt.
     :param int retry_backoff_factor: In case of retries, controls sleep time. e.g.,
-        sleep seconds = {backoff_factor} * (2 ** ({num total retries} - 1)).
+        sleep_seconds = backoff_factor * (2 ^ (num_total_retries - 1)).
 
     .. versionadded:: 4.6.0
         The *api_host* parameter.
@@ -602,7 +602,7 @@ class BufferedConsumer(object):
     """
     def __init__(self, max_size=50, events_url=None, people_url=None, import_url=None,
             request_timeout=None, groups_url=None, api_host="api.mixpanel.com",
-            retry_limit=5, retry_backoff_factor=0.0):
+            retry_limit=4, retry_backoff_factor=0.25):
         self._consumer = Consumer(events_url, people_url, import_url, request_timeout,
             groups_url, api_host, retry_limit, retry_backoff_factor)
         self._buffers = {

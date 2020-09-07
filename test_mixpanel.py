@@ -444,9 +444,6 @@ class TestConsumer:
             assert method == 'POST'
             assert url == expect_url
             assert kwargs["fields"] == expect_data
-            # FIXME
-            # timeout = kwargs.get('timeout', None)
-            # assert timeout == self.consumer._request_timeout
 
     def test_send_events(self):
         with self._assertSends('https://api.mixpanel.com/track', {"ip": 0, "verbose": 1, "data": '{"foo":"bar"}'}):
