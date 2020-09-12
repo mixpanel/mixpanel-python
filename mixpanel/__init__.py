@@ -96,7 +96,7 @@ class Mixpanel(object):
 
     def import_data(self, api_key, distinct_id, event_name, timestamp,
                     properties=None, meta=None):
-        """Record an event that occured more than 5 days in the past.
+        """Record an event that occurred more than 5 days in the past.
 
         :param str api_key: your Mixpanel project's API key
         :param str distinct_id: identifies the user triggering the event
