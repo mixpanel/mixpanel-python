@@ -344,7 +344,7 @@ class Mixpanel(object):
         """
         record = {
             '$token': self._token,
-            '$time': int(self._now() * 1000),
+            '$time': int(self._now()),
         }
         record.update(message)
         if meta:
@@ -461,7 +461,7 @@ class Mixpanel(object):
         """
         record = {
             '$token': self._token,
-            '$time': int(self._now() * 1000),
+            '$time': int(self._now()),
         }
         record.update(message)
         if meta:

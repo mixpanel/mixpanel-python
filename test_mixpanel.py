@@ -105,7 +105,7 @@ class TestMixpanel:
         self.mp.people_set('amq', {'birth month': 'october', 'favorite color': 'purple'})
         assert self.consumer.log == [(
             'people', {
-                '$time': int(self.mp._now() * 1000),
+                '$time': int(self.mp._now()),
                 '$token': self.TOKEN,
                 '$distinct_id': 'amq',
                 '$set': {
@@ -119,7 +119,7 @@ class TestMixpanel:
         self.mp.people_set_once('amq', {'birth month': 'october', 'favorite color': 'purple'})
         assert self.consumer.log == [(
             'people', {
-                '$time': int(self.mp._now() * 1000),
+                '$time': int(self.mp._now()),
                 '$token': self.TOKEN,
                 '$distinct_id': 'amq',
                 '$set_once': {
@@ -133,7 +133,7 @@ class TestMixpanel:
         self.mp.people_increment('amq', {'Albums Released': 1})
         assert self.consumer.log == [(
             'people', {
-                '$time': int(self.mp._now() * 1000),
+                '$time': int(self.mp._now()),
                 '$token': self.TOKEN,
                 '$distinct_id': 'amq',
                 '$add': {
@@ -146,7 +146,7 @@ class TestMixpanel:
         self.mp.people_append('amq', {'birth month': 'october', 'favorite color': 'purple'})
         assert self.consumer.log == [(
             'people', {
-                '$time': int(self.mp._now() * 1000),
+                '$time': int(self.mp._now()),
                 '$token': self.TOKEN,
                 '$distinct_id': 'amq',
                 '$append': {
@@ -160,7 +160,7 @@ class TestMixpanel:
         self.mp.people_union('amq', {'Albums': ['Diamond Dogs']})
         assert self.consumer.log == [(
             'people', {
-                '$time': int(self.mp._now() * 1000),
+                '$time': int(self.mp._now()),
                 '$token': self.TOKEN,
                 '$distinct_id': 'amq',
                 '$union': {
@@ -173,7 +173,7 @@ class TestMixpanel:
         self.mp.people_unset('amq', ['Albums', 'Singles'])
         assert self.consumer.log == [(
             'people', {
-                '$time': int(self.mp._now() * 1000),
+                '$time': int(self.mp._now()),
                 '$token': self.TOKEN,
                 '$distinct_id': 'amq',
                 '$unset': ['Albums', 'Singles'],
@@ -184,7 +184,7 @@ class TestMixpanel:
         self.mp.people_remove('amq', {'Albums': 'Diamond Dogs'})
         assert self.consumer.log == [(
             'people', {
-                '$time': int(self.mp._now() * 1000),
+                '$time': int(self.mp._now()),
                 '$token': self.TOKEN,
                 '$distinct_id': 'amq',
                 '$remove': {'Albums': 'Diamond Dogs'},
@@ -195,7 +195,7 @@ class TestMixpanel:
         self.mp.people_track_charge('amq', 12.65, {'$time': '2013-04-01T09:02:00'})
         assert self.consumer.log == [(
             'people', {
-                '$time': int(self.mp._now() * 1000),
+                '$time': int(self.mp._now()),
                 '$token': self.TOKEN,
                 '$distinct_id': 'amq',
                 '$append': {
@@ -211,7 +211,7 @@ class TestMixpanel:
         self.mp.people_track_charge('amq', 12.65)
         assert self.consumer.log == [(
             'people', {
-                '$time': int(self.mp._now() * 1000),
+                '$time': int(self.mp._now()),
                 '$token': self.TOKEN,
                 '$distinct_id': 'amq',
                 '$append': {
@@ -226,7 +226,7 @@ class TestMixpanel:
         self.mp.people_clear_charges('amq')
         assert self.consumer.log == [(
             'people', {
-                '$time': int(self.mp._now() * 1000),
+                '$time': int(self.mp._now()),
                 '$token': self.TOKEN,
                 '$distinct_id': 'amq',
                 '$unset': ['$transactions'],
@@ -238,7 +238,7 @@ class TestMixpanel:
         self.mp.people_set('amq', {'$created': created, 'favorite color': 'purple'})
         assert self.consumer.log == [(
             'people', {
-                '$time': int(self.mp._now() * 1000),
+                '$time': int(self.mp._now()),
                 '$token': self.TOKEN,
                 '$distinct_id': 'amq',
                 '$set': {
@@ -253,7 +253,7 @@ class TestMixpanel:
         self.mp.people_set('amq', {'$created': created, 'favorite color': 'purple'})
         assert self.consumer.log == [(
             'people', {
-                '$time': int(self.mp._now() * 1000),
+                '$time': int(self.mp._now()),
                 '$token': self.TOKEN,
                 '$distinct_id': 'amq',
                 '$set': {
@@ -297,7 +297,7 @@ class TestMixpanel:
                            meta={'$ip': 0, '$ignore_time': True})
         assert self.consumer.log == [(
             'people', {
-                '$time': int(self.mp._now() * 1000),
+                '$time': int(self.mp._now()),
                 '$token': self.TOKEN,
                 '$distinct_id': 'amq',
                 '$set': {
@@ -313,7 +313,7 @@ class TestMixpanel:
         self.mp.group_set('company', 'amq', {'birth month': 'october', 'favorite color': 'purple'})
         assert self.consumer.log == [(
             'groups', {
-                '$time': int(self.mp._now() * 1000),
+                '$time': int(self.mp._now()),
                 '$token': self.TOKEN,
                 '$group_key': 'company',
                 '$group_id': 'amq',
@@ -328,7 +328,7 @@ class TestMixpanel:
         self.mp.group_set_once('company', 'amq', {'birth month': 'october', 'favorite color': 'purple'})
         assert self.consumer.log == [(
             'groups', {
-                '$time': int(self.mp._now() * 1000),
+                '$time': int(self.mp._now()),
                 '$token': self.TOKEN,
                 '$group_key': 'company',
                 '$group_id': 'amq',
@@ -343,7 +343,7 @@ class TestMixpanel:
         self.mp.group_union('company', 'amq', {'Albums': ['Diamond Dogs']})
         assert self.consumer.log == [(
             'groups', {
-                '$time': int(self.mp._now() * 1000),
+                '$time': int(self.mp._now()),
                 '$token': self.TOKEN,
                 '$group_key': 'company',
                 '$group_id': 'amq',
@@ -357,7 +357,7 @@ class TestMixpanel:
         self.mp.group_unset('company', 'amq', ['Albums', 'Singles'])
         assert self.consumer.log == [(
             'groups', {
-                '$time': int(self.mp._now() * 1000),
+                '$time': int(self.mp._now()),
                 '$token': self.TOKEN,
                 '$group_key': 'company',
                 '$group_id': 'amq',
@@ -369,7 +369,7 @@ class TestMixpanel:
         self.mp.group_remove('company', 'amq', {'Albums': 'Diamond Dogs'})
         assert self.consumer.log == [(
             'groups', {
-                '$time': int(self.mp._now() * 1000),
+                '$time': int(self.mp._now()),
                 '$token': self.TOKEN,
                 '$group_key': 'company',
                 '$group_id': 'amq',
@@ -536,6 +536,6 @@ class TestFunctional:
             self.mp.track('button press', {'size': 'big', 'color': 'blue'})
 
     def test_people_set_functional(self):
-        expect_data = {'$distinct_id': 'amq', '$set': {'birth month': 'october', 'favorite color': 'purple'}, '$time': 1000000, '$token': '12345'}
+        expect_data = {'$distinct_id': 'amq', '$set': {'birth month': 'october', 'favorite color': 'purple'}, '$time': 1000, '$token': '12345'}
         with self._assertRequested('https://api.mixpanel.com/engage', expect_data):
             self.mp.people_set('amq', {'birth month': 'october', 'favorite color': 'purple'})
