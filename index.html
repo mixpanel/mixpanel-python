@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome to Mixpanel &#8212; mixpanel 4.6.0 documentation</title>
+    <title>Welcome to Mixpanel &#8212; mixpanel 4.7.0 documentation</title>
     <link rel="stylesheet" href="_static/mixpanel.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
@@ -86,7 +86,7 @@ aspects of the source or user associated with it. <code class="docutils literal 
 <dl class="py method">
 <dt id="mixpanel.Mixpanel.import_data">
 <code class="sig-name descname">import_data</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">api_key</span></em>, <em class="sig-param"><span class="n">distinct_id</span></em>, <em class="sig-param"><span class="n">event_name</span></em>, <em class="sig-param"><span class="n">timestamp</span></em>, <em class="sig-param"><span class="n">properties</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">meta</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.import_data" title="Permalink to this definition">¶</a></dt>
-<dd><p>Record an event that occured more than 5 days in the past.</p>
+<dd><p>Record an event that occurred more than 5 days in the past.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
@@ -461,7 +461,7 @@ responsible for appropriately encoding the message and sending it to the named
 of each of their own method calls, after building the JSON message.</p>
 <dl class="py class">
 <dt id="mixpanel.Consumer">
-<em class="property">class </em><code class="sig-prename descclassname">mixpanel.</code><code class="sig-name descname">Consumer</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">events_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">people_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">import_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">request_timeout</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">groups_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">api_host</span><span class="o">=</span><span class="default_value">'api.mixpanel.com'</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Consumer" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">mixpanel.</code><code class="sig-name descname">Consumer</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">events_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">people_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">import_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">request_timeout</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">groups_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">api_host</span><span class="o">=</span><span class="default_value">'api.mixpanel.com'</span></em>, <em class="sig-param"><span class="n">retry_limit</span><span class="o">=</span><span class="default_value">4</span></em>, <em class="sig-param"><span class="n">retry_backoff_factor</span><span class="o">=</span><span class="default_value">0.25</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Consumer" title="Permalink to this definition">¶</a></dt>
 <dd><p>A consumer that sends an HTTP request directly to the Mixpanel service, one
 per call to <a class="reference internal" href="#mixpanel.Consumer.send" title="mixpanel.Consumer.send"><code class="xref py py-meth docutils literal notranslate"><span class="pre">send()</span></code></a>.</p>
 <dl class="field-list simple">
@@ -474,6 +474,10 @@ per call to <a class="reference internal" href="#mixpanel.Consumer.send" title="
 <li><p><strong>groups_url</strong> (<em>str</em>) – override the default groups API endpoint</p></li>
 <li><p><strong>api_host</strong> (<em>str</em>) – the Mixpanel API domain where all requests should be
 issued (unless overridden by above URLs).</p></li>
+<li><p><strong>retry_limit</strong> (<em>int</em>) – number of times to retry each retry in case of
+connection or HTTP 5xx error; 0 to fail after first attempt.</p></li>
+<li><p><strong>retry_backoff_factor</strong> (<em>int</em>) – In case of retries, controls sleep time. e.g.,
+sleep_seconds = backoff_factor * (2 ^ (num_total_retries - 1)).</p></li>
 </ul>
 </dd>
 </dl>
@@ -487,7 +491,7 @@ issued (unless overridden by above URLs).</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>endpoint</strong> (<em>&quot;events&quot; | &quot;people&quot; | &quot;imports&quot;</em>) – the Mixpanel API endpoint appropriate for the message</p></li>
+<li><p><strong>endpoint</strong> (<em>&quot;events&quot; | &quot;people&quot; | &quot;groups&quot; | &quot;imports&quot;</em>) – the Mixpanel API endpoint appropriate for the message</p></li>
 <li><p><strong>json_message</strong> (<em>str</em>) – a JSON message formatted for the endpoint</p></li>
 <li><p><strong>api_key</strong> (<em>str</em>) – your Mixpanel project’s API key</p></li>
 </ul>
@@ -503,7 +507,7 @@ unreachable, or the message cannot be processed</p>
 
 <dl class="py class">
 <dt id="mixpanel.BufferedConsumer">
-<em class="property">class </em><code class="sig-prename descclassname">mixpanel.</code><code class="sig-name descname">BufferedConsumer</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">max_size</span><span class="o">=</span><span class="default_value">50</span></em>, <em class="sig-param"><span class="n">events_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">people_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">import_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">request_timeout</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">groups_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">api_host</span><span class="o">=</span><span class="default_value">'api.mixpanel.com'</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.BufferedConsumer" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">mixpanel.</code><code class="sig-name descname">BufferedConsumer</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">max_size</span><span class="o">=</span><span class="default_value">50</span></em>, <em class="sig-param"><span class="n">events_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">people_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">import_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">request_timeout</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">groups_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">api_host</span><span class="o">=</span><span class="default_value">'api.mixpanel.com'</span></em>, <em class="sig-param"><span class="n">retry_limit</span><span class="o">=</span><span class="default_value">4</span></em>, <em class="sig-param"><span class="n">retry_backoff_factor</span><span class="o">=</span><span class="default_value">0.25</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.BufferedConsumer" title="Permalink to this definition">¶</a></dt>
 <dd><p>A consumer that maintains per-endpoint buffers of messages and then sends
 them in batches. This can save bandwidth and reduce the total amount of
 time required to post your events to Mixpanel.</p>
@@ -519,6 +523,10 @@ buffer before flushing automatically</p></li>
 <li><p><strong>groups_url</strong> (<em>str</em>) – override the default groups API endpoint</p></li>
 <li><p><strong>api_host</strong> (<em>str</em>) – the Mixpanel API domain where all requests should be
 issued (unless overridden by above URLs).</p></li>
+<li><p><strong>retry_limit</strong> (<em>int</em>) – number of times to retry each retry in case of
+connection or HTTP 5xx error; 0 to fail after first attempt.</p></li>
+<li><p><strong>retry_backoff_factor</strong> (<em>int</em>) – In case of retries, controls sleep time. e.g.,
+sleep_seconds = backoff_factor * (2 ^ (num_total_retries - 1)).</p></li>
 </ul>
 </dd>
 </dl>
@@ -543,7 +551,7 @@ raised may have been caused by a message buffered by an earlier call to
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>endpoint</strong> (<em>&quot;events&quot; | &quot;people&quot; | &quot;imports&quot;</em>) – the Mixpanel API endpoint appropriate for the message</p></li>
+<li><p><strong>endpoint</strong> (<em>&quot;events&quot; | &quot;people&quot; | &quot;groups&quot; | &quot;imports&quot;</em>) – the Mixpanel API endpoint appropriate for the message</p></li>
 <li><p><strong>json_message</strong> (<em>str</em>) – a JSON message formatted for the endpoint</p></li>
 <li><p><strong>api_key</strong> (<em>str</em>) – your Mixpanel project’s API key</p></li>
 </ul>
