@@ -1,3 +1,10 @@
+v4.7.0
+* Form $insert_id for track and import calls (if not present) to enable server-side event deduplication.
+* Retry API calls upon connection or HTTP 5xx errors. Added new retry options to Consumer classes.
+* Replaced urllib2-based HTTP calls with urllib3. This allows connection pooling as well at the aforementioned retries.
+* Stop base64 encoding payloads, as Mixpanel APIs now support naked JSON.
+* Bug: $time in people operations should be sent in seconds, not milliseconds.
+
 v4.6.0
 * Add `$merge` support.
 * Support for overriding API host for, say, making calls to EU APIs.
