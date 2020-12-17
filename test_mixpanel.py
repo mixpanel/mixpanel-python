@@ -522,14 +522,6 @@ class TestBufferedConsumer:
         self.consumer.flush()
         assert self.log == [('imports', ['Event'], 'MY_API_KEY')]
 
-    def test_send_remembers_api_secret(self):
-        self.consumer.send('imports', '"Event"', api_secret='ZZZZZZ')
-        assert len(self.log) == 0
-        self.consumer.flush()
-        assert self.log == [('imports', ['Event'], 'ZZZZZZ')]
-
-
-
 
 class TestFunctional:
     @classmethod
