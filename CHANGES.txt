@@ -1,5 +1,9 @@
 v4.8.0
-* Add optional verify_cert param to Consumer.__init__ for those having trouble with server cert validation.
+* Add api_secret parameter to import_data and merge methods. API secret is the
+    new preferred auth mechanism; the old API Key still works but is no longer
+    accessible in the Mixpanel settings UI. (ref: issues #85, #88)
+* Add optional verify_cert param to Consumer.__init__ for those having trouble
+    with server cert validation.  (ref: issue #86)
 
 v4.7.0
 * Form $insert_id for track and import calls (if not present) to enable server-side event deduplication.
