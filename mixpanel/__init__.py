@@ -499,14 +499,17 @@ class Consumer(object):
         connection or HTTP 5xx error; 0 to fail after first attempt.
     :param int retry_backoff_factor: In case of retries, controls sleep time. e.g.,
         sleep_seconds = backoff_factor * (2 ^ (num_total_retries - 1)).
+    :param bool verify_cert: whether to verify the server certificate. Recommended.
 
     .. versionadded:: 4.6.0
         The *api_host* parameter.
+    .. versionadded:: 4.8.0
+        The *verify_cert* parameter.
     """
 
     def __init__(self, events_url=None, people_url=None, import_url=None,
             request_timeout=None, groups_url=None, api_host="api.mixpanel.com",
-            retry_limit=4, retry_backoff_factor=0.25):
+            retry_limit=4, retry_backoff_factor=0.25, verify_cert=True):
         # TODO: With next major version, make the above args kwarg-only, and reorder them.
         self._endpoints = {
             'events': events_url or 'https://{}/track'.format(api_host),
@@ -520,9 +523,11 @@ class Consumer(object):
             method_whitelist={'POST'},
             status_forcelist=set(range(500, 600)),
         )
+        cert_reqs = 'CERT_REQUIRED' if verify_cert else 'CERT_NONE'
         self._http = urllib3.PoolManager(
             retries=retry_config,
             timeout=urllib3.Timeout(request_timeout),
+            cert_reqs=cert_reqs,
         )
 
     def send(self, endpoint, json_message, api_key=None):
@@ -589,9 +594,12 @@ class BufferedConsumer(object):
         connection or HTTP 5xx error; 0 to fail after first attempt.
     :param int retry_backoff_factor: In case of retries, controls sleep time. e.g.,
         sleep_seconds = backoff_factor * (2 ^ (num_total_retries - 1)).
+    :param bool verify_cert: whether to verify the server certificate. Recommended.
 
     .. versionadded:: 4.6.0
         The *api_host* parameter.
+    .. versionadded:: 4.8.0
+        The *verify_cert* parameter.
 
     .. note::
         Because :class:`~.BufferedConsumer` holds events, you need to call
@@ -601,9 +609,9 @@ class BufferedConsumer(object):
     """
     def __init__(self, max_size=50, events_url=None, people_url=None, import_url=None,
             request_timeout=None, groups_url=None, api_host="api.mixpanel.com",
-            retry_limit=4, retry_backoff_factor=0.25):
+            retry_limit=4, retry_backoff_factor=0.25, verify_cert=True):
         self._consumer = Consumer(events_url, people_url, import_url, request_timeout,
-            groups_url, api_host, retry_limit, retry_backoff_factor)
+            groups_url, api_host, retry_limit, retry_backoff_factor, verify_cert)
         self._buffers = {
             'events': [],
             'people': [],
