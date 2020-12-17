@@ -17,7 +17,6 @@ callers to customize the IO characteristics of their tracking.
 from __future__ import absolute_import, unicode_literals
 import datetime
 import json
-import logging
 import time
 import uuid
 
@@ -121,7 +120,7 @@ class Mixpanel(object):
         """
 
         if api_secret is None:
-            logging.warning("api_secret is required in import calls")
+            raise ValueError("api_secret is required in import calls")
 
         all_properties = {
             'token': self._token,
@@ -140,7 +139,7 @@ class Mixpanel(object):
         if meta:
             event.update(meta)
 
-        self._consumer.send('imports', json_dumps(event, cls=self._serializer), api_key, api_secret)
+        self._consumer.send('imports', json_dumps(event, cls=self._serializer), api_key)
 
     def alias(self, alias_id, original, meta=None):
         """Creates an alias which Mixpanel will use to remap one id to another.
@@ -188,7 +187,7 @@ class Mixpanel(object):
         <https://developer.mixpanel.com/docs/http#merge>`__.
         """
         if api_secret is None:
-            logging.warning("api_secret is required in merge calls")
+            raise ValueError("api_secret is required in merge calls")
 
         event = {
             'event': '$merge',
