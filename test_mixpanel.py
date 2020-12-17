@@ -20,11 +20,13 @@ class LogConsumer(object):
     def __init__(self):
         self.log = []
 
-    def send(self, endpoint, event, api_key=None):
+    def send(self, endpoint, event, api_key=None, api_secret=None):
+        entry = [endpoint, json.loads(event)]
         if api_key:
-            self.log.append((endpoint, json.loads(event), api_key))
-        else:
-            self.log.append((endpoint, json.loads(event)))
+            entry.append(api_key)
+        if api_secret:
+            entry.append(api_secret)
+        self.log.append(tuple(entry))
 
 
 class TestMixpanel:
@@ -79,7 +81,9 @@ class TestMixpanel:
 
     def test_import_data(self):
         timestamp = time.time()
-        self.mp.import_data('MY_API_KEY', 'ID', 'button press', timestamp, {'size': 'big', 'color': 'blue', '$insert_id': 'abc123'})
+        self.mp.import_data('MY_API_KEY', 'ID', 'button press', timestamp,
+            {'size': 'big', 'color': 'blue', '$insert_id': 'abc123'},
+            api_secret='MY_SECRET')
         assert self.consumer.log == [(
             'imports', {
                 'event': 'button press',
@@ -94,7 +98,8 @@ class TestMixpanel:
                     '$lib_version': mixpanel.__version__,
                 },
             },
-            'MY_API_KEY'
+            'MY_API_KEY',
+            'MY_SECRET',
         )]
 
     def test_track_meta(self):
@@ -516,6 +521,14 @@ class TestBufferedConsumer:
         assert len(self.log) == 0
         self.consumer.flush()
         assert self.log == [('imports', ['Event'], 'MY_API_KEY')]
+
+    def test_send_remembers_api_secret(self):
+        self.consumer.send('imports', '"Event"', api_secret='ZZZZZZ')
+        assert len(self.log) == 0
+        self.consumer.flush()
+        assert self.log == [('imports', ['Event'], 'ZZZZZZ')]
+
+
 
 
 class TestFunctional:
