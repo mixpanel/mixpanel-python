@@ -7,7 +7,7 @@ documentation; you may also be interested in the higher-level `usage
 documentation`_. If your users are interacting with your application via the
 web, you may also be interested in our `JavaScript library`_.
 
-.. _`Javascript library`: https://developer.mixpanel.com/docs/javascript
+.. _`JavaScript library`: https://developer.mixpanel.com/docs/javascript
 .. _`usage documentation`: https://developer.mixpanel.com/docs/python
 
 :class:`~.Mixpanel` is the primary class for tracking events and sending People
@@ -115,7 +115,8 @@ class Mixpanel(object):
         :param dict meta: overrides Mixpanel special properties
         :param str api_secret: Your Mixpanel project's API secret.
 
-        Important: Mixpanel's ``import`` HTTP endpoint requires the project API
+        .. Important::
+            Mixpanel's ``import`` HTTP endpoint requires the project API
             secret found in your Mixpanel project's settings. The older API key is
             no longer accessible in the Mixpanel UI, but will continue to work.
             The api_key parameter will be removed in an upcoming release of
@@ -128,7 +129,7 @@ class Mixpanel(object):
         ``track`` endpoint disallows events that occurred too long ago. This
         method can be used to import such events. See our online documentation
         for `more details
-        <https://developer.mixpanel.com/docs/importing-old-events>`__.
+        <https://developer.mixpanel.com/reference/events#import-events>`__.
         """
 
         if api_secret is None:
@@ -165,7 +166,7 @@ class Mixpanel(object):
         Events triggered by the new id will be associated with the existing
         user's profile and behavior. See our online documentation for `more
         details
-        <https://developer.mixpanel.com/docs/http#section-create-alias>`__.
+        <https://developer.mixpanel.com/reference/identities#identity-create-alias>`__.
 
         .. note::
             Calling this method *always* results in a synchronous HTTP request
@@ -194,7 +195,8 @@ class Mixpanel(object):
         :param dict meta: overrides Mixpanel special properties
         :param str api_secret: Your Mixpanel project's API secret.
 
-        Important: Mixpanel's ``merge`` HTTP endpoint requires the project API
+        .. Important::
+            Mixpanel's ``merge`` HTTP endpoint requires the project API
             secret found in your Mixpanel project's settings. The older API key is
             no longer accessible in the Mixpanel UI, but will continue to work.
             The api_key parameter will be removed in an upcoming release of
@@ -205,7 +207,7 @@ class Mixpanel(object):
 
         See our online documentation for `more
         details
-        <https://developer.mixpanel.com/docs/http#merge>`__.
+        <https://developer.mixpanel.com/reference/identities#identity-merge>`__.
         """
         if api_secret is None:
             logger.warning("api_key will soon be removed from mixpanel-python; please use api_secret instead.")
@@ -372,12 +374,12 @@ class Mixpanel(object):
 
         :param dict message: the message to send
 
-        Callers are responsible for formatting the update message as documented
-        in the `Mixpanel HTTP specification`_. This method may be useful if you
+        Callers are responsible for formatting the update message as described
+        in the `user profiles documentation`_. This method may be useful if you
         want to use very new or experimental features of people analytics, but
         please use the other ``people_*`` methods where possible.
 
-        .. _`Mixpanel HTTP specification`: https://developer.mixpanel.com/docs/http
+        .. _`user profiles documentation`: https://developer.mixpanel.com/reference/user-profiles
         """
         record = {
             '$token': self._token,
@@ -489,11 +491,11 @@ class Mixpanel(object):
         :param dict message: the message to send
 
         Callers are responsible for formatting the update message as documented
-        in the `Mixpanel HTTP specification`_. This method may be useful if you
+        in the `group profiles documentation`_. This method may be useful if you
         want to use very new or experimental features, but
         please use the other ``group_*`` methods where possible.
 
-        .. _`Mixpanel HTTP specification`: https://developer.mixpanel.com/docs/http
+        .. _`group profiles documentation`: https://developer.mixpanel.com/reference/group-profiles
         """
         record = {
             '$token': self._token,
