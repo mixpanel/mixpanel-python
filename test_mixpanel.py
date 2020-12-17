@@ -81,7 +81,9 @@ class TestMixpanel:
 
     def test_import_data(self):
         timestamp = time.time()
-        self.mp.import_data('MY_API_KEY', 'ID', 'button press', timestamp, {'size': 'big', 'color': 'blue', '$insert_id': 'abc123'})
+        self.mp.import_data('MY_API_KEY', 'ID', 'button press', timestamp,
+            {'size': 'big', 'color': 'blue', '$insert_id': 'abc123'},
+            api_secret='MY_SECRET')
         assert self.consumer.log == [(
             'imports', {
                 'event': 'button press',
@@ -96,7 +98,8 @@ class TestMixpanel:
                     '$lib_version': mixpanel.__version__,
                 },
             },
-            'MY_API_KEY'
+            'MY_API_KEY',
+            'MY_SECRET',
         )]
 
     def test_track_meta(self):
