@@ -100,7 +100,7 @@ class Mixpanel(object):
         self._consumer.send('events', json_dumps(event, cls=self._serializer))
 
     def import_data(self, api_key, distinct_id, event_name, timestamp,
-                    properties=None, meta=None, api_secret=None):
+                    properties=None, meta=None):
         """Record an event that occurred more than 5 days in the past.
 
         :param str api_key: your Mixpanel project's API key
@@ -110,7 +110,6 @@ class Mixpanel(object):
         :param dict properties: additional data to record; keys should be
             strings, and values should be strings, numbers, or booleans
         :param dict meta: overrides Mixpanel special properties
-        :param str api_secret: Your Mixpanel project's API secret.
 
         To avoid accidentally recording invalid events, the Mixpanel API's
         ``track`` endpoint disallows events that occurred too long ago. This
@@ -118,10 +117,6 @@ class Mixpanel(object):
         for `more details
         <https://developer.mixpanel.com/docs/importing-old-events>`__.
         """
-
-        if api_secret is None:
-            raise ValueError("api_secret is required in import calls")
-
         all_properties = {
             'token': self._token,
             'distinct_id': distinct_id,
@@ -138,7 +133,6 @@ class Mixpanel(object):
         }
         if meta:
             event.update(meta)
-
         self._consumer.send('imports', json_dumps(event, cls=self._serializer), api_key)
 
     def alias(self, alias_id, original, meta=None):
@@ -172,7 +166,7 @@ class Mixpanel(object):
             event.update(meta)
         sync_consumer.send('events', json_dumps(event, cls=self._serializer))
 
-    def merge(self, api_key, distinct_id1, distinct_id2, meta=None, api_secret=None):
+    def merge(self, api_key, distinct_id1, distinct_id2, meta=None):
         """
         Merges the two given distinct_ids.
 
@@ -180,15 +174,11 @@ class Mixpanel(object):
         :param str distinct_id1: The first distinct_id to merge.
         :param str distinct_id2: The second (other) distinct_id to merge.
         :param dict meta: overrides Mixpanel special properties
-        :param str api_secret: Your Mixpanel project's API secret.
 
         See our online documentation for `more
         details
         <https://developer.mixpanel.com/docs/http#merge>`__.
         """
-        if api_secret is None:
-            raise ValueError("api_secret is required in merge calls")
-
         event = {
             'event': '$merge',
             'properties': {
@@ -198,7 +188,7 @@ class Mixpanel(object):
         }
         if meta:
             event.update(meta)
-        self._consumer.send('imports', json_dumps(event, cls=self._serializer), api_key, api_secret)
+        self._consumer.send('imports', json_dumps(event, cls=self._serializer), api_key)
 
     def people_set(self, distinct_id, properties, meta=None):
         """Set properties of a people record.
@@ -535,27 +525,22 @@ class Consumer(object):
             timeout=urllib3.Timeout(request_timeout),
         )
 
-    def send(self, endpoint, json_message, api_key=None, api_secret=None):
+    def send(self, endpoint, json_message, api_key=None):
         """Immediately record an event or a profile update.
 
         :param endpoint: the Mixpanel API endpoint appropriate for the message
         :type endpoint: "events" | "people" | "groups" | "imports"
         :param str json_message: a JSON message formatted for the endpoint
         :param str api_key: your Mixpanel project's API key
-        :param str api_secret: your Mixpanel project's API secret
         :raises MixpanelException: if the endpoint doesn't exist, the server is
             unreachable, or the message cannot be processed
-
-
-        .. versionadded:: 4.8.0
-            The *api_secret* parameter.
         """
-        if endpoint not in self._endpoints:
+        if endpoint in self._endpoints:
+            self._write_request(self._endpoints[endpoint], json_message, api_key)
+        else:
             raise MixpanelException('No such endpoint "{0}". Valid endpoints are one of {1}'.format(endpoint, self._endpoints.keys()))
 
-        self._write_request(self._endpoints[endpoint], json_message, api_key, api_secret)
-
-    def _write_request(self, request_url, json_message, api_key=None, api_secret=None):
+    def _write_request(self, request_url, json_message, api_key=None):
         data = {
             'data': json_message,
             'verbose': 1,
@@ -564,17 +549,11 @@ class Consumer(object):
         if api_key:
             data.update({'api_key': api_key})
 
-        headers = None
-
-        if api_secret is not None:
-            headers = urllib3.util.make_headers(basic_auth="{}:".format(api_secret))
-
         try:
             response = self._http.request(
                 'POST',
                 request_url,
                 fields=data,
-                headers=headers,
                 encode_multipart=False, # URL-encode payload in POST body.
             )
         except Exception as e:
@@ -634,7 +613,7 @@ class BufferedConsumer(object):
         self._max_size = min(50, max_size)
         self._api_key = None
 
-    def send(self, endpoint, json_message, api_key=None, api_secret=None):
+    def send(self, endpoint, json_message, api_key=None):
         """Record an event or profile update.
 
         Internally, adds the message to a buffer, and then flushes the buffer
@@ -646,7 +625,6 @@ class BufferedConsumer(object):
         :type endpoint: "events" | "people" | "groups" | "imports"
         :param str json_message: a JSON message formatted for the endpoint
         :param str api_key: your Mixpanel project's API key
-        :param str api_secret: your Mixpanel project's API secret
         :raises MixpanelException: if the endpoint doesn't exist, the server is
             unreachable, or any buffered message cannot be processed
 
@@ -658,9 +636,8 @@ class BufferedConsumer(object):
 
         buf = self._buffers[endpoint]
         buf.append(json_message)
-        # Fixme: Don't stick these in the instance.
-        self._api_key = api_key
-        self._api_secret = api_secret
+        if api_key is not None:
+            self._api_key = api_key
         if len(buf) >= self._max_size:
             self._flush_endpoint(endpoint)
 
@@ -679,7 +656,7 @@ class BufferedConsumer(object):
             batch = buf[:self._max_size]
             batch_json = '[{0}]'.format(','.join(batch))
             try:
-                self._consumer.send(endpoint, batch_json, self._api_key, self._api_secret)
+                self._consumer.send(endpoint, batch_json, self._api_key)
             except MixpanelException as orig_e:
                 mp_e = MixpanelException(orig_e)
                 mp_e.message = batch_json
