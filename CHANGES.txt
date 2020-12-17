@@ -1,3 +1,6 @@
+v4.8.0
+* Add optional verify_cert param to Consumer.__init__ for those having trouble with server cert validation.
+
 v4.7.0
 * Form $insert_id for track and import calls (if not present) to enable server-side event deduplication.
 * Retry API calls upon connection or HTTP 5xx errors. Added new retry options to Consumer classes.
