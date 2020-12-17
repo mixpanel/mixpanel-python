@@ -228,9 +228,7 @@ class Mixpanel(object):
 
         :param str distinct_id: the profile to update
         :param dict properties: properties to set
-        :param dict meta: overrides Mixpanel `special properties`_
-
-        .. _`special properties`: https://developer.mixpanel.com/docs/http#section-storing-user-profiles
+        :param dict meta: overrides Mixpanel special properties
 
         If the profile does not exist, creates a new profile with these properties.
         """
