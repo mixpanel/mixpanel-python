@@ -114,8 +114,9 @@ class Mixpanel(object):
         :param str api_secret: Your Mixpanel project's API secret.
 
         Important: Mixpanel's ``import`` HTTP endpoint requires the project API
-            secret found in your Mixpanel project's settings. The API key is
-            no longer required and will be removed in an upcoming release of
+            secret found in your Mixpanel project's settings. The older API key is
+            no longer accessible in the Mixpanel UI, but will continue to work.
+            The api_key parameter will be removed in an upcoming release of
             mixpanel-python.
 
         .. versionadded:: 4.8.0
@@ -129,7 +130,7 @@ class Mixpanel(object):
         """
 
         if api_secret is None:
-            logging.critical("api_secret is now required in import_data calls")
+            logging.warning("api_key will soon be removed from mixpanel-python; please use api_secret instead.")
 
         all_properties = {
             'token': self._token,
@@ -192,8 +193,9 @@ class Mixpanel(object):
         :param str api_secret: Your Mixpanel project's API secret.
 
         Important: Mixpanel's ``merge`` HTTP endpoint requires the project API
-            secret found in your Mixpanel project's settings. The API key is
-            no longer required and will be removed in an upcoming release of
+            secret found in your Mixpanel project's settings. The older API key is
+            no longer accessible in the Mixpanel UI, but will continue to work.
+            The api_key parameter will be removed in an upcoming release of
             mixpanel-python.
 
         .. versionadded:: 4.8.0
@@ -204,7 +206,7 @@ class Mixpanel(object):
         <https://developer.mixpanel.com/docs/http#merge>`__.
         """
         if api_secret is None:
-            logging.critical("api_secret is required in merge calls")
+            logging.warning("api_key will soon be removed from mixpanel-python; please use api_secret instead.")
 
         event = {
             'event': '$merge',
