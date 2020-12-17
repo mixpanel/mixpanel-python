@@ -104,7 +104,7 @@ class Mixpanel(object):
                     properties=None, meta=None, api_secret=None):
         """Record an event that occurred more than 5 days in the past.
 
-        :param str api_key: (DEPRECATED) your Mixpanel project's API key
+        :param str api_key: your Mixpanel project's API key
         :param str distinct_id: identifies the user triggering the event
         :param str event_name: a name describing the event
         :param int timestamp: UTC seconds since epoch
@@ -112,9 +112,6 @@ class Mixpanel(object):
             strings, and values should be strings, numbers, or booleans
         :param dict meta: overrides Mixpanel special properties
         :param str api_secret: Your Mixpanel project's API secret.
-
-        .. versionadded:: 4.8.0
-            The *api_secret* parameter.`
 
         To avoid accidentally recording invalid events, the Mixpanel API's
         ``track`` endpoint disallows events that occurred too long ago. This
@@ -124,7 +121,7 @@ class Mixpanel(object):
         """
 
         if api_secret is None:
-            logging.critical("api_secret is now required in import_data calls")
+            logging.warning("api_secret is required in import calls")
 
         all_properties = {
             'token': self._token,
