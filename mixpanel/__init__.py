@@ -28,6 +28,8 @@ import urllib3
 __version__ = '4.8.0'
 VERSION = __version__  # TODO: remove when bumping major version.
 
+logger = logging.getLogger(__name__)
+
 
 class DatetimeSerializer(json.JSONEncoder):
     def default(self, obj):
@@ -130,7 +132,7 @@ class Mixpanel(object):
         """
 
         if api_secret is None:
-            logging.warning("api_key will soon be removed from mixpanel-python; please use api_secret instead.")
+            logger.warning("api_key will soon be removed from mixpanel-python; please use api_secret instead.")
 
         all_properties = {
             'token': self._token,
@@ -206,7 +208,7 @@ class Mixpanel(object):
         <https://developer.mixpanel.com/docs/http#merge>`__.
         """
         if api_secret is None:
-            logging.warning("api_key will soon be removed from mixpanel-python; please use api_secret instead.")
+            logger.warning("api_key will soon be removed from mixpanel-python; please use api_secret instead.")
 
         event = {
             'event': '$merge',
