@@ -6,4 +6,4 @@ dist
 docs/_build
 .idea/
 .cache/
-
+.DS_Store
