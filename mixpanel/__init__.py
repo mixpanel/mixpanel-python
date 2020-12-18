@@ -394,7 +394,7 @@ class Mixpanel(object):
         :param str group_key: the group key, e.g. 'company'
         :param str group_id: the group to update
         :param dict properties: properties to set
-        :param dict meta: overrides Mixpanel `special properties`_. (See also `Mixpanel.people_set`.)
+        :param dict meta: overrides Mixpanel special properties. (See also `Mixpanel.people_set`.)
 
         If the profile does not exist, creates a new profile with these properties.
         """
