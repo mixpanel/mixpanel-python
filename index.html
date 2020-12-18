@@ -4,10 +4,10 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome to Mixpanel &#8212; mixpanel 4.7.0 documentation</title>
-    <link rel="stylesheet" href="_static/mixpanel.css" type="text/css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Welcome to Mixpanel &#8212; mixpanel 4.8.0 documentation</title>
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="_static/mixpanel.css" type="text/css" />
     <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
@@ -85,25 +85,37 @@ aspects of the source or user associated with it. <code class="docutils literal 
 
 <dl class="py method">
 <dt id="mixpanel.Mixpanel.import_data">
-<code class="sig-name descname">import_data</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">api_key</span></em>, <em class="sig-param"><span class="n">distinct_id</span></em>, <em class="sig-param"><span class="n">event_name</span></em>, <em class="sig-param"><span class="n">timestamp</span></em>, <em class="sig-param"><span class="n">properties</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">meta</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.import_data" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">import_data</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">api_key</span></em>, <em class="sig-param"><span class="n">distinct_id</span></em>, <em class="sig-param"><span class="n">event_name</span></em>, <em class="sig-param"><span class="n">timestamp</span></em>, <em class="sig-param"><span class="n">properties</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">meta</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">api_secret</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.import_data" title="Permalink to this definition">¶</a></dt>
 <dd><p>Record an event that occurred more than 5 days in the past.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>api_key</strong> (<em>str</em>) – your Mixpanel project’s API key</p></li>
+<li><p><strong>api_key</strong> (<em>str</em>) – (DEPRECATED) your Mixpanel project’s API key</p></li>
 <li><p><strong>distinct_id</strong> (<em>str</em>) – identifies the user triggering the event</p></li>
 <li><p><strong>event_name</strong> (<em>str</em>) – a name describing the event</p></li>
 <li><p><strong>timestamp</strong> (<em>int</em>) – UTC seconds since epoch</p></li>
 <li><p><strong>properties</strong> (<em>dict</em>) – additional data to record; keys should be
 strings, and values should be strings, numbers, or booleans</p></li>
 <li><p><strong>meta</strong> (<em>dict</em>) – overrides Mixpanel special properties</p></li>
+<li><p><strong>api_secret</strong> (<em>str</em>) – Your Mixpanel project’s API secret.</p></li>
 </ul>
 </dd>
 </dl>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>Mixpanel’s <code class="docutils literal notranslate"><span class="pre">import</span></code> HTTP endpoint requires the project API
+secret found in your Mixpanel project’s settings. The older API key is
+no longer accessible in the Mixpanel UI, but will continue to work.
+The api_key parameter will be removed in an upcoming release of
+mixpanel-python.</p>
+</div>
+<div class="versionadded">
+<p><span class="versionmodified added">New in version 4.8.0: </span>The <em>api_secret</em> parameter.</p>
+</div>
 <p>To avoid accidentally recording invalid events, the Mixpanel API’s
 <code class="docutils literal notranslate"><span class="pre">track</span></code> endpoint disallows events that occurred too long ago. This
 method can be used to import such events. See our online documentation
-for <a class="reference external" href="https://developer.mixpanel.com/docs/importing-old-events">more details</a>.</p>
+for <a class="reference external" href="https://developer.mixpanel.com/reference/events#import-events">more details</a>.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -122,7 +134,7 @@ distinct_id. Each alias can only map to one distinct_id.</p></li>
 </dl>
 <p>Immediately creates a one-way mapping between two <code class="docutils literal notranslate"><span class="pre">distinct_ids</span></code>.
 Events triggered by the new id will be associated with the existing
-user’s profile and behavior. See our online documentation for <a class="reference external" href="https://developer.mixpanel.com/docs/http#section-create-alias">more
+user’s profile and behavior. See our online documentation for <a class="reference external" href="https://developer.mixpanel.com/reference/identities#identity-create-alias">more
 details</a>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -133,19 +145,31 @@ to Mixpanel servers, regardless of any custom consumer.</p>
 
 <dl class="py method">
 <dt id="mixpanel.Mixpanel.merge">
-<code class="sig-name descname">merge</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">api_key</span></em>, <em class="sig-param"><span class="n">distinct_id1</span></em>, <em class="sig-param"><span class="n">distinct_id2</span></em>, <em class="sig-param"><span class="n">meta</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.merge" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">merge</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">api_key</span></em>, <em class="sig-param"><span class="n">distinct_id1</span></em>, <em class="sig-param"><span class="n">distinct_id2</span></em>, <em class="sig-param"><span class="n">meta</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">api_secret</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.merge" title="Permalink to this definition">¶</a></dt>
 <dd><p>Merges the two given distinct_ids.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>api_key</strong> (<em>str</em>) – Your Mixpanel project’s API key.</p></li>
+<li><p><strong>api_key</strong> (<em>str</em>) – (DEPRECATED) Your Mixpanel project’s API key.</p></li>
 <li><p><strong>distinct_id1</strong> (<em>str</em>) – The first distinct_id to merge.</p></li>
 <li><p><strong>distinct_id2</strong> (<em>str</em>) – The second (other) distinct_id to merge.</p></li>
 <li><p><strong>meta</strong> (<em>dict</em>) – overrides Mixpanel special properties</p></li>
+<li><p><strong>api_secret</strong> (<em>str</em>) – Your Mixpanel project’s API secret.</p></li>
 </ul>
 </dd>
 </dl>
-<p>See our online documentation for <a class="reference external" href="https://developer.mixpanel.com/docs/http#merge">more
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>Mixpanel’s <code class="docutils literal notranslate"><span class="pre">merge</span></code> HTTP endpoint requires the project API
+secret found in your Mixpanel project’s settings. The older API key is
+no longer accessible in the Mixpanel UI, but will continue to work.
+The api_key parameter will be removed in an upcoming release of
+mixpanel-python.</p>
+</div>
+<div class="versionadded">
+<p><span class="versionmodified added">New in version 4.8.0: </span>The <em>api_secret</em> parameter.</p>
+</div>
+<p>See our online documentation for <a class="reference external" href="https://developer.mixpanel.com/reference/identities#identity-merge">more
 details</a>.</p>
 </dd></dl>
 
@@ -158,7 +182,7 @@ details</a>.</p>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>distinct_id</strong> (<em>str</em>) – the profile to update</p></li>
 <li><p><strong>properties</strong> (<em>dict</em>) – properties to set</p></li>
-<li><p><strong>meta</strong> (<em>dict</em>) – overrides Mixpanel <a class="reference external" href="https://developer.mixpanel.com/docs/http#section-storing-user-profiles">special properties</a></p></li>
+<li><p><strong>meta</strong> (<em>dict</em>) – overrides Mixpanel special properties</p></li>
 </ul>
 </dd>
 </dl>
@@ -322,8 +346,8 @@ revenue report.</p>
 <dd class="field-odd"><p><strong>message</strong> (<em>dict</em>) – the message to send</p>
 </dd>
 </dl>
-<p>Callers are responsible for formatting the update message as documented
-in the <a class="reference external" href="https://developer.mixpanel.com/docs/http">Mixpanel HTTP specification</a>. This method may be useful if you
+<p>Callers are responsible for formatting the update message as described
+in the <a class="reference external" href="https://developer.mixpanel.com/reference/user-profiles">user profiles documentation</a>. This method may be useful if you
 want to use very new or experimental features of people analytics, but
 please use the other <code class="docutils literal notranslate"><span class="pre">people_*</span></code> methods where possible.</p>
 </dd></dl>
@@ -338,7 +362,7 @@ please use the other <code class="docutils literal notranslate"><span class="pre
 <li><p><strong>group_key</strong> (<em>str</em>) – the group key, e.g. ‘company’</p></li>
 <li><p><strong>group_id</strong> (<em>str</em>) – the group to update</p></li>
 <li><p><strong>properties</strong> (<em>dict</em>) – properties to set</p></li>
-<li><p><strong>meta</strong> (<em>dict</em>) – overrides Mixpanel <a class="reference external" href="https://developer.mixpanel.com/docs/http#section-storing-user-profiles">special properties</a>. (See also <cite>Mixpanel.people_set</cite>.)</p></li>
+<li><p><strong>meta</strong> (<em>dict</em>) – overrides Mixpanel special properties. (See also <cite>Mixpanel.people_set</cite>.)</p></li>
 </ul>
 </dd>
 </dl>
@@ -443,7 +467,7 @@ For example:</p>
 </dd>
 </dl>
 <p>Callers are responsible for formatting the update message as documented
-in the <a class="reference external" href="https://developer.mixpanel.com/docs/http">Mixpanel HTTP specification</a>. This method may be useful if you
+in the <a class="reference external" href="https://developer.mixpanel.com/reference/group-profiles">group profiles documentation</a>. This method may be useful if you
 want to use very new or experimental features, but
 please use the other <code class="docutils literal notranslate"><span class="pre">group_*</span></code> methods where possible.</p>
 </dd></dl>
@@ -461,7 +485,7 @@ responsible for appropriately encoding the message and sending it to the named
 of each of their own method calls, after building the JSON message.</p>
 <dl class="py class">
 <dt id="mixpanel.Consumer">
-<em class="property">class </em><code class="sig-prename descclassname">mixpanel.</code><code class="sig-name descname">Consumer</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">events_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">people_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">import_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">request_timeout</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">groups_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">api_host</span><span class="o">=</span><span class="default_value">'api.mixpanel.com'</span></em>, <em class="sig-param"><span class="n">retry_limit</span><span class="o">=</span><span class="default_value">4</span></em>, <em class="sig-param"><span class="n">retry_backoff_factor</span><span class="o">=</span><span class="default_value">0.25</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Consumer" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">mixpanel.</code><code class="sig-name descname">Consumer</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">events_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">people_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">import_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">request_timeout</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">groups_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">api_host</span><span class="o">=</span><span class="default_value">'api.mixpanel.com'</span></em>, <em class="sig-param"><span class="n">retry_limit</span><span class="o">=</span><span class="default_value">4</span></em>, <em class="sig-param"><span class="n">retry_backoff_factor</span><span class="o">=</span><span class="default_value">0.25</span></em>, <em class="sig-param"><span class="n">verify_cert</span><span class="o">=</span><span class="default_value">True</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Consumer" title="Permalink to this definition">¶</a></dt>
 <dd><p>A consumer that sends an HTTP request directly to the Mixpanel service, one
 per call to <a class="reference internal" href="#mixpanel.Consumer.send" title="mixpanel.Consumer.send"><code class="xref py py-meth docutils literal notranslate"><span class="pre">send()</span></code></a>.</p>
 <dl class="field-list simple">
@@ -478,15 +502,19 @@ issued (unless overridden by above URLs).</p></li>
 connection or HTTP 5xx error; 0 to fail after first attempt.</p></li>
 <li><p><strong>retry_backoff_factor</strong> (<em>int</em>) – In case of retries, controls sleep time. e.g.,
 sleep_seconds = backoff_factor * (2 ^ (num_total_retries - 1)).</p></li>
+<li><p><strong>verify_cert</strong> (<em>bool</em>) – whether to verify the server certificate. Recommended.</p></li>
 </ul>
 </dd>
 </dl>
 <div class="versionadded">
 <p><span class="versionmodified added">New in version 4.6.0: </span>The <em>api_host</em> parameter.</p>
 </div>
+<div class="versionadded">
+<p><span class="versionmodified added">New in version 4.8.0: </span>The <em>verify_cert</em> parameter.</p>
+</div>
 <dl class="py method">
 <dt id="mixpanel.Consumer.send">
-<code class="sig-name descname">send</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">endpoint</span></em>, <em class="sig-param"><span class="n">json_message</span></em>, <em class="sig-param"><span class="n">api_key</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Consumer.send" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">send</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">endpoint</span></em>, <em class="sig-param"><span class="n">json_message</span></em>, <em class="sig-param"><span class="n">api_key</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">api_secret</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Consumer.send" title="Permalink to this definition">¶</a></dt>
 <dd><p>Immediately record an event or a profile update.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -494,6 +522,7 @@ sleep_seconds = backoff_factor * (2 ^ (num_total_retries - 1)).</p></li>
 <li><p><strong>endpoint</strong> (<em>&quot;events&quot; | &quot;people&quot; | &quot;groups&quot; | &quot;imports&quot;</em>) – the Mixpanel API endpoint appropriate for the message</p></li>
 <li><p><strong>json_message</strong> (<em>str</em>) – a JSON message formatted for the endpoint</p></li>
 <li><p><strong>api_key</strong> (<em>str</em>) – your Mixpanel project’s API key</p></li>
+<li><p><strong>api_secret</strong> (<em>str</em>) – your Mixpanel project’s API secret</p></li>
 </ul>
 </dd>
 <dt class="field-even">Raises</dt>
@@ -501,13 +530,16 @@ sleep_seconds = backoff_factor * (2 ^ (num_total_retries - 1)).</p></li>
 unreachable, or the message cannot be processed</p>
 </dd>
 </dl>
+<div class="versionadded">
+<p><span class="versionmodified added">New in version 4.8.0: </span>The <em>api_secret</em> parameter.</p>
+</div>
 </dd></dl>
 
 </dd></dl>
 
 <dl class="py class">
 <dt id="mixpanel.BufferedConsumer">
-<em class="property">class </em><code class="sig-prename descclassname">mixpanel.</code><code class="sig-name descname">BufferedConsumer</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">max_size</span><span class="o">=</span><span class="default_value">50</span></em>, <em class="sig-param"><span class="n">events_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">people_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">import_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">request_timeout</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">groups_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">api_host</span><span class="o">=</span><span class="default_value">'api.mixpanel.com'</span></em>, <em class="sig-param"><span class="n">retry_limit</span><span class="o">=</span><span class="default_value">4</span></em>, <em class="sig-param"><span class="n">retry_backoff_factor</span><span class="o">=</span><span class="default_value">0.25</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.BufferedConsumer" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">mixpanel.</code><code class="sig-name descname">BufferedConsumer</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">max_size</span><span class="o">=</span><span class="default_value">50</span></em>, <em class="sig-param"><span class="n">events_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">people_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">import_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">request_timeout</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">groups_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">api_host</span><span class="o">=</span><span class="default_value">'api.mixpanel.com'</span></em>, <em class="sig-param"><span class="n">retry_limit</span><span class="o">=</span><span class="default_value">4</span></em>, <em class="sig-param"><span class="n">retry_backoff_factor</span><span class="o">=</span><span class="default_value">0.25</span></em>, <em class="sig-param"><span class="n">verify_cert</span><span class="o">=</span><span class="default_value">True</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.BufferedConsumer" title="Permalink to this definition">¶</a></dt>
 <dd><p>A consumer that maintains per-endpoint buffers of messages and then sends
 them in batches. This can save bandwidth and reduce the total amount of
 time required to post your events to Mixpanel.</p>
@@ -527,11 +559,15 @@ issued (unless overridden by above URLs).</p></li>
 connection or HTTP 5xx error; 0 to fail after first attempt.</p></li>
 <li><p><strong>retry_backoff_factor</strong> (<em>int</em>) – In case of retries, controls sleep time. e.g.,
 sleep_seconds = backoff_factor * (2 ^ (num_total_retries - 1)).</p></li>
+<li><p><strong>verify_cert</strong> (<em>bool</em>) – whether to verify the server certificate. Recommended.</p></li>
 </ul>
 </dd>
 </dl>
 <div class="versionadded">
 <p><span class="versionmodified added">New in version 4.6.0: </span>The <em>api_host</em> parameter.</p>
+</div>
+<div class="versionadded">
+<p><span class="versionmodified added">New in version 4.8.0: </span>The <em>verify_cert</em> parameter.</p>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -542,7 +578,7 @@ remaining unsent events being held by the instance.</p>
 </div>
 <dl class="py method">
 <dt id="mixpanel.BufferedConsumer.send">
-<code class="sig-name descname">send</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">endpoint</span></em>, <em class="sig-param"><span class="n">json_message</span></em>, <em class="sig-param"><span class="n">api_key</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.BufferedConsumer.send" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">send</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">endpoint</span></em>, <em class="sig-param"><span class="n">json_message</span></em>, <em class="sig-param"><span class="n">api_key</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">api_secret</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.BufferedConsumer.send" title="Permalink to this definition">¶</a></dt>
 <dd><p>Record an event or profile update.</p>
 <p>Internally, adds the message to a buffer, and then flushes the buffer
 if it has reached the configured maximum size. Note that exceptions
@@ -554,6 +590,7 @@ raised may have been caused by a message buffered by an earlier call to
 <li><p><strong>endpoint</strong> (<em>&quot;events&quot; | &quot;people&quot; | &quot;groups&quot; | &quot;imports&quot;</em>) – the Mixpanel API endpoint appropriate for the message</p></li>
 <li><p><strong>json_message</strong> (<em>str</em>) – a JSON message formatted for the endpoint</p></li>
 <li><p><strong>api_key</strong> (<em>str</em>) – your Mixpanel project’s API key</p></li>
+<li><p><strong>api_secret</strong> (<em>str</em>) – your Mixpanel project’s API secret</p></li>
 </ul>
 </dd>
 <dt class="field-even">Raises</dt>
@@ -652,10 +689,10 @@ endpoint passed to <a class="reference internal" href="#mixpanel.Consumer.send" 
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy; 2020, Mixpanel, Inc..
+      &copy; 2021, Mixpanel, Inc..
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.1.2</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.3.1</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |
