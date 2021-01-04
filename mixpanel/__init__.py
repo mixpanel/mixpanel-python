@@ -152,7 +152,7 @@ class Mixpanel(object):
         if meta:
             event.update(meta)
 
-        self._consumer.send('imports', json_dumps(event, cls=self._serializer), api_key, api_secret)
+        self._consumer.send('imports', json_dumps(event, cls=self._serializer), (api_key, api_secret), api_secret)
 
     def alias(self, alias_id, original, meta=None):
         """Creates an alias which Mixpanel will use to remap one id to another.
@@ -221,7 +221,7 @@ class Mixpanel(object):
         }
         if meta:
             event.update(meta)
-        self._consumer.send('imports', json_dumps(event, cls=self._serializer), api_key, api_secret)
+        self._consumer.send('imports', json_dumps(event, cls=self._serializer), (api_key, api_secret), api_secret)
 
     def people_set(self, distinct_id, properties, meta=None):
         """Set properties of a people record.
@@ -572,7 +572,6 @@ class Consumer(object):
         :raises MixpanelException: if the endpoint doesn't exist, the server is
             unreachable, or the message cannot be processed
 
-
         .. versionadded:: 4.8.0
             The *api_secret* parameter.
         """
@@ -587,6 +586,12 @@ class Consumer(object):
             'verbose': 1,
             'ip': 0,
         }
+
+        if isinstance(api_key, tuple):
+            # For compatibility with subclassers, allow the auth details to be
+            # packed into the existing api_key param.
+            api_key, api_secret = api_key
+
         if api_key:
             data.update({'api_key': api_key})
 
@@ -703,12 +708,19 @@ class BufferedConsumer(object):
             self._flush_endpoint(endpoint)
 
     def _flush_endpoint(self, endpoint):
+        if isinstance(self._api_key, tuple):
+            api_key, api_secret = self._api_key
+        else:
+            api_key = self._api_key
+            api_secret = self._api_secret
+
         buf = self._buffers[endpoint]
+
         while buf:
             batch = buf[:self._max_size]
             batch_json = '[{0}]'.format(','.join(batch))
             try:
-                self._consumer.send(endpoint, batch_json, self._api_key, self._api_secret)
+                self._consumer.send(endpoint, batch_json, api_key, api_secret)
             except MixpanelException as orig_e:
                 mp_e = MixpanelException(orig_e)
                 mp_e.message = batch_json

@@ -16,7 +16,6 @@ import mixpanel
 
 
 class LogConsumer(object):
-
     def __init__(self):
         self.log = []
 
@@ -27,6 +26,9 @@ class LogConsumer(object):
         if api_secret:
             entry.append(api_secret)
         self.log.append(tuple(entry))
+
+    def clear(self):
+        self.log = []
 
 
 class TestMixpanel:
@@ -98,7 +100,7 @@ class TestMixpanel:
                     '$lib_version': mixpanel.__version__,
                 },
             },
-            'MY_API_KEY',
+            ('MY_API_KEY', 'MY_SECRET'),
             'MY_SECRET',
         )]
 
@@ -301,7 +303,6 @@ class TestMixpanel:
 
     def test_merge(self):
         self.mp.merge('my_good_api_key', 'd1', 'd2')
-
         assert self.consumer.log == [(
             'imports',
             {
@@ -311,7 +312,23 @@ class TestMixpanel:
                     'token': self.TOKEN,
                 }
             },
-            'my_good_api_key',
+            ('my_good_api_key', None),
+        )]
+
+        self.consumer.clear()
+
+        self.mp.merge('my_good_api_key', 'd1', 'd2', api_secret='my_secret')
+        assert self.consumer.log == [(
+            'imports',
+            {
+                'event': '$merge',
+                'properties': {
+                    '$distinct_ids': ['d1', 'd2'],
+                    'token': self.TOKEN,
+                }
+            },
+            ('my_good_api_key', 'my_secret'),
+            'my_secret',
         )]
 
     def test_people_meta(self):
