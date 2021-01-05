@@ -152,7 +152,7 @@ class Mixpanel(object):
         if meta:
             event.update(meta)
 
-        self._consumer.send('imports', json_dumps(event, cls=self._serializer), (api_key, api_secret), api_secret)
+        self._consumer.send('imports', json_dumps(event, cls=self._serializer), (api_key, api_secret))
 
     def alias(self, alias_id, original, meta=None):
         """Creates an alias which Mixpanel will use to remap one id to another.
@@ -221,7 +221,7 @@ class Mixpanel(object):
         }
         if meta:
             event.update(meta)
-        self._consumer.send('imports', json_dumps(event, cls=self._serializer), (api_key, api_secret), api_secret)
+        self._consumer.send('imports', json_dumps(event, cls=self._serializer), (api_key, api_secret))
 
     def people_set(self, distinct_id, properties, meta=None):
         """Set properties of a people record.
@@ -690,6 +690,9 @@ class BufferedConsumer(object):
         if endpoint not in self._buffers:
             raise MixpanelException('No such endpoint "{0}". Valid endpoints are one of {1}'.format(endpoint, self._buffers.keys()))
 
+        if not isinstance(api_key, tuple):
+            api_key = (api_key, api_secret)
+
         buf = self._buffers[endpoint]
         buf.append(json_message)
         # Fixme: Don't stick these in the instance.
@@ -708,19 +711,13 @@ class BufferedConsumer(object):
             self._flush_endpoint(endpoint)
 
     def _flush_endpoint(self, endpoint):
-        if isinstance(self._api_key, tuple):
-            api_key, api_secret = self._api_key
-        else:
-            api_key = self._api_key
-            api_secret = self._api_secret
-
         buf = self._buffers[endpoint]
 
         while buf:
             batch = buf[:self._max_size]
             batch_json = '[{0}]'.format(','.join(batch))
             try:
-                self._consumer.send(endpoint, batch_json, api_key, api_secret)
+                self._consumer.send(endpoint, batch_json, api_key=self._api_key)
             except MixpanelException as orig_e:
                 mp_e = MixpanelException(orig_e)
                 mp_e.message = batch_json
