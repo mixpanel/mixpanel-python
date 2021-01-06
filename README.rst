@@ -1,5 +1,7 @@
-mixpanel-python ![Tests](https://github.com/mixpanel/mixpanel-python/workflows/Tests/badge.svg)
+mixpanel-python
 ==============================
+
+.. image:: https://github.com/mixpanel/mixpanel-python/workflows/Tests/badge.svg
 
 This is the official Mixpanel Python library. This library allows for
 server-side integration of Mixpanel.
