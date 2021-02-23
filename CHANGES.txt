@@ -1,3 +1,8 @@
+v4.8.2
+Bugfix release:
+* Fix DeprecationWarning in urllib3 when using older argument name. (issue #93)
+* Fix creation of urllib3.PoolManager under Python 2 with unicode_literals. (issue #94 - thanks, Hugo Arregui!)
+
 v4.8.1
 A compatibility bugfix -- 4.8.0 broke subclassing compatibility with some
   other libraries.
