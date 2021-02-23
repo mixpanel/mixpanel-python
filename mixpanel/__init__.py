@@ -558,7 +558,7 @@ class Consumer(object):
         self._http = urllib3.PoolManager(
             retries=retry_config,
             timeout=urllib3.Timeout(request_timeout),
-            cert_reqs=cert_reqs,
+            cert_reqs=str(cert_reqs),
         )
 
     def send(self, endpoint, json_message, api_key=None, api_secret=None):
