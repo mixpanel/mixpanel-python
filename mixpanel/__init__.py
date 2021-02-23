@@ -548,12 +548,22 @@ class Consumer(object):
             'groups': groups_url or 'https://{}/groups'.format(api_host),
             'imports': import_url or 'https://{}/import'.format(api_host),
         }
-        retry_config = urllib3.Retry(
-            total=retry_limit,
-            backoff_factor=retry_backoff_factor,
-            method_whitelist={'POST'},
-            status_forcelist=set(range(500, 600)),
-        )
+
+        retry_args = {
+            "total": retry_limit,
+            "backoff_factor": retry_backoff_factor,
+            "status_forcelist": set(range(500, 600)),
+        }
+
+        # Work around renamed argument in urllib3.
+        if hasattr(urllib3.util.Retry.DEFAULT, "allowed_methods"):
+            methods_arg = "allowed_methods"
+        else:
+            methods_arg = "method_whitelist"
+
+        retry_args[methods_arg] = {"POST"}
+        retry_config = urllib3.Retry(**retry_args)
+
         cert_reqs = 'CERT_REQUIRED' if verify_cert else 'CERT_NONE'
         self._http = urllib3.PoolManager(
             retries=retry_config,
