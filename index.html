@@ -5,14 +5,13 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Welcome to Mixpanel &#8212; mixpanel 4.8.1 documentation</title>
+    <title>Welcome to Mixpanel &#8212; mixpanel 4.8.2 documentation</title>
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <link rel="stylesheet" href="_static/mixpanel.css" type="text/css" />
     <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
     <script src="_static/doctools.js"></script>
-    <script src="_static/language_data.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
    
@@ -46,7 +45,7 @@ callers to customize the IO characteristics of their tracking.</p>
 <h2>Primary interface<a class="headerlink" href="#primary-interface" title="Permalink to this headline">¶</a></h2>
 <dl class="py class">
 <dt id="mixpanel.Mixpanel">
-<em class="property">class </em><code class="sig-prename descclassname">mixpanel.</code><code class="sig-name descname">Mixpanel</code><span class="sig-paren">(</span><em class="sig-param">token</em>, <em class="sig-param">consumer=None</em>, <em class="sig-param">serializer=&lt;class 'mixpanel.DatetimeSerializer'&gt;</em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel" title="Permalink to this definition">¶</a></dt>
+<em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">mixpanel.</span></code><code class="sig-name descname"><span class="pre">Mixpanel</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="pre">token</span></em>, <em class="sig-param"><span class="pre">consumer=None</span></em>, <em class="sig-param"><span class="pre">serializer=&lt;class</span> <span class="pre">'mixpanel.DatetimeSerializer'&gt;</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel" title="Permalink to this definition">¶</a></dt>
 <dd><p>Instances of Mixpanel are used for all events and profile updates.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -65,7 +64,7 @@ JSON serialization (default <code class="xref py py-class docutils literal notra
 </div>
 <dl class="py method">
 <dt id="mixpanel.Mixpanel.track">
-<code class="sig-name descname">track</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">distinct_id</span></em>, <em class="sig-param"><span class="n">event_name</span></em>, <em class="sig-param"><span class="n">properties</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">meta</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.track" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname"><span class="pre">track</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">distinct_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">event_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">properties</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">meta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.track" title="Permalink to this definition">¶</a></dt>
 <dd><p>Record an event.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -85,7 +84,7 @@ aspects of the source or user associated with it. <code class="docutils literal 
 
 <dl class="py method">
 <dt id="mixpanel.Mixpanel.import_data">
-<code class="sig-name descname">import_data</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">api_key</span></em>, <em class="sig-param"><span class="n">distinct_id</span></em>, <em class="sig-param"><span class="n">event_name</span></em>, <em class="sig-param"><span class="n">timestamp</span></em>, <em class="sig-param"><span class="n">properties</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">meta</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">api_secret</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.import_data" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname"><span class="pre">import_data</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">api_key</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">distinct_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">event_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">properties</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">meta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">api_secret</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.import_data" title="Permalink to this definition">¶</a></dt>
 <dd><p>Record an event that occurred more than 5 days in the past.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -120,7 +119,7 @@ for <a class="reference external" href="https://developer.mixpanel.com/reference
 
 <dl class="py method">
 <dt id="mixpanel.Mixpanel.alias">
-<code class="sig-name descname">alias</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">alias_id</span></em>, <em class="sig-param"><span class="n">original</span></em>, <em class="sig-param"><span class="n">meta</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.alias" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname"><span class="pre">alias</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">alias_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">original</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">meta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.alias" title="Permalink to this definition">¶</a></dt>
 <dd><p>Creates an alias which Mixpanel will use to remap one id to another.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -145,7 +144,7 @@ to Mixpanel servers, regardless of any custom consumer.</p>
 
 <dl class="py method">
 <dt id="mixpanel.Mixpanel.merge">
-<code class="sig-name descname">merge</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">api_key</span></em>, <em class="sig-param"><span class="n">distinct_id1</span></em>, <em class="sig-param"><span class="n">distinct_id2</span></em>, <em class="sig-param"><span class="n">meta</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">api_secret</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.merge" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname"><span class="pre">merge</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">api_key</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">distinct_id1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">distinct_id2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">meta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">api_secret</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.merge" title="Permalink to this definition">¶</a></dt>
 <dd><p>Merges the two given distinct_ids.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -175,7 +174,7 @@ details</a>.</p>
 
 <dl class="py method">
 <dt id="mixpanel.Mixpanel.people_set">
-<code class="sig-name descname">people_set</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">distinct_id</span></em>, <em class="sig-param"><span class="n">properties</span></em>, <em class="sig-param"><span class="n">meta</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.people_set" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname"><span class="pre">people_set</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">distinct_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">properties</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">meta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.people_set" title="Permalink to this definition">¶</a></dt>
 <dd><p>Set properties of a people record.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -191,7 +190,7 @@ details</a>.</p>
 
 <dl class="py method">
 <dt id="mixpanel.Mixpanel.people_set_once">
-<code class="sig-name descname">people_set_once</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">distinct_id</span></em>, <em class="sig-param"><span class="n">properties</span></em>, <em class="sig-param"><span class="n">meta</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.people_set_once" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname"><span class="pre">people_set_once</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">distinct_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">properties</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">meta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.people_set_once" title="Permalink to this definition">¶</a></dt>
 <dd><p>Set properties of a people record if they are not already set.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -208,7 +207,7 @@ these properties.</p>
 
 <dl class="py method">
 <dt id="mixpanel.Mixpanel.people_increment">
-<code class="sig-name descname">people_increment</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">distinct_id</span></em>, <em class="sig-param"><span class="n">properties</span></em>, <em class="sig-param"><span class="n">meta</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.people_increment" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname"><span class="pre">people_increment</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">distinct_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">properties</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">meta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.people_increment" title="Permalink to this definition">¶</a></dt>
 <dd><p>Increment/decrement numerical properties of a people record.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -226,7 +225,7 @@ properties on the record default to zero. Negative values in
 
 <dl class="py method">
 <dt id="mixpanel.Mixpanel.people_append">
-<code class="sig-name descname">people_append</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">distinct_id</span></em>, <em class="sig-param"><span class="n">properties</span></em>, <em class="sig-param"><span class="n">meta</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.people_append" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname"><span class="pre">people_append</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">distinct_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">properties</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">meta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.people_append" title="Permalink to this definition">¶</a></dt>
 <dd><p>Append to the list associated with a property.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -246,7 +245,7 @@ example:</p>
 
 <dl class="py method">
 <dt id="mixpanel.Mixpanel.people_union">
-<code class="sig-name descname">people_union</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">distinct_id</span></em>, <em class="sig-param"><span class="n">properties</span></em>, <em class="sig-param"><span class="n">meta</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.people_union" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname"><span class="pre">people_union</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">distinct_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">properties</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">meta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.people_union" title="Permalink to this definition">¶</a></dt>
 <dd><p>Merge the values of a list associated with a property.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -266,7 +265,7 @@ example:</p>
 
 <dl class="py method">
 <dt id="mixpanel.Mixpanel.people_unset">
-<code class="sig-name descname">people_unset</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">distinct_id</span></em>, <em class="sig-param"><span class="n">properties</span></em>, <em class="sig-param"><span class="n">meta</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.people_unset" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname"><span class="pre">people_unset</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">distinct_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">properties</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">meta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.people_unset" title="Permalink to this definition">¶</a></dt>
 <dd><p>Permanently remove properties from a people record.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -280,7 +279,7 @@ example:</p>
 
 <dl class="py method">
 <dt id="mixpanel.Mixpanel.people_remove">
-<code class="sig-name descname">people_remove</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">distinct_id</span></em>, <em class="sig-param"><span class="n">properties</span></em>, <em class="sig-param"><span class="n">meta</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.people_remove" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname"><span class="pre">people_remove</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">distinct_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">properties</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">meta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.people_remove" title="Permalink to this definition">¶</a></dt>
 <dd><p>Permanently remove a value from the list associated with a property.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -299,7 +298,7 @@ For example:</p>
 
 <dl class="py method">
 <dt id="mixpanel.Mixpanel.people_delete">
-<code class="sig-name descname">people_delete</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">distinct_id</span></em>, <em class="sig-param"><span class="n">meta</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.people_delete" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname"><span class="pre">people_delete</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">distinct_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">meta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.people_delete" title="Permalink to this definition">¶</a></dt>
 <dd><p>Permanently delete a people record.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -310,7 +309,7 @@ For example:</p>
 
 <dl class="py method">
 <dt id="mixpanel.Mixpanel.people_track_charge">
-<code class="sig-name descname">people_track_charge</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">distinct_id</span></em>, <em class="sig-param"><span class="n">amount</span></em>, <em class="sig-param"><span class="n">properties</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">meta</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.people_track_charge" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname"><span class="pre">people_track_charge</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">distinct_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">amount</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">properties</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">meta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.people_track_charge" title="Permalink to this definition">¶</a></dt>
 <dd><p>Track a charge on a people record.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -328,7 +327,7 @@ revenue report.</p>
 
 <dl class="py method">
 <dt id="mixpanel.Mixpanel.people_clear_charges">
-<code class="sig-name descname">people_clear_charges</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">distinct_id</span></em>, <em class="sig-param"><span class="n">meta</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.people_clear_charges" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname"><span class="pre">people_clear_charges</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">distinct_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">meta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.people_clear_charges" title="Permalink to this definition">¶</a></dt>
 <dd><p>Permanently clear all charges on a people record.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -339,7 +338,7 @@ revenue report.</p>
 
 <dl class="py method">
 <dt id="mixpanel.Mixpanel.people_update">
-<code class="sig-name descname">people_update</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">message</span></em>, <em class="sig-param"><span class="n">meta</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.people_update" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname"><span class="pre">people_update</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">meta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.people_update" title="Permalink to this definition">¶</a></dt>
 <dd><p>Send a generic update to Mixpanel people analytics.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -354,7 +353,7 @@ please use the other <code class="docutils literal notranslate"><span class="pre
 
 <dl class="py method">
 <dt id="mixpanel.Mixpanel.group_set">
-<code class="sig-name descname">group_set</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">group_key</span></em>, <em class="sig-param"><span class="n">group_id</span></em>, <em class="sig-param"><span class="n">properties</span></em>, <em class="sig-param"><span class="n">meta</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.group_set" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname"><span class="pre">group_set</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">group_key</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">properties</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">meta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.group_set" title="Permalink to this definition">¶</a></dt>
 <dd><p>Set properties of a group profile.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -371,7 +370,7 @@ please use the other <code class="docutils literal notranslate"><span class="pre
 
 <dl class="py method">
 <dt id="mixpanel.Mixpanel.group_set_once">
-<code class="sig-name descname">group_set_once</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">group_key</span></em>, <em class="sig-param"><span class="n">group_id</span></em>, <em class="sig-param"><span class="n">properties</span></em>, <em class="sig-param"><span class="n">meta</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.group_set_once" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname"><span class="pre">group_set_once</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">group_key</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">properties</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">meta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.group_set_once" title="Permalink to this definition">¶</a></dt>
 <dd><p>Set properties of a group profile if they are not already set.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -389,7 +388,7 @@ these properties.</p>
 
 <dl class="py method">
 <dt id="mixpanel.Mixpanel.group_union">
-<code class="sig-name descname">group_union</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">group_key</span></em>, <em class="sig-param"><span class="n">group_id</span></em>, <em class="sig-param"><span class="n">properties</span></em>, <em class="sig-param"><span class="n">meta</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.group_union" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname"><span class="pre">group_union</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">group_key</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">properties</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">meta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.group_union" title="Permalink to this definition">¶</a></dt>
 <dd><p>Merge the values of a list associated with a property.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -410,7 +409,7 @@ example:</p>
 
 <dl class="py method">
 <dt id="mixpanel.Mixpanel.group_unset">
-<code class="sig-name descname">group_unset</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">group_key</span></em>, <em class="sig-param"><span class="n">group_id</span></em>, <em class="sig-param"><span class="n">properties</span></em>, <em class="sig-param"><span class="n">meta</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.group_unset" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname"><span class="pre">group_unset</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">group_key</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">properties</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">meta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.group_unset" title="Permalink to this definition">¶</a></dt>
 <dd><p>Permanently remove properties from a group profile.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -425,7 +424,7 @@ example:</p>
 
 <dl class="py method">
 <dt id="mixpanel.Mixpanel.group_remove">
-<code class="sig-name descname">group_remove</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">group_key</span></em>, <em class="sig-param"><span class="n">group_id</span></em>, <em class="sig-param"><span class="n">properties</span></em>, <em class="sig-param"><span class="n">meta</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.group_remove" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname"><span class="pre">group_remove</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">group_key</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">properties</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">meta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.group_remove" title="Permalink to this definition">¶</a></dt>
 <dd><p>Permanently remove a value from the list associated with a property.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -445,7 +444,7 @@ For example:</p>
 
 <dl class="py method">
 <dt id="mixpanel.Mixpanel.group_delete">
-<code class="sig-name descname">group_delete</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">group_key</span></em>, <em class="sig-param"><span class="n">group_id</span></em>, <em class="sig-param"><span class="n">meta</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.group_delete" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname"><span class="pre">group_delete</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">group_key</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">meta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.group_delete" title="Permalink to this definition">¶</a></dt>
 <dd><p>Permanently delete a group profile.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -459,7 +458,7 @@ For example:</p>
 
 <dl class="py method">
 <dt id="mixpanel.Mixpanel.group_update">
-<code class="sig-name descname">group_update</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">message</span></em>, <em class="sig-param"><span class="n">meta</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.group_update" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname"><span class="pre">group_update</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">meta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Mixpanel.group_update" title="Permalink to this definition">¶</a></dt>
 <dd><p>Send a generic group profile update</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -485,7 +484,7 @@ responsible for appropriately encoding the message and sending it to the named
 of each of their own method calls, after building the JSON message.</p>
 <dl class="py class">
 <dt id="mixpanel.Consumer">
-<em class="property">class </em><code class="sig-prename descclassname">mixpanel.</code><code class="sig-name descname">Consumer</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">events_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">people_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">import_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">request_timeout</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">groups_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">api_host</span><span class="o">=</span><span class="default_value">'api.mixpanel.com'</span></em>, <em class="sig-param"><span class="n">retry_limit</span><span class="o">=</span><span class="default_value">4</span></em>, <em class="sig-param"><span class="n">retry_backoff_factor</span><span class="o">=</span><span class="default_value">0.25</span></em>, <em class="sig-param"><span class="n">verify_cert</span><span class="o">=</span><span class="default_value">True</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Consumer" title="Permalink to this definition">¶</a></dt>
+<em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">mixpanel.</span></code><code class="sig-name descname"><span class="pre">Consumer</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">events_url</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">people_url</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">import_url</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">request_timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">groups_url</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">api_host</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'api.mixpanel.com'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">retry_limit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">retry_backoff_factor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.25</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verify_cert</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Consumer" title="Permalink to this definition">¶</a></dt>
 <dd><p>A consumer that sends an HTTP request directly to the Mixpanel service, one
 per call to <a class="reference internal" href="#mixpanel.Consumer.send" title="mixpanel.Consumer.send"><code class="xref py py-meth docutils literal notranslate"><span class="pre">send()</span></code></a>.</p>
 <dl class="field-list simple">
@@ -514,7 +513,7 @@ sleep_seconds = backoff_factor * (2 ^ (num_total_retries - 1)).</p></li>
 </div>
 <dl class="py method">
 <dt id="mixpanel.Consumer.send">
-<code class="sig-name descname">send</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">endpoint</span></em>, <em class="sig-param"><span class="n">json_message</span></em>, <em class="sig-param"><span class="n">api_key</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">api_secret</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Consumer.send" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname"><span class="pre">send</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">endpoint</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">json_message</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">api_key</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">api_secret</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.Consumer.send" title="Permalink to this definition">¶</a></dt>
 <dd><p>Immediately record an event or a profile update.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -539,7 +538,7 @@ unreachable, or the message cannot be processed</p>
 
 <dl class="py class">
 <dt id="mixpanel.BufferedConsumer">
-<em class="property">class </em><code class="sig-prename descclassname">mixpanel.</code><code class="sig-name descname">BufferedConsumer</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">max_size</span><span class="o">=</span><span class="default_value">50</span></em>, <em class="sig-param"><span class="n">events_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">people_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">import_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">request_timeout</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">groups_url</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">api_host</span><span class="o">=</span><span class="default_value">'api.mixpanel.com'</span></em>, <em class="sig-param"><span class="n">retry_limit</span><span class="o">=</span><span class="default_value">4</span></em>, <em class="sig-param"><span class="n">retry_backoff_factor</span><span class="o">=</span><span class="default_value">0.25</span></em>, <em class="sig-param"><span class="n">verify_cert</span><span class="o">=</span><span class="default_value">True</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.BufferedConsumer" title="Permalink to this definition">¶</a></dt>
+<em class="property"><span class="pre">class</span> </em><code class="sig-prename descclassname"><span class="pre">mixpanel.</span></code><code class="sig-name descname"><span class="pre">BufferedConsumer</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">max_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">events_url</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">people_url</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">import_url</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">request_timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">groups_url</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">api_host</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'api.mixpanel.com'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">retry_limit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">retry_backoff_factor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.25</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verify_cert</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.BufferedConsumer" title="Permalink to this definition">¶</a></dt>
 <dd><p>A consumer that maintains per-endpoint buffers of messages and then sends
 them in batches. This can save bandwidth and reduce the total amount of
 time required to post your events to Mixpanel.</p>
@@ -578,7 +577,7 @@ remaining unsent events being held by the instance.</p>
 </div>
 <dl class="py method">
 <dt id="mixpanel.BufferedConsumer.send">
-<code class="sig-name descname">send</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">endpoint</span></em>, <em class="sig-param"><span class="n">json_message</span></em>, <em class="sig-param"><span class="n">api_key</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">api_secret</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.BufferedConsumer.send" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname"><span class="pre">send</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">endpoint</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">json_message</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">api_key</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">api_secret</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.BufferedConsumer.send" title="Permalink to this definition">¶</a></dt>
 <dd><p>Record an event or profile update.</p>
 <p>Internally, adds the message to a buffer, and then flushes the buffer
 if it has reached the configured maximum size. Note that exceptions
@@ -605,7 +604,7 @@ unreachable, or any buffered message cannot be processed</p>
 
 <dl class="py method">
 <dt id="mixpanel.BufferedConsumer.flush">
-<code class="sig-name descname">flush</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.BufferedConsumer.flush" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname"><span class="pre">flush</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#mixpanel.BufferedConsumer.flush" title="Permalink to this definition">¶</a></dt>
 <dd><p>Immediately send all buffered messages to Mixpanel.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Raises</dt>
@@ -622,7 +621,7 @@ message cannot be processed</p>
 <h2>Exceptions<a class="headerlink" href="#exceptions" title="Permalink to this headline">¶</a></h2>
 <dl class="py exception">
 <dt id="mixpanel.MixpanelException">
-<em class="property">exception </em><code class="sig-prename descclassname">mixpanel.</code><code class="sig-name descname">MixpanelException</code><a class="headerlink" href="#mixpanel.MixpanelException" title="Permalink to this definition">¶</a></dt>
+<em class="property"><span class="pre">exception</span> </em><code class="sig-prename descclassname"><span class="pre">mixpanel.</span></code><code class="sig-name descname"><span class="pre">MixpanelException</span></code><a class="headerlink" href="#mixpanel.MixpanelException" title="Permalink to this definition">¶</a></dt>
 <dd><p>Raised by consumers when unable to send messages.</p>
 <p>This could be caused by a network outage or interruption, or by an invalid
 endpoint passed to <a class="reference internal" href="#mixpanel.Consumer.send" title="mixpanel.Consumer.send"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Consumer.send()</span></code></a>.</p>
@@ -692,7 +691,7 @@ endpoint passed to <a class="reference internal" href="#mixpanel.Consumer.send" 
       &copy; 2021, Mixpanel, Inc..
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.3.1</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.5.1</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |
