@@ -65,6 +65,8 @@ class Mixpanel(object):
         self._consumer = consumer or Consumer()
         self._serializer = serializer
 
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
     def _now(self):
         return time.time()
 
