@@ -65,6 +65,8 @@ class Mixpanel(object):
         self._consumer = consumer or Consumer()
         self._serializer = serializer
 
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
     def _now(self):
         return time.time()
 
@@ -530,7 +532,7 @@ class Consumer(object):
         connection or HTTP 5xx error; 0 to fail after first attempt.
     :param int retry_backoff_factor: In case of retries, controls sleep time. e.g.,
         sleep_seconds = backoff_factor * (2 ^ (num_total_retries - 1)).
-    :param bool verify_cert: whether to verify the server certificate. Recommended.
+    :param bool verify_cert: whether to verify the server certificate.
 
     .. versionadded:: 4.6.0
         The *api_host* parameter.
@@ -540,7 +542,7 @@ class Consumer(object):
 
     def __init__(self, events_url=None, people_url=None, import_url=None,
             request_timeout=None, groups_url=None, api_host="api.mixpanel.com",
-            retry_limit=4, retry_backoff_factor=0.25, verify_cert=True):
+            retry_limit=4, retry_backoff_factor=0.25, verify_cert=False):
         # TODO: With next major version, make the above args kwarg-only, and reorder them.
         self._endpoints = {
             'events': events_url or 'https://{}/track'.format(api_host),
@@ -651,7 +653,7 @@ class BufferedConsumer(object):
         connection or HTTP 5xx error; 0 to fail after first attempt.
     :param int retry_backoff_factor: In case of retries, controls sleep time. e.g.,
         sleep_seconds = backoff_factor * (2 ^ (num_total_retries - 1)).
-    :param bool verify_cert: whether to verify the server certificate. Recommended.
+    :param bool verify_cert: whether to verify the server certificate.
 
     .. versionadded:: 4.6.0
         The *api_host* parameter.
@@ -666,7 +668,7 @@ class BufferedConsumer(object):
     """
     def __init__(self, max_size=50, events_url=None, people_url=None, import_url=None,
             request_timeout=None, groups_url=None, api_host="api.mixpanel.com",
-            retry_limit=4, retry_backoff_factor=0.25, verify_cert=True):
+            retry_limit=4, retry_backoff_factor=0.25, verify_cert=False):
         self._consumer = Consumer(events_url, people_url, import_url, request_timeout,
             groups_url, api_host, retry_limit, retry_backoff_factor, verify_cert)
         self._buffers = {
