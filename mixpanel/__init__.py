@@ -65,8 +65,6 @@ class Mixpanel(object):
         self._consumer = consumer or Consumer()
         self._serializer = serializer
 
-        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
     def _now(self):
         return time.time()
 
@@ -565,6 +563,9 @@ class Consumer(object):
 
         retry_args[methods_arg] = {"POST"}
         retry_config = urllib3.Retry(**retry_args)
+
+        if not verify_cert:
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
         cert_reqs = 'CERT_REQUIRED' if verify_cert else 'CERT_NONE'
         self._http = urllib3.PoolManager(
