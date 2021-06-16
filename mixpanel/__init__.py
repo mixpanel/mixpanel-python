@@ -23,6 +23,8 @@ import uuid
 
 import six
 from six.moves import range
+import requests
+from requests.auth import HTTPBasicAuth
 import urllib3
 
 __version__ = '4.8.4'
@@ -549,11 +551,8 @@ class Consumer(object):
             'imports': import_url or 'https://{}/import'.format(api_host),
         }
 
-        retry_args = {
-            "total": retry_limit,
-            "backoff_factor": retry_backoff_factor,
-            "status_forcelist": set(range(500, 600)),
-        }
+        self._verify_cert = verify_cert
+        self._request_timeout = request_timeout
 
         # Work around renamed argument in urllib3.
         if hasattr(urllib3.util.Retry.DEFAULT, "allowed_methods"):
@@ -561,18 +560,21 @@ class Consumer(object):
         else:
             methods_arg = "method_whitelist"
 
-        retry_args[methods_arg] = {"POST"}
+        retry_args = {
+            "total": retry_limit,
+            "backoff_factor": retry_backoff_factor,
+            "status_forcelist": set(range(500, 600)),
+            methods_arg: {"POST"},
+        }
         retry_config = urllib3.Retry(**retry_args)
 
-        if not verify_cert:
-            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
-        cert_reqs = 'CERT_REQUIRED' if verify_cert else 'CERT_NONE'
-        self._http = urllib3.PoolManager(
-            retries=retry_config,
-            timeout=urllib3.Timeout(request_timeout),
-            cert_reqs=str(cert_reqs),
+        self._session = requests.Session()
+        adapter = requests.adapters.HTTPAdapter(
+            max_retries=retry_config,
         )
+
+        self._session.mount('http://', adapter)
+        self._session.mount('https://', adapter)
 
     def send(self, endpoint, json_message, api_key=None, api_secret=None):
         """Immediately record an event or a profile update.
@@ -608,24 +610,22 @@ class Consumer(object):
         if api_key:
             data.update({'api_key': api_key})
 
-        headers = None
-
+        basic_auth = None
         if api_secret is not None:
-            headers = urllib3.util.make_headers(basic_auth="{}:".format(api_secret))
+            basic_auth = HTTPBasicAuth(api_secret, '')
 
         try:
-            response = self._http.request(
-                'POST',
+            print("sending w/ requests")
+            response = self._session.post(
                 request_url,
-                fields=data,
-                headers=headers,
-                encode_multipart=False, # URL-encode payload in POST body.
+                data=data,
+                auth=basic_auth,
             )
         except Exception as e:
             six.raise_from(MixpanelException(e), e)
 
         try:
-            response_dict = json.loads(response.data.decode('utf-8'))
+            response_dict = response.json()
         except ValueError:
             raise MixpanelException('Cannot interpret Mixpanel server response: {0}'.format(response.data))
 
