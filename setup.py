@@ -26,7 +26,7 @@ setup(
     license='Apache',
     install_requires=[
         'six>=1.9.0',
-        'requests>=2.0.0',
+        'requests>=2.4.2',
         'urllib3',
     ],
 

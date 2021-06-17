@@ -1,17 +1,13 @@
 from __future__ import absolute_import, unicode_literals
-import base64
-import contextlib
 import datetime
 import decimal
 import json
 import time
 
-from mock import Mock, patch
 import pytest
 import responses
 import six
 from six.moves import range
-import urllib3
 
 import mixpanel
 
@@ -290,8 +286,12 @@ class TestMixpanel:
     @responses.activate
     def test_alias(self):
         # More complicated since alias() forces a synchronous call.
-        responses.add(responses.POST, 'https://api.mixpanel.com/track',
-            json={"status": 1, "error": None}, status=200)
+        responses.add(
+            responses.POST,
+            'https://api.mixpanel.com/track',
+            json={"status": 1, "error": None},
+            status=200,
+        )
 
         self.mp.alias('ALIAS', 'ORIGINAL ID')
         assert self.consumer.log == []
@@ -299,8 +299,9 @@ class TestMixpanel:
         call = responses.calls[0]
         assert call.request.method == "POST"
         assert call.request.url == "https://api.mixpanel.com/track"
-        posted_dict = json.loads(call.request.body.decode('utf-8'))
-        assert json.loads(posted_dict["data"]) == {"event":"$create_alias","properties":{"alias":"ALIAS","token":"12345","distinct_id":"ORIGINAL ID"}}
+        posted_data = json.loads(call.request.body.decode('utf-8'))
+        print(posted_data)
+        assert json.loads(posted_data["data"]) == {"event":"$create_alias","properties":{"alias":"ALIAS","token":"12345","distinct_id":"ORIGINAL ID"}}
 
     def test_merge(self):
         self.mp.merge('my_good_api_key', 'd1', 'd2')
@@ -450,37 +451,49 @@ class TestConsumer:
     def setup_class(cls):
         cls.consumer = mixpanel.Consumer(request_timeout=30)
 
-    @contextlib.contextmanager
-    def _assertSends(self, expect_url, expect_data, consumer=None):
-        if consumer is None:
-            consumer = self.consumer
-
-        mock_response = Mock()
-        mock_response.data = six.b('{"status": 1, "error": null}')
-        with patch('mixpanel.urllib3.PoolManager.request', return_value=mock_response) as req:
-            yield
-
-            assert req.call_count == 1
-            (call_args, kwargs) = req.call_args
-            (method, url) = call_args
-            assert method == 'POST'
-            assert url == expect_url
-            assert kwargs["fields"] == expect_data
-
+    @responses.activate
     def test_send_events(self):
-        with self._assertSends('https://api.mixpanel.com/track', {"ip": 0, "verbose": 1, "data": '{"foo":"bar"}'}):
-            self.consumer.send('events', '{"foo":"bar"}')
+        responses.add(
+            responses.POST,
+            'https://api.mixpanel.com/track',
+            json={"status": 1, "error": None},
+            status=200,
+            match=[responses.json_params_matcher({"ip": 0, "verbose": 1, "data": '{"foo":"bar"}'})],
+        )
+        self.consumer.send('events', '{"foo":"bar"}')
 
+    @responses.activate
     def test_send_people(self):
-        with self._assertSends('https://api.mixpanel.com/engage', {"ip": 0, "verbose": 1, "data": '{"foo":"bar"}'}):
-            self.consumer.send('people', '{"foo":"bar"}')
+        responses.add(
+            responses.POST,
+            'https://api.mixpanel.com/engage',
+            json={"status": 1, "error": None},
+            status=200,
+            match=[responses.json_params_matcher({"ip": 0, "verbose": 1, "data": '{"foo":"bar"}'})],
+        )
+        self.consumer.send('people', '{"foo":"bar"}')
 
+    @responses.activate
     def test_consumer_override_api_host(self):
-        consumer = mixpanel.Consumer(api_host="api-eu.mixpanel.com")
-        with self._assertSends('https://api-eu.mixpanel.com/track', {"ip": 0, "verbose": 1, "data": '{"foo":"bar"}'}, consumer=consumer):
-            consumer.send('events', '{"foo":"bar"}')
-        with self._assertSends('https://api-eu.mixpanel.com/engage', {"ip": 0, "verbose": 1, "data": '{"foo":"bar"}'}, consumer=consumer):
-            consumer.send('people', '{"foo":"bar"}')
+        consumer = mixpanel.Consumer(api_host="api-zoltan.mixpanel.com")
+
+        responses.add(
+            responses.POST,
+            'https://api-zoltan.mixpanel.com/track',
+            json={"status": 1, "error": None},
+            status=200,
+            match=[responses.json_params_matcher({"ip": 0, "verbose": 1, "data": '{"foo":"bar"}'})],
+        )
+        consumer.send('events', '{"foo":"bar"}')
+
+        responses.add(
+            responses.POST,
+            'https://api-zoltan.mixpanel.com/engage',
+            json={"status": 1, "error": None},
+            status=200,
+            match=[responses.json_params_matcher({"ip": 0, "verbose": 1, "data": '{"foo":"bar"}'})],
+        )
+        consumer.send('people', '{"foo":"bar"}')
 
     def test_unknown_endpoint(self):
         with pytest.raises(mixpanel.MixpanelException):
@@ -521,17 +534,23 @@ class TestBufferedConsumer:
         with pytest.raises(mixpanel.MixpanelException):
             self.consumer.send('unknown', '1')
 
+    @responses.activate
     def test_useful_reraise_in_flush_endpoint(self):
-        error_mock = Mock()
-        error_mock.data = six.b('{"status": 0, "error": "arbitrary error"}')
+        responses.add(
+            responses.POST,
+            'https://api.mixpanel.com/track',
+            json={"status": 0, "error": "arbitrary error"},
+            status=200,
+        )
+
         broken_json = '{broken JSON'
         consumer = mixpanel.BufferedConsumer(2)
-        with patch('mixpanel.urllib3.PoolManager.request', return_value=error_mock):
-            consumer.send('events', broken_json)
-            with pytest.raises(mixpanel.MixpanelException) as excinfo:
-                consumer.flush()
-            assert excinfo.value.message == '[%s]' % broken_json
-            assert excinfo.value.endpoint == 'events'
+        consumer.send('events', broken_json)
+
+        with pytest.raises(mixpanel.MixpanelException) as excinfo:
+            consumer.flush()
+        assert excinfo.value.message == '[%s]' % broken_json
+        assert excinfo.value.endpoint == 'events'
 
     def test_send_remembers_api_key(self):
         self.consumer.send('imports', '"Event"', api_key='MY_API_KEY')
@@ -555,27 +574,39 @@ class TestFunctional:
         cls.mp = mixpanel.Mixpanel(cls.TOKEN)
         cls.mp._now = lambda: 1000
 
-    @contextlib.contextmanager
-    def _assertRequested(self, expect_url, expect_data):
-        res = Mock()
-        res.data = six.b('{"status": 1, "error": null}')
-        with patch('mixpanel.urllib3.PoolManager.request', return_value=res) as req:
-            yield
-
-            assert req.call_count == 1
-            ((method, url,), data) = req.call_args
-            data = data["fields"]["data"]
-            assert method == 'POST'
-            assert url == expect_url
-            payload = json.loads(data)
-            assert payload == expect_data
-
+    @responses.activate
     def test_track_functional(self):
-        expect_data = {'event': 'button_press', 'properties': {'size': 'big', 'color': 'blue', 'mp_lib': 'python', 'token': '12345', 'distinct_id': 'player1', '$lib_version': mixpanel.__version__, 'time': 1000, '$insert_id': 'xyz1200'}}
-        with self._assertRequested('https://api.mixpanel.com/track', expect_data):
-            self.mp.track('player1', 'button_press', {'size': 'big', 'color': 'blue', '$insert_id': 'xyz1200'})
+        responses.add(
+            responses.POST,
+            'https://api.mixpanel.com/track',
+            json={"status": 1, "error": None},
+            status=200,
+        )
 
+        self.mp.track('player1', 'button_press', {'size': 'big', 'color': 'blue', '$insert_id': 'xyz1200'})
+        wrapper = json.loads(responses.calls[0].request.body)
+        data = json.loads(wrapper["data"])
+        del wrapper["data"]
+
+        assert {"ip": 0, "verbose": 1} == wrapper
+        expected_data = {'event': 'button_press', 'properties': {'size': 'big', 'color': 'blue', 'mp_lib': 'python', 'token': '12345', 'distinct_id': 'player1', '$lib_version': mixpanel.__version__, 'time': 1000, '$insert_id': 'xyz1200'}}
+        assert expected_data == data
+
+    @responses.activate
     def test_people_set_functional(self):
-        expect_data = {'$distinct_id': 'amq', '$set': {'birth month': 'october', 'favorite color': 'purple'}, '$time': 1000, '$token': '12345'}
-        with self._assertRequested('https://api.mixpanel.com/engage', expect_data):
-            self.mp.people_set('amq', {'birth month': 'october', 'favorite color': 'purple'})
+        responses.add(
+            responses.POST,
+            'https://api.mixpanel.com/engage',
+            json={"status": 1, "error": None},
+            status=200,
+        )
+
+        self.mp.people_set('amq', {'birth month': 'october', 'favorite color': 'purple'})
+
+        wrapper = json.loads(responses.calls[0].request.body)
+        data = json.loads(wrapper["data"])
+        del wrapper["data"]
+
+        assert {"ip": 0, "verbose": 1} == wrapper
+        expected_data = {'$distinct_id': 'amq', '$set': {'birth month': 'october', 'favorite color': 'purple'}, '$time': 1000, '$token': '12345'}
+        assert expected_data == data

@@ -21,10 +21,10 @@ import logging
 import time
 import uuid
 
-import six
-from six.moves import range
 import requests
 from requests.auth import HTTPBasicAuth
+import six
+from six.moves import range
 import urllib3
 
 __version__ = '4.8.4'
@@ -596,19 +596,18 @@ class Consumer(object):
         self._write_request(self._endpoints[endpoint], json_message, api_key, api_secret)
 
     def _write_request(self, request_url, json_message, api_key=None, api_secret=None):
-        data = {
-            'data': json_message,
-            'verbose': 1,
-            'ip': 0,
-        }
-
         if isinstance(api_key, tuple):
             # For compatibility with subclassers, allow the auth details to be
             # packed into the existing api_key param.
             api_key, api_secret = api_key
 
+        params = {
+            'data': json_message,
+            'verbose': 1,
+            'ip': 0,
+        }
         if api_key:
-            data.update({'api_key': api_key})
+            params['api_key'] = api_key
 
         basic_auth = None
         if api_secret is not None:
@@ -617,7 +616,7 @@ class Consumer(object):
         try:
             response = self._session.post(
                 request_url,
-                json=data,
+                json=params,
                 auth=basic_auth,
                 timeout=self._request_timeout,
                 verify=self._verify_cert,
