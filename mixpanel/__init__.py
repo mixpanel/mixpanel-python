@@ -566,15 +566,12 @@ class Consumer(object):
             "status_forcelist": set(range(500, 600)),
             methods_arg: {"POST"},
         }
-        retry_config = urllib3.Retry(**retry_args)
-
-        self._session = requests.Session()
         adapter = requests.adapters.HTTPAdapter(
-            max_retries=retry_config,
+            max_retries=urllib3.Retry(**retry_args),
         )
 
-        self._session.mount('http://', adapter)
-        self._session.mount('https://', adapter)
+        self._session = requests.Session()
+        self._session.mount('http', adapter)
 
     def send(self, endpoint, json_message, api_key=None, api_secret=None):
         """Immediately record an event or a profile update.
@@ -616,7 +613,7 @@ class Consumer(object):
         try:
             response = self._session.post(
                 request_url,
-                json=params,
+                data=params,
                 auth=basic_auth,
                 timeout=self._request_timeout,
                 verify=self._verify_cert,
@@ -627,7 +624,7 @@ class Consumer(object):
         try:
             response_dict = response.json()
         except ValueError:
-            raise MixpanelException('Cannot interpret Mixpanel server response: {0}'.format(response.data))
+            raise MixpanelException('Cannot interpret Mixpanel server response: {0}'.format(response.text))
 
         if response_dict['status'] != 1:
             raise MixpanelException('Mixpanel error: {0}'.format(response_dict['error']))

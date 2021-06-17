@@ -460,6 +460,7 @@ class TestConsumer:
             match=[responses.json_params_matcher({"ip": 0, "verbose": 1, "data": '{"foo":"bar"}'})],
         )
         self.consumer.send('events', '{"foo":"bar"}')
+        assert len(responses.calls) == 1
 
     @responses.activate
     def test_send_people(self):
@@ -471,6 +472,67 @@ class TestConsumer:
             match=[responses.json_params_matcher({"ip": 0, "verbose": 1, "data": '{"foo":"bar"}'})],
         )
         self.consumer.send('people', '{"foo":"bar"}')
+        assert len(responses.calls) == 1
+
+    @responses.activate
+    def test_server_success(self):
+        responses.add(
+            responses.POST,
+            'https://api.mixpanel.com/track',
+            body="1",
+            status=200,
+            match=[responses.json_params_matcher({"ip": 0, "verbose": 1, "data": '{"foo":"bar"}'})],
+        )
+        self.consumer.send('events', '{"foo":"bar"}')
+        assert len(responses.calls) == 1
+
+    @responses.activate
+    def test_server_invalid_data(self):
+        responses.add(
+            responses.POST,
+            'https://api.mixpanel.com/track',
+            body="0",
+            status=200,
+            match=[responses.json_params_matcher({"ip": 0, "verbose": 1, "data": '{jimple "foo":"bar"}'})],
+        )
+        self.consumer.send('events', '{jimple "foo":"bar"}')
+        assert len(responses.calls) == 1
+
+    @responses.activate
+    def test_server_unauthorized(self):
+        responses.add(
+            responses.POST,
+            'https://api.mixpanel.com/track',
+            json={"error": 0, "status": "error"},
+            status=401,
+            match=[responses.json_params_matcher({"ip": 0, "verbose": 1, "data": '{"foo":"bar"}'})],
+        )
+        self.consumer.send('events', '{"foo":"bar"}')
+        assert len(responses.calls) == 1
+
+    @responses.activate
+    def test_server_forbidden(self):
+        responses.add(
+            responses.POST,
+            'https://api.mixpanel.com/track',
+            json={"error": 0, "status": "error"},
+            status=403,
+            match=[responses.json_params_matcher({"ip": 0, "verbose": 1, "data": '{"foo":"bar"}'})],
+        )
+        self.consumer.send('events', '{"foo":"bar"}')
+        assert len(responses.calls) == 1
+
+    @responses.activate
+    def test_server_5xx(self):
+        responses.add(
+            responses.POST,
+            'https://api.mixpanel.com/track',
+            body="Internal server error",
+            status=500,
+            match=[responses.json_params_matcher({"ip": 0, "verbose": 1, "data": '{"foo":"bar"}'})],
+        )
+        self.consumer.send('events', '{"foo":"bar"}')
+        assert len(responses.calls) == 1
 
     @responses.activate
     def test_consumer_override_api_host(self):
@@ -484,6 +546,7 @@ class TestConsumer:
             match=[responses.json_params_matcher({"ip": 0, "verbose": 1, "data": '{"foo":"bar"}'})],
         )
         consumer.send('events', '{"foo":"bar"}')
+        assert len(responses.calls) == 1
 
         responses.add(
             responses.POST,
@@ -493,6 +556,7 @@ class TestConsumer:
             match=[responses.json_params_matcher({"ip": 0, "verbose": 1, "data": '{"foo":"bar"}'})],
         )
         consumer.send('people', '{"foo":"bar"}')
+        assert len(responses.calls) == 2
 
     def test_unknown_endpoint(self):
         with pytest.raises(mixpanel.MixpanelException):
@@ -548,6 +612,9 @@ class TestBufferedConsumer:
 
         with pytest.raises(mixpanel.MixpanelException) as excinfo:
             consumer.flush()
+
+        assert len(responses.calls) == 1
+
         assert excinfo.value.message == '[%s]' % broken_json
         assert excinfo.value.endpoint == 'events'
 
@@ -583,6 +650,8 @@ class TestFunctional:
         )
 
         self.mp.track('player1', 'button_press', {'size': 'big', 'color': 'blue', '$insert_id': 'xyz1200'})
+
+        assert len(responses.calls) == 1
         body = six.ensure_str(responses.calls[0].request.body)
         wrapper = json.loads(body)
         data = json.loads(wrapper["data"])
@@ -602,6 +671,7 @@ class TestFunctional:
         )
 
         self.mp.people_set('amq', {'birth month': 'october', 'favorite color': 'purple'})
+        assert len(responses.calls) == 1
         body = six.ensure_str(responses.calls[0].request.body)
         wrapper = json.loads(body)
         data = json.loads(wrapper["data"])
