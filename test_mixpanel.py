@@ -8,6 +8,7 @@ import time
 
 from mock import Mock, patch
 import pytest
+import responses
 import six
 from six.moves import range
 import urllib3
@@ -286,20 +287,20 @@ class TestMixpanel:
             }
         )]
 
+    @responses.activate
     def test_alias(self):
         # More complicated since alias() forces a synchronous call.
-        mock_response = Mock()
-        mock_response.data = six.b('{"status": 1, "error": null}')
-        with patch('mixpanel.urllib3.PoolManager.request', return_value=mock_response) as req:
-            self.mp.alias('ALIAS', 'ORIGINAL ID')
-            assert self.consumer.log == []
-            assert req.call_count == 1
-            ((method, url), kwargs) = req.call_args
+        responses.add(responses.POST, 'https://api.mixpanel.com/track',
+            json={"status": 1, "error": None}, status=200)
 
-            assert method == 'POST'
-            assert url == 'https://api.mixpanel.com/track'
-            expected_data = {"event":"$create_alias","properties":{"alias":"ALIAS","token":"12345","distinct_id":"ORIGINAL ID"}}
-            assert json.loads(kwargs["fields"]["data"]) == expected_data
+        self.mp.alias('ALIAS', 'ORIGINAL ID')
+        assert self.consumer.log == []
+        assert len(responses.calls) == 1
+        call = responses.calls[0]
+        assert call.request.method == "POST"
+        assert call.request.url == "https://api.mixpanel.com/track"
+        posted_dict = json.loads(call.request.body.decode('utf-8'))
+        assert json.loads(posted_dict["data"]) == {"event":"$create_alias","properties":{"alias":"ALIAS","token":"12345","distinct_id":"ORIGINAL ID"}}
 
     def test_merge(self):
         self.mp.merge('my_good_api_key', 'd1', 'd2')

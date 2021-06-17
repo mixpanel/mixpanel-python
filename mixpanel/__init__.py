@@ -617,7 +617,7 @@ class Consumer(object):
         try:
             response = self._session.post(
                 request_url,
-                data=data,
+                json=data,
                 auth=basic_auth,
                 timeout=self._request_timeout,
                 verify=self._verify_cert,
