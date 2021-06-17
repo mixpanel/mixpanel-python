@@ -299,8 +299,7 @@ class TestMixpanel:
         call = responses.calls[0]
         assert call.request.method == "POST"
         assert call.request.url == "https://api.mixpanel.com/track"
-        posted_data = json.loads(call.request.body.decode('utf-8'))
-        print(posted_data)
+        posted_data = json.loads(six.ensure_str(call.request.body))
         assert json.loads(posted_data["data"]) == {"event":"$create_alias","properties":{"alias":"ALIAS","token":"12345","distinct_id":"ORIGINAL ID"}}
 
     def test_merge(self):
