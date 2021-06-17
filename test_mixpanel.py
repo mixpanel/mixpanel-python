@@ -622,11 +622,10 @@ class TestBufferedConsumer:
 
         with pytest.raises(mixpanel.MixpanelException) as excinfo:
             consumer.flush()
-
-        assert len(responses.calls) == 1
-
         assert excinfo.value.message == '[%s]' % broken_json
         assert excinfo.value.endpoint == 'events'
+
+        assert len(responses.calls) == 1
 
     def test_send_remembers_api_key(self):
         self.consumer.send('imports', '"Event"', api_key='MY_API_KEY')
