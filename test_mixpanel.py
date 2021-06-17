@@ -583,7 +583,8 @@ class TestFunctional:
         )
 
         self.mp.track('player1', 'button_press', {'size': 'big', 'color': 'blue', '$insert_id': 'xyz1200'})
-        wrapper = json.loads(responses.calls[0].request.body)
+        body = six.ensure_str(responses.calls[0].request.body)
+        wrapper = json.loads(body)
         data = json.loads(wrapper["data"])
         del wrapper["data"]
 
@@ -601,8 +602,8 @@ class TestFunctional:
         )
 
         self.mp.people_set('amq', {'birth month': 'october', 'favorite color': 'purple'})
-
-        wrapper = json.loads(responses.calls[0].request.body)
+        body = six.ensure_str(responses.calls[0].request.body)
+        wrapper = json.loads(body)
         data = json.loads(wrapper["data"])
         del wrapper["data"]
 
