@@ -7,7 +7,7 @@ This is the official Mixpanel Python library. This library allows for
 server-side integration of Mixpanel.
 
 To import, export, transform, or delete your Mixpanel data, please see our
-`mixpanel_api package`_.
+`mixpanel-utils package`_.
 
 
 Installation
@@ -48,7 +48,7 @@ Additional Information
 
 .. |travis-badge| image:: https://travis-ci.org/mixpanel/mixpanel-python.svg?branch=master
     :target: https://travis-ci.org/mixpanel/mixpanel-python
-.. _mixpanel_api package: https://github.com/mixpanel/mixpanel_api
+.. _mixpanel-utils package: https://github.com/mixpanel/mixpanel-utils
 .. _Help Docs: https://www.mixpanel.com/help/reference/python
 .. _Full Documentation: http://mixpanel.github.io/mixpanel-python/
 .. _mixpanel-python-async: https://github.com/jessepollak/mixpanel-python-async
