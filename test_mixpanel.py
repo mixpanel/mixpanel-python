@@ -7,7 +7,8 @@ import time
 import pytest
 import responses
 import six
-from six.moves import range
+from six.moves import range, urllib
+
 
 import mixpanel
 
@@ -299,7 +300,7 @@ class TestMixpanel:
         call = responses.calls[0]
         assert call.request.method == "POST"
         assert call.request.url == "https://api.mixpanel.com/track"
-        posted_data = json.loads(six.ensure_str(call.request.body))
+        posted_data = dict(urllib.parse.parse_qsl(six.ensure_str(call.request.body)))
         assert json.loads(posted_data["data"]) == {"event":"$create_alias","properties":{"alias":"ALIAS","token":"12345","distinct_id":"ORIGINAL ID"}}
 
     def test_merge(self):
@@ -457,7 +458,7 @@ class TestConsumer:
             'https://api.mixpanel.com/track',
             json={"status": 1, "error": None},
             status=200,
-            match=[responses.json_params_matcher({"ip": 0, "verbose": 1, "data": '{"foo":"bar"}'})],
+            match=[responses.urlencoded_params_matcher({"ip": "0", "verbose": "1", "data": '{"foo":"bar"}'})],
         )
         self.consumer.send('events', '{"foo":"bar"}')
         assert len(responses.calls) == 1
@@ -469,7 +470,7 @@ class TestConsumer:
             'https://api.mixpanel.com/engage',
             json={"status": 1, "error": None},
             status=200,
-            match=[responses.json_params_matcher({"ip": 0, "verbose": 1, "data": '{"foo":"bar"}'})],
+            match=[responses.urlencoded_params_matcher({"ip": "0", "verbose": "1", "data": '{"foo":"bar"}'})],
         )
         self.consumer.send('people', '{"foo":"bar"}')
         assert len(responses.calls) == 1
@@ -479,48 +480,56 @@ class TestConsumer:
         responses.add(
             responses.POST,
             'https://api.mixpanel.com/track',
-            body="1",
+            json={"status": 1, "error": None},
             status=200,
-            match=[responses.json_params_matcher({"ip": 0, "verbose": 1, "data": '{"foo":"bar"}'})],
+            match=[responses.urlencoded_params_matcher({"ip": "0", "verbose": "1", "data": '{"foo":"bar"}'})],
         )
         self.consumer.send('events', '{"foo":"bar"}')
         assert len(responses.calls) == 1
 
     @responses.activate
     def test_server_invalid_data(self):
+        error_msg = "bad data"
         responses.add(
             responses.POST,
             'https://api.mixpanel.com/track',
-            body="0",
+            json={"status": 0, "error": error_msg},
             status=200,
-            match=[responses.json_params_matcher({"ip": 0, "verbose": 1, "data": '{jimple "foo":"bar"}'})],
+            match=[responses.urlencoded_params_matcher({"ip": "0", "verbose": "1", "data": '{INVALID "foo":"bar"}'})],
         )
-        self.consumer.send('events', '{jimple "foo":"bar"}')
+
+        with pytest.raises(mixpanel.MixpanelException) as exc:
+            self.consumer.send('events', '{INVALID "foo":"bar"}')
         assert len(responses.calls) == 1
+        assert error_msg in str(exc)
 
     @responses.activate
     def test_server_unauthorized(self):
         responses.add(
             responses.POST,
             'https://api.mixpanel.com/track',
-            json={"error": 0, "status": "error"},
+            json={"status": 0, "error": "unauthed"},
             status=401,
-            match=[responses.json_params_matcher({"ip": 0, "verbose": 1, "data": '{"foo":"bar"}'})],
+            match=[responses.urlencoded_params_matcher({"ip": "0", "verbose": "1", "data": '{"foo":"bar"}'})],
         )
-        self.consumer.send('events', '{"foo":"bar"}')
+        with pytest.raises(mixpanel.MixpanelException) as exc:
+            self.consumer.send('events', '{"foo":"bar"}')
         assert len(responses.calls) == 1
+        assert "unauthed" in str(exc)
 
     @responses.activate
     def test_server_forbidden(self):
         responses.add(
             responses.POST,
             'https://api.mixpanel.com/track',
-            json={"error": 0, "status": "error"},
+            json={"status": 0, "error": "forbade"},
             status=403,
-            match=[responses.json_params_matcher({"ip": 0, "verbose": 1, "data": '{"foo":"bar"}'})],
+            match=[responses.urlencoded_params_matcher({"ip": "0", "verbose": "1", "data": '{"foo":"bar"}'})],
         )
-        self.consumer.send('events', '{"foo":"bar"}')
+        with pytest.raises(mixpanel.MixpanelException) as exc:
+            self.consumer.send('events', '{"foo":"bar"}')
         assert len(responses.calls) == 1
+        assert "forbade" in str(exc)
 
     @responses.activate
     def test_server_5xx(self):
@@ -531,7 +540,8 @@ class TestConsumer:
             status=500,
             match=[responses.json_params_matcher({"ip": 0, "verbose": 1, "data": '{"foo":"bar"}'})],
         )
-        self.consumer.send('events', '{"foo":"bar"}')
+        with pytest.raises(mixpanel.MixpanelException) as exc:
+            self.consumer.send('events', '{"foo":"bar"}')
         assert len(responses.calls) == 1
 
     @responses.activate
@@ -543,7 +553,7 @@ class TestConsumer:
             'https://api-zoltan.mixpanel.com/track',
             json={"status": 1, "error": None},
             status=200,
-            match=[responses.json_params_matcher({"ip": 0, "verbose": 1, "data": '{"foo":"bar"}'})],
+            match=[responses.urlencoded_params_matcher({"ip": "0", "verbose": "1", "data": '{"foo":"bar"}'})],
         )
         consumer.send('events', '{"foo":"bar"}')
         assert len(responses.calls) == 1
@@ -553,7 +563,7 @@ class TestConsumer:
             'https://api-zoltan.mixpanel.com/engage',
             json={"status": 1, "error": None},
             status=200,
-            match=[responses.json_params_matcher({"ip": 0, "verbose": 1, "data": '{"foo":"bar"}'})],
+            match=[responses.urlencoded_params_matcher({"ip": "0", "verbose": "1", "data": '{"foo":"bar"}'})],
         )
         consumer.send('people', '{"foo":"bar"}')
         assert len(responses.calls) == 2
@@ -653,11 +663,11 @@ class TestFunctional:
 
         assert len(responses.calls) == 1
         body = six.ensure_str(responses.calls[0].request.body)
-        wrapper = json.loads(body)
+        wrapper = dict(urllib.parse.parse_qsl(body))
         data = json.loads(wrapper["data"])
         del wrapper["data"]
 
-        assert {"ip": 0, "verbose": 1} == wrapper
+        assert {"ip": "0", "verbose": "1"} == wrapper
         expected_data = {'event': 'button_press', 'properties': {'size': 'big', 'color': 'blue', 'mp_lib': 'python', 'token': '12345', 'distinct_id': 'player1', '$lib_version': mixpanel.__version__, 'time': 1000, '$insert_id': 'xyz1200'}}
         assert expected_data == data
 
@@ -673,10 +683,10 @@ class TestFunctional:
         self.mp.people_set('amq', {'birth month': 'october', 'favorite color': 'purple'})
         assert len(responses.calls) == 1
         body = six.ensure_str(responses.calls[0].request.body)
-        wrapper = json.loads(body)
+        wrapper = dict(urllib.parse.parse_qsl(body))
         data = json.loads(wrapper["data"])
         del wrapper["data"]
 
-        assert {"ip": 0, "verbose": 1} == wrapper
+        assert {"ip": "0", "verbose": "1"} == wrapper
         expected_data = {'$distinct_id': 'amq', '$set': {'birth month': 'october', 'favorite color': 'purple'}, '$time': 1000, '$token': '12345'}
         assert expected_data == data
