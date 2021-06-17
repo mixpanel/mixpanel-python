@@ -542,7 +542,7 @@ class Consumer(object):
 
     def __init__(self, events_url=None, people_url=None, import_url=None,
             request_timeout=None, groups_url=None, api_host="api.mixpanel.com",
-            retry_limit=4, retry_backoff_factor=0.25, verify_cert=False):
+            retry_limit=4, retry_backoff_factor=0.25, verify_cert=True):
         # TODO: With next major version, make the above args kwarg-only, and reorder them.
         self._endpoints = {
             'events': events_url or 'https://{}/track'.format(api_host),
@@ -615,11 +615,12 @@ class Consumer(object):
             basic_auth = HTTPBasicAuth(api_secret, '')
 
         try:
-            print("sending w/ requests")
             response = self._session.post(
                 request_url,
                 data=data,
                 auth=basic_auth,
+                timeout=self._request_timeout,
+                verify=self._verify_cert,
             )
         except Exception as e:
             six.raise_from(MixpanelException(e), e)
@@ -669,7 +670,7 @@ class BufferedConsumer(object):
     """
     def __init__(self, max_size=50, events_url=None, people_url=None, import_url=None,
             request_timeout=None, groups_url=None, api_host="api.mixpanel.com",
-            retry_limit=4, retry_backoff_factor=0.25, verify_cert=False):
+            retry_limit=4, retry_backoff_factor=0.25, verify_cert=True):
         self._consumer = Consumer(events_url, people_url, import_url, request_timeout,
             groups_url, api_host, retry_limit, retry_backoff_factor, verify_cert)
         self._buffers = {
