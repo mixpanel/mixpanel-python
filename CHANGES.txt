@@ -1,3 +1,9 @@
+v4.9.0
+* To reduce TLS cert friction, use requests rather than directly using urllib3.
+    Reinstate TLS cert validation by default. (#103)
+* Drop support for Python 3.4 in setup.py and testing matrix.
+* Update readme references to mixpanel-utils project. (#100)
+
 v4.8.4
 * Disable urllib3 security warning only if not verifying server certs. (#102)
 
