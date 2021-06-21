@@ -174,7 +174,6 @@ class Mixpanel(object):
             Calling this method *always* results in a synchronous HTTP request
             to Mixpanel servers, regardless of any custom consumer.
         """
-        sync_consumer = Consumer()
         event = {
             'event': '$create_alias',
             'properties': {
@@ -185,6 +184,8 @@ class Mixpanel(object):
         }
         if meta:
             event.update(meta)
+
+        sync_consumer = Consumer()
         sync_consumer.send('events', json_dumps(event, cls=self._serializer))
 
     def merge(self, api_key, distinct_id1, distinct_id2, meta=None, api_secret=None):
