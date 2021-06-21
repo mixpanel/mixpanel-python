@@ -5,7 +5,7 @@ v4.9.0
 * Update readme references to mixpanel-utils project. (#100)
 
 v4.8.4
-* Disable urllib3 security warning only if not verifying server certs. (#102)
+* Disable urllib3 security warning only if not verifying server certs. #102 
 
 v4.8.3
 * Do not verify server cert by default. (issue #97)
