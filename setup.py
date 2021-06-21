@@ -25,8 +25,9 @@ setup(
     author_email='dev@mixpanel.com',
     license='Apache',
     install_requires=[
-        'six >= 1.9.0',
-        'urllib3 >= 1.21.1',
+        'six>=1.9.0',
+        'requests>=2.4.2',
+        'urllib3',
     ],
 
     classifiers=[
