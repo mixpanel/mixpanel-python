@@ -3,6 +3,18 @@ mixpanel-python
 
 .. image:: https://github.com/mixpanel/mixpanel-python/workflows/Tests/badge.svg
 
+.. |PyPI| image:: https://img.shields.io/pypi/v/mixpanel
+    :target: https://pypi.org/project/mixpanel
+    :alt: PyPI
+
+.. |Python| image:: https://img.shields.io/pypi/pyversions/mixpanel
+    :target: https://pypi.org/project/mixpanel
+    :alt: PyPI - Python Version
+
+.. |Downloads| image:: https://img.shields.io/pypi/dm/mixpanel
+    :target: https://pypi.org/project/mixpanel
+    :alt: PyPI - Downloads
+
 This is the official Mixpanel Python library. This library allows for
 server-side integration of Mixpanel.
 
