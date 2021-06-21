@@ -27,7 +27,7 @@ import six
 from six.moves import range
 import urllib3
 
-__version__ = '4.8.4'
+__version__ = '4.9.0'
 VERSION = __version__  # TODO: remove when bumping major version.
 
 logger = logging.getLogger(__name__)
