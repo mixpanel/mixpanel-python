@@ -1,4 +1,4 @@
 pytest~=4.6
 responses~=0.13.3
-more-itertools==8.10.0 ; python_version<='3.5' # more-itertools added some f-strings after this.
+more-itertools==8.10.0 ; python_version='3.5' # more-itertools added some f-strings after this.
 typing; python_version>='3.4' and python_version<'3.5' # To work around CI fail.
