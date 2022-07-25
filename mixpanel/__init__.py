@@ -140,7 +140,7 @@ class Mixpanel(object):
         all_properties = {
             'token': self._token,
             'distinct_id': distinct_id,
-            'time': int(timestamp),
+            'time': timestamp,
             '$insert_id': self._make_insert_id(),
             'mp_lib': 'python',
             '$lib_version': __version__,
