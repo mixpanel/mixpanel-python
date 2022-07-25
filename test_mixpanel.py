@@ -30,7 +30,7 @@ class LogConsumer(object):
         self.log = []
 
 
-class TestMixpanel:
+class TestMixpanelBase:
     TOKEN = '12345'
 
     def setup_method(self, method):
@@ -38,6 +38,9 @@ class TestMixpanel:
         self.mp = mixpanel.Mixpanel(self.TOKEN, consumer=self.consumer)
         self.mp._now = lambda: 1000.1
         self.mp._make_insert_id = lambda: "abcdefg"
+
+
+class TestMixpanelTracking(TestMixpanelBase):
 
     def test_track(self):
         self.mp.track('ID', 'button press', {'size': 'big', 'color': 'blue', '$insert_id': 'abc123'})
@@ -121,6 +124,9 @@ class TestMixpanel:
                 'ip': 0,
             }
         )]
+
+
+class TestMixpanelPeople(TestMixpanelBase):
 
     def test_people_set(self):
         self.mp.people_set('amq', {'birth month': 'october', 'favorite color': 'purple'})
@@ -284,6 +290,26 @@ class TestMixpanel:
             }
         )]
 
+    def test_people_meta(self):
+        self.mp.people_set('amq', {'birth month': 'october', 'favorite color': 'purple'},
+                           meta={'$ip': 0, '$ignore_time': True})
+        assert self.consumer.log == [(
+            'people', {
+                '$time': self.mp._now(),
+                '$token': self.TOKEN,
+                '$distinct_id': 'amq',
+                '$set': {
+                    'birth month': 'october',
+                    'favorite color': 'purple',
+                },
+                '$ip': 0,
+                '$ignore_time': True,
+            }
+        )]
+
+
+class TestMixpanelIdentity(TestMixpanelBase):
+
     def test_alias(self):
         # More complicated since alias() forces a synchronous call.
 
@@ -333,22 +359,8 @@ class TestMixpanel:
             ('my_good_api_key', 'my_secret'),
         )]
 
-    def test_people_meta(self):
-        self.mp.people_set('amq', {'birth month': 'october', 'favorite color': 'purple'},
-                           meta={'$ip': 0, '$ignore_time': True})
-        assert self.consumer.log == [(
-            'people', {
-                '$time': self.mp._now(),
-                '$token': self.TOKEN,
-                '$distinct_id': 'amq',
-                '$set': {
-                    'birth month': 'october',
-                    'favorite color': 'purple',
-                },
-                '$ip': 0,
-                '$ignore_time': True,
-            }
-        )]
+
+class TestMixpanelGroups(TestMixpanelBase):
 
     def test_group_set(self):
         self.mp.group_set('company', 'amq', {'birth month': 'october', 'favorite color': 'purple'})
