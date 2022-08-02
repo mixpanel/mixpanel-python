@@ -89,7 +89,7 @@ class Mixpanel(object):
         all_properties = {
             'token': self._token,
             'distinct_id': distinct_id,
-            'time': int(self._now()),
+            'time': self._now(),
             '$insert_id': self._make_insert_id(),
             'mp_lib': 'python',
             '$lib_version': __version__,
@@ -140,7 +140,7 @@ class Mixpanel(object):
         all_properties = {
             'token': self._token,
             'distinct_id': distinct_id,
-            'time': int(timestamp),
+            'time': timestamp,
             '$insert_id': self._make_insert_id(),
             'mp_lib': 'python',
             '$lib_version': __version__,
@@ -384,7 +384,7 @@ class Mixpanel(object):
         """
         record = {
             '$token': self._token,
-            '$time': int(self._now()),
+            '$time': self._now(),
         }
         record.update(message)
         if meta:
@@ -500,7 +500,7 @@ class Mixpanel(object):
         """
         record = {
             '$token': self._token,
-            '$time': int(self._now()),
+            '$time': self._now(),
         }
         record.update(message)
         if meta:

@@ -30,7 +30,7 @@ class LogConsumer(object):
         self.log = []
 
 
-class TestMixpanel:
+class TestMixpanelBase:
     TOKEN = '12345'
 
     def setup_method(self, method):
@@ -38,6 +38,9 @@ class TestMixpanel:
         self.mp = mixpanel.Mixpanel(self.TOKEN, consumer=self.consumer)
         self.mp._now = lambda: 1000.1
         self.mp._make_insert_id = lambda: "abcdefg"
+
+
+class TestMixpanelTracking(TestMixpanelBase):
 
     def test_track(self):
         self.mp.track('ID', 'button press', {'size': 'big', 'color': 'blue', '$insert_id': 'abc123'})
@@ -49,7 +52,7 @@ class TestMixpanel:
                     'size': 'big',
                     'color': 'blue',
                     'distinct_id': 'ID',
-                    'time': int(self.mp._now()),
+                    'time': self.mp._now(),
                     '$insert_id': 'abc123',
                     'mp_lib': 'python',
                     '$lib_version': mixpanel.__version__,
@@ -72,7 +75,7 @@ class TestMixpanel:
                 'properties': {
                     'token': self.TOKEN,
                     'distinct_id': 'person_xyz',
-                    'time': int(self.mp._now()),
+                    'time': self.mp._now(),
                     '$insert_id': self.mp._make_insert_id(),
                     'mp_lib': 'python',
                     '$lib_version': mixpanel.__version__,
@@ -93,7 +96,7 @@ class TestMixpanel:
                     'size': 'big',
                     'color': 'blue',
                     'distinct_id': 'ID',
-                    'time': int(timestamp),
+                    'time': timestamp,
                     '$insert_id': 'abc123',
                     'mp_lib': 'python',
                     '$lib_version': mixpanel.__version__,
@@ -113,7 +116,7 @@ class TestMixpanel:
                     'size': 'big',
                     'color': 'blue',
                     'distinct_id': 'ID',
-                    'time': int(self.mp._now()),
+                    'time': self.mp._now(),
                     '$insert_id': 'abc123',
                     'mp_lib': 'python',
                     '$lib_version': mixpanel.__version__,
@@ -122,11 +125,14 @@ class TestMixpanel:
             }
         )]
 
+
+class TestMixpanelPeople(TestMixpanelBase):
+
     def test_people_set(self):
         self.mp.people_set('amq', {'birth month': 'october', 'favorite color': 'purple'})
         assert self.consumer.log == [(
             'people', {
-                '$time': int(self.mp._now()),
+                '$time': self.mp._now(),
                 '$token': self.TOKEN,
                 '$distinct_id': 'amq',
                 '$set': {
@@ -140,7 +146,7 @@ class TestMixpanel:
         self.mp.people_set_once('amq', {'birth month': 'october', 'favorite color': 'purple'})
         assert self.consumer.log == [(
             'people', {
-                '$time': int(self.mp._now()),
+                '$time': self.mp._now(),
                 '$token': self.TOKEN,
                 '$distinct_id': 'amq',
                 '$set_once': {
@@ -154,7 +160,7 @@ class TestMixpanel:
         self.mp.people_increment('amq', {'Albums Released': 1})
         assert self.consumer.log == [(
             'people', {
-                '$time': int(self.mp._now()),
+                '$time': self.mp._now(),
                 '$token': self.TOKEN,
                 '$distinct_id': 'amq',
                 '$add': {
@@ -167,7 +173,7 @@ class TestMixpanel:
         self.mp.people_append('amq', {'birth month': 'october', 'favorite color': 'purple'})
         assert self.consumer.log == [(
             'people', {
-                '$time': int(self.mp._now()),
+                '$time': self.mp._now(),
                 '$token': self.TOKEN,
                 '$distinct_id': 'amq',
                 '$append': {
@@ -181,7 +187,7 @@ class TestMixpanel:
         self.mp.people_union('amq', {'Albums': ['Diamond Dogs']})
         assert self.consumer.log == [(
             'people', {
-                '$time': int(self.mp._now()),
+                '$time': self.mp._now(),
                 '$token': self.TOKEN,
                 '$distinct_id': 'amq',
                 '$union': {
@@ -194,7 +200,7 @@ class TestMixpanel:
         self.mp.people_unset('amq', ['Albums', 'Singles'])
         assert self.consumer.log == [(
             'people', {
-                '$time': int(self.mp._now()),
+                '$time': self.mp._now(),
                 '$token': self.TOKEN,
                 '$distinct_id': 'amq',
                 '$unset': ['Albums', 'Singles'],
@@ -205,7 +211,7 @@ class TestMixpanel:
         self.mp.people_remove('amq', {'Albums': 'Diamond Dogs'})
         assert self.consumer.log == [(
             'people', {
-                '$time': int(self.mp._now()),
+                '$time': self.mp._now(),
                 '$token': self.TOKEN,
                 '$distinct_id': 'amq',
                 '$remove': {'Albums': 'Diamond Dogs'},
@@ -216,7 +222,7 @@ class TestMixpanel:
         self.mp.people_track_charge('amq', 12.65, {'$time': '2013-04-01T09:02:00'})
         assert self.consumer.log == [(
             'people', {
-                '$time': int(self.mp._now()),
+                '$time': self.mp._now(),
                 '$token': self.TOKEN,
                 '$distinct_id': 'amq',
                 '$append': {
@@ -232,7 +238,7 @@ class TestMixpanel:
         self.mp.people_track_charge('amq', 12.65)
         assert self.consumer.log == [(
             'people', {
-                '$time': int(self.mp._now()),
+                '$time': self.mp._now(),
                 '$token': self.TOKEN,
                 '$distinct_id': 'amq',
                 '$append': {
@@ -247,7 +253,7 @@ class TestMixpanel:
         self.mp.people_clear_charges('amq')
         assert self.consumer.log == [(
             'people', {
-                '$time': int(self.mp._now()),
+                '$time': self.mp._now(),
                 '$token': self.TOKEN,
                 '$distinct_id': 'amq',
                 '$unset': ['$transactions'],
@@ -259,7 +265,7 @@ class TestMixpanel:
         self.mp.people_set('amq', {'$created': created, 'favorite color': 'purple'})
         assert self.consumer.log == [(
             'people', {
-                '$time': int(self.mp._now()),
+                '$time': self.mp._now(),
                 '$token': self.TOKEN,
                 '$distinct_id': 'amq',
                 '$set': {
@@ -274,7 +280,7 @@ class TestMixpanel:
         self.mp.people_set('amq', {'$created': created, 'favorite color': 'purple'})
         assert self.consumer.log == [(
             'people', {
-                '$time': int(self.mp._now()),
+                '$time': self.mp._now(),
                 '$token': self.TOKEN,
                 '$distinct_id': 'amq',
                 '$set': {
@@ -283,6 +289,26 @@ class TestMixpanel:
                 },
             }
         )]
+
+    def test_people_meta(self):
+        self.mp.people_set('amq', {'birth month': 'october', 'favorite color': 'purple'},
+                           meta={'$ip': 0, '$ignore_time': True})
+        assert self.consumer.log == [(
+            'people', {
+                '$time': self.mp._now(),
+                '$token': self.TOKEN,
+                '$distinct_id': 'amq',
+                '$set': {
+                    'birth month': 'october',
+                    'favorite color': 'purple',
+                },
+                '$ip': 0,
+                '$ignore_time': True,
+            }
+        )]
+
+
+class TestMixpanelIdentity(TestMixpanelBase):
 
     def test_alias(self):
         # More complicated since alias() forces a synchronous call.
@@ -333,28 +359,14 @@ class TestMixpanel:
             ('my_good_api_key', 'my_secret'),
         )]
 
-    def test_people_meta(self):
-        self.mp.people_set('amq', {'birth month': 'october', 'favorite color': 'purple'},
-                           meta={'$ip': 0, '$ignore_time': True})
-        assert self.consumer.log == [(
-            'people', {
-                '$time': int(self.mp._now()),
-                '$token': self.TOKEN,
-                '$distinct_id': 'amq',
-                '$set': {
-                    'birth month': 'october',
-                    'favorite color': 'purple',
-                },
-                '$ip': 0,
-                '$ignore_time': True,
-            }
-        )]
+
+class TestMixpanelGroups(TestMixpanelBase):
 
     def test_group_set(self):
         self.mp.group_set('company', 'amq', {'birth month': 'october', 'favorite color': 'purple'})
         assert self.consumer.log == [(
             'groups', {
-                '$time': int(self.mp._now()),
+                '$time': self.mp._now(),
                 '$token': self.TOKEN,
                 '$group_key': 'company',
                 '$group_id': 'amq',
@@ -369,7 +381,7 @@ class TestMixpanel:
         self.mp.group_set_once('company', 'amq', {'birth month': 'october', 'favorite color': 'purple'})
         assert self.consumer.log == [(
             'groups', {
-                '$time': int(self.mp._now()),
+                '$time': self.mp._now(),
                 '$token': self.TOKEN,
                 '$group_key': 'company',
                 '$group_id': 'amq',
@@ -384,7 +396,7 @@ class TestMixpanel:
         self.mp.group_union('company', 'amq', {'Albums': ['Diamond Dogs']})
         assert self.consumer.log == [(
             'groups', {
-                '$time': int(self.mp._now()),
+                '$time': self.mp._now(),
                 '$token': self.TOKEN,
                 '$group_key': 'company',
                 '$group_id': 'amq',
@@ -398,7 +410,7 @@ class TestMixpanel:
         self.mp.group_unset('company', 'amq', ['Albums', 'Singles'])
         assert self.consumer.log == [(
             'groups', {
-                '$time': int(self.mp._now()),
+                '$time': self.mp._now(),
                 '$token': self.TOKEN,
                 '$group_key': 'company',
                 '$group_id': 'amq',
@@ -410,7 +422,7 @@ class TestMixpanel:
         self.mp.group_remove('company', 'amq', {'Albums': 'Diamond Dogs'})
         assert self.consumer.log == [(
             'groups', {
-                '$time': int(self.mp._now()),
+                '$time': self.mp._now(),
                 '$token': self.TOKEN,
                 '$group_key': 'company',
                 '$group_id': 'amq',
@@ -438,7 +450,7 @@ class TestMixpanel:
                     'token': self.TOKEN,
                     'size': decimal_string,
                     'distinct_id': 'ID',
-                    'time': int(self.mp._now()),
+                    'time': self.mp._now(),
                     '$insert_id': 'abc123',
                     'mp_lib': 'python',
                     '$lib_version': mixpanel.__version__,
