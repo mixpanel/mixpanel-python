@@ -66,9 +66,10 @@ class Mixpanel(object):
         self._token = token
         self._consumer = consumer or Consumer()
 
-        self._sync_consumer = sync_consumer or Consumer()
-        # if getattr(self._sync_consumer, "flush"):
-        #     raise Exception("sync_consumer must be Consumer instance")
+        if hasattr(self._consumer, "flush"):
+            self._sync_consumer = sync_consumer or Consumer()
+        else:
+            self._sync_consumer = self._consumer
 
         self._serializer = serializer
 
