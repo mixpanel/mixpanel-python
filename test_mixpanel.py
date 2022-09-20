@@ -9,6 +9,7 @@ import responses
 import six
 from six.moves import range, urllib
 
+
 import mixpanel
 
 
@@ -85,8 +86,8 @@ class TestMixpanelTracking(TestMixpanelBase):
     def test_import_data(self):
         timestamp = time.time()
         self.mp.import_data('MY_API_KEY', 'ID', 'button press', timestamp,
-                            {'size': 'big', 'color': 'blue', '$insert_id': 'abc123'},
-                            api_secret='MY_SECRET')
+            {'size': 'big', 'color': 'blue', '$insert_id': 'abc123'},
+            api_secret='MY_SECRET')
         assert self.consumer.log == [(
             'imports', {
                 'event': 'button press',
@@ -322,7 +323,12 @@ class TestMixpanelIdentity(TestMixpanelBase):
             self.mp.alias('ALIAS', 'ORIGINAL ID')
 
             assert self.mp._consumer == self.mp._sync_consumer
-            assert self.consumer.log == [('events', {'event': '$create_alias', 'properties': {'distinct_id': 'ORIGINAL ID', 'alias': 'ALIAS', 'token': '12345'}})]
+            assert self.consumer.log == [
+                ('events', {
+                    'event': '$create_alias',
+                    'properties': {'distinct_id': 'ORIGINAL ID', 'alias': 'ALIAS', 'token': '12345'}
+                })
+            ]
 
     def test_merge(self):
         self.mp.merge('my_good_api_key', 'd1', 'd2')
@@ -499,8 +505,7 @@ class TestConsumer:
                 'https://api.mixpanel.com/track',
                 json={"status": 0, "error": error_msg},
                 status=200,
-                match=[
-                    responses.urlencoded_params_matcher({"ip": "0", "verbose": "1", "data": '{INVALID "foo":"bar"}'})],
+                match=[responses.urlencoded_params_matcher({"ip": "0", "verbose": "1", "data": '{INVALID "foo":"bar"}'})],
             )
 
             with pytest.raises(mixpanel.MixpanelException) as exc:
@@ -638,6 +643,8 @@ class TestBufferedConsumer:
         assert self.log == [('imports', ['Event'], (None, 'ZZZZZZ'))]
 
 
+
+
 class TestFunctional:
     @classmethod
     def setup_class(cls):
@@ -662,10 +669,7 @@ class TestFunctional:
             del wrapper["data"]
 
             assert {"ip": "0", "verbose": "1"} == wrapper
-            expected_data = {'event': 'button_press',
-                             'properties': {'size': 'big', 'color': 'blue', 'mp_lib': 'python', 'token': '12345',
-                                            'distinct_id': 'player1', '$lib_version': mixpanel.__version__,
-                                            'time': 1000, '$insert_id': 'xyz1200'}}
+            expected_data = {'event': 'button_press', 'properties': {'size': 'big', 'color': 'blue', 'mp_lib': 'python', 'token': '12345', 'distinct_id': 'player1', '$lib_version': mixpanel.__version__, 'time': 1000, '$insert_id': 'xyz1200'}}
             assert expected_data == data
 
     def test_people_set_functional(self):
@@ -684,6 +688,5 @@ class TestFunctional:
             del wrapper["data"]
 
             assert {"ip": "0", "verbose": "1"} == wrapper
-            expected_data = {'$distinct_id': 'amq', '$set': {'birth month': 'october', 'favorite color': 'purple'},
-                             '$time': 1000, '$token': '12345'}
+            expected_data = {'$distinct_id': 'amq', '$set': {'birth month': 'october', 'favorite color': 'purple'}, '$time': 1000, '$token': '12345'}
             assert expected_data == data
