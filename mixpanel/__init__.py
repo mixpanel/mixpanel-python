@@ -567,12 +567,9 @@ class Consumer(object):
             "status_forcelist": set(range(500, 600)),
             methods_arg: {"POST"},
         }
-        adapter = requests.adapters.HTTPAdapter(
+        self._adapter = requests.adapters.HTTPAdapter(
             max_retries=urllib3.Retry(**retry_args),
         )
-
-        self._session = requests.Session()
-        self._session.mount('http', adapter)
 
     def send(self, endpoint, json_message, api_key=None, api_secret=None):
         """Immediately record an event or a profile update.
@@ -611,8 +608,11 @@ class Consumer(object):
         if api_secret is not None:
             basic_auth = HTTPBasicAuth(api_secret, '')
 
+        session = requests.Session()
+        session.mount('http', self._adapter)
+
         try:
-            response = self._session.post(
+            response = session.post(
                 request_url,
                 data=params,
                 auth=basic_auth,
