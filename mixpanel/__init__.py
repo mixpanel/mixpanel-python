@@ -614,6 +614,11 @@ class Consumer(object):
         try:
             response = self._session.post(
                 request_url,
+                headers={
+                    "Accept": "text/plain",
+                    "Content-Type": "application/json",
+                    "Connection": "close",
+                },
                 data=params,
                 auth=basic_auth,
                 timeout=self._request_timeout,
