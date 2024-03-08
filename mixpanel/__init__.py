@@ -572,7 +572,7 @@ class Consumer(object):
         )
 
         self._session = requests.Session()
-        self._session.mount('http', adapter)
+        self._session.mount('https://', adapter)
 
     def send(self, endpoint, json_message, api_key=None, api_secret=None):
         """Immediately record an event or a profile update.
