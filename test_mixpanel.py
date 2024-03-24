@@ -309,26 +309,16 @@ class TestMixpanelPeople(TestMixpanelBase):
 
 
 class TestMixpanelIdentity(TestMixpanelBase):
-
     def test_alias(self):
-        # More complicated since alias() forces a synchronous call.
+        self.mp.alias('ALIAS', 'ORIGINAL ID')
 
-        with responses.RequestsMock() as rsps:
-            rsps.add(
-                responses.POST,
-                'https://api.mixpanel.com/track',
-                json={"status": 1, "error": None},
-                status=200,
-            )
-
-            self.mp.alias('ALIAS', 'ORIGINAL ID')
-
-            assert self.consumer.log == []
-            call = rsps.calls[0]
-            assert call.request.method == "POST"
-            assert call.request.url == "https://api.mixpanel.com/track"
-            posted_data = dict(urllib.parse.parse_qsl(six.ensure_str(call.request.body)))
-            assert json.loads(posted_data["data"]) == {"event":"$create_alias","properties":{"alias":"ALIAS","token":"12345","distinct_id":"ORIGINAL ID"}}
+        assert self.mp._consumer == self.mp._sync_consumer
+        assert self.consumer.log == [
+            ('events', {
+                'event': '$create_alias',
+                'properties': {'distinct_id': 'ORIGINAL ID', 'alias': 'ALIAS', 'token': '12345'}
+            })
+        ]
 
     def test_merge(self):
         self.mp.merge('my_good_api_key', 'd1', 'd2')

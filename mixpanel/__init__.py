@@ -62,9 +62,15 @@ class Mixpanel(object):
         The *serializer* parameter.
     """
 
-    def __init__(self, token, consumer=None, serializer=DatetimeSerializer):
+    def __init__(self, token, consumer=None, serializer=DatetimeSerializer, sync_consumer=None):
         self._token = token
         self._consumer = consumer or Consumer()
+
+        if hasattr(self._consumer, "flush"):
+            self._sync_consumer = sync_consumer or Consumer()
+        else:
+            self._sync_consumer = self._consumer
+
         self._serializer = serializer
 
     def _now(self):
@@ -185,8 +191,7 @@ class Mixpanel(object):
         if meta:
             event.update(meta)
 
-        sync_consumer = Consumer()
-        sync_consumer.send('events', json_dumps(event, cls=self._serializer))
+        self._sync_consumer.send('events', json_dumps(event, cls=self._serializer))
 
     def merge(self, api_key, distinct_id1, distinct_id2, meta=None, api_secret=None):
         """
