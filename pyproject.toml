@@ -23,6 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 
 [project.urls]
@@ -48,7 +49,7 @@ version = {attr = "mixpanel.__version__"}
 exclude = ["tests*"]
 
 [tool.tox]
-envlist = ["py39", "py310", "py311", "py312"]
+envlist = ["py39", "py310", "py311", "py312", "py313"]
 
 [tool.tox.env_run_base]
 extras = ["test"]
