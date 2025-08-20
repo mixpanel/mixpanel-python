@@ -662,7 +662,6 @@ class TestFunctional:
 
             self.mp.track('player1', 'button_press', {'size': 'big', 'color': 'blue', '$insert_id': 'xyz1200'})
 
-            #body = rsps.calls[0].request.body if isinstance(rsps.calls[0].request.body, str) else rsps.calls[0].request.body.decode('utf-8')
             body = rsps.calls[0].request.body
             wrapper = dict(urllib_parse.parse_qsl(body))
             data = json.loads(wrapper["data"])
