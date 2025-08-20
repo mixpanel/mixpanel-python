@@ -1,23 +1,24 @@
-from __future__ import absolute_import, unicode_literals
+from __future__ import annotations
+
 import datetime
 import decimal
 import json
 import time
+from typing import Any, List, Tuple
+from urllib import parse as urllib_parse
 
 import pytest
 import responses
-import six
-from six.moves import range, urllib
-
+from responses.matchers import urlencoded_params_matcher
 
 import mixpanel
 
 
-class LogConsumer(object):
-    def __init__(self):
-        self.log = []
+class LogConsumer:
+    def __init__(self) -> None:
+        self.log: List[Tuple[str, ...]] = []
 
-    def send(self, endpoint, event, api_key=None, api_secret=None):
+    def send(self, endpoint: str, event: str, api_key: str | None = None, api_secret: str | None = None) -> None:
         entry = [endpoint, json.loads(event)]
         if api_key != (None, None):
             if api_key:
@@ -26,14 +27,14 @@ class LogConsumer(object):
                 entry.append(api_secret)
         self.log.append(tuple(entry))
 
-    def clear(self):
+    def clear(self) -> None:
         self.log = []
 
 
 class TestMixpanelBase:
     TOKEN = '12345'
 
-    def setup_method(self, method):
+    def setup_method(self, method: Any) -> None:
         self.consumer = LogConsumer()
         self.mp = mixpanel.Mixpanel(self.TOKEN, consumer=self.consumer)
         self.mp._now = lambda: 1000.1
@@ -42,7 +43,7 @@ class TestMixpanelBase:
 
 class TestMixpanelTracking(TestMixpanelBase):
 
-    def test_track(self):
+    def test_track(self) -> None:
         self.mp.track('ID', 'button press', {'size': 'big', 'color': 'blue', '$insert_id': 'abc123'})
         assert self.consumer.log == [(
             'events', {
@@ -60,14 +61,14 @@ class TestMixpanelTracking(TestMixpanelBase):
             }
         )]
 
-    def test_track_makes_insert_id(self):
+    def test_track_makes_insert_id(self) -> None:
         self.mp.track('ID', 'button press', {'size': 'big'})
         props = self.consumer.log[0][1]["properties"]
         assert "$insert_id" in props
-        assert isinstance(props["$insert_id"], six.text_type)
+        assert isinstance(props["$insert_id"], str)
         assert len(props["$insert_id"]) > 0
 
-    def test_track_empty(self):
+    def test_track_empty(self) -> None:
         self.mp.track('person_xyz', 'login', {})
         assert self.consumer.log == [(
             'events', {
@@ -83,7 +84,7 @@ class TestMixpanelTracking(TestMixpanelBase):
             },
         )]
 
-    def test_import_data(self):
+    def test_import_data(self) -> None:
         timestamp = time.time()
         self.mp.import_data('MY_API_KEY', 'ID', 'button press', timestamp,
             {'size': 'big', 'color': 'blue', '$insert_id': 'abc123'},
@@ -105,7 +106,7 @@ class TestMixpanelTracking(TestMixpanelBase):
             ('MY_API_KEY', 'MY_SECRET'),
         )]
 
-    def test_track_meta(self):
+    def test_track_meta(self) -> None:
         self.mp.track('ID', 'button press', {'size': 'big', 'color': 'blue', '$insert_id': 'abc123'},
                       meta={'ip': 0})
         assert self.consumer.log == [(
@@ -128,7 +129,7 @@ class TestMixpanelTracking(TestMixpanelBase):
 
 class TestMixpanelPeople(TestMixpanelBase):
 
-    def test_people_set(self):
+    def test_people_set(self) -> None:
         self.mp.people_set('amq', {'birth month': 'october', 'favorite color': 'purple'})
         assert self.consumer.log == [(
             'people', {
@@ -142,7 +143,7 @@ class TestMixpanelPeople(TestMixpanelBase):
             }
         )]
 
-    def test_people_set_once(self):
+    def test_people_set_once(self) -> None:
         self.mp.people_set_once('amq', {'birth month': 'october', 'favorite color': 'purple'})
         assert self.consumer.log == [(
             'people', {
@@ -156,7 +157,7 @@ class TestMixpanelPeople(TestMixpanelBase):
             }
         )]
 
-    def test_people_increment(self):
+    def test_people_increment(self) -> None:
         self.mp.people_increment('amq', {'Albums Released': 1})
         assert self.consumer.log == [(
             'people', {
@@ -169,7 +170,7 @@ class TestMixpanelPeople(TestMixpanelBase):
             }
         )]
 
-    def test_people_append(self):
+    def test_people_append(self) -> None:
         self.mp.people_append('amq', {'birth month': 'october', 'favorite color': 'purple'})
         assert self.consumer.log == [(
             'people', {
@@ -183,7 +184,7 @@ class TestMixpanelPeople(TestMixpanelBase):
             }
         )]
 
-    def test_people_union(self):
+    def test_people_union(self) -> None:
         self.mp.people_union('amq', {'Albums': ['Diamond Dogs']})
         assert self.consumer.log == [(
             'people', {
@@ -196,7 +197,7 @@ class TestMixpanelPeople(TestMixpanelBase):
             }
         )]
 
-    def test_people_unset(self):
+    def test_people_unset(self) -> None:
         self.mp.people_unset('amq', ['Albums', 'Singles'])
         assert self.consumer.log == [(
             'people', {
@@ -207,7 +208,7 @@ class TestMixpanelPeople(TestMixpanelBase):
             }
         )]
 
-    def test_people_remove(self):
+    def test_people_remove(self) -> None:
         self.mp.people_remove('amq', {'Albums': 'Diamond Dogs'})
         assert self.consumer.log == [(
             'people', {
@@ -218,7 +219,7 @@ class TestMixpanelPeople(TestMixpanelBase):
             }
         )]
 
-    def test_people_track_charge(self):
+    def test_people_track_charge(self) -> None:
         self.mp.people_track_charge('amq', 12.65, {'$time': '2013-04-01T09:02:00'})
         assert self.consumer.log == [(
             'people', {
@@ -234,7 +235,7 @@ class TestMixpanelPeople(TestMixpanelBase):
             }
         )]
 
-    def test_people_track_charge_without_properties(self):
+    def test_people_track_charge_without_properties(self) -> None:
         self.mp.people_track_charge('amq', 12.65)
         assert self.consumer.log == [(
             'people', {
@@ -249,7 +250,7 @@ class TestMixpanelPeople(TestMixpanelBase):
             }
         )]
 
-    def test_people_clear_charges(self):
+    def test_people_clear_charges(self) -> None:
         self.mp.people_clear_charges('amq')
         assert self.consumer.log == [(
             'people', {
@@ -260,7 +261,7 @@ class TestMixpanelPeople(TestMixpanelBase):
             }
         )]
 
-    def test_people_set_created_date_string(self):
+    def test_people_set_created_date_string(self) -> None:
         created = '2014-02-14T01:02:03'
         self.mp.people_set('amq', {'$created': created, 'favorite color': 'purple'})
         assert self.consumer.log == [(
@@ -275,7 +276,7 @@ class TestMixpanelPeople(TestMixpanelBase):
             }
         )]
 
-    def test_people_set_created_date_datetime(self):
+    def test_people_set_created_date_datetime(self) -> None:
         created = datetime.datetime(2014, 2, 14, 1, 2, 3)
         self.mp.people_set('amq', {'$created': created, 'favorite color': 'purple'})
         assert self.consumer.log == [(
@@ -290,7 +291,7 @@ class TestMixpanelPeople(TestMixpanelBase):
             }
         )]
 
-    def test_people_meta(self):
+    def test_people_meta(self) -> None:
         self.mp.people_set('amq', {'birth month': 'october', 'favorite color': 'purple'},
                            meta={'$ip': 0, '$ignore_time': True})
         assert self.consumer.log == [(
@@ -310,7 +311,7 @@ class TestMixpanelPeople(TestMixpanelBase):
 
 class TestMixpanelIdentity(TestMixpanelBase):
 
-    def test_alias(self):
+    def test_alias(self) -> None:
         # More complicated since alias() forces a synchronous call.
 
         with responses.RequestsMock() as rsps:
@@ -327,10 +328,11 @@ class TestMixpanelIdentity(TestMixpanelBase):
             call = rsps.calls[0]
             assert call.request.method == "POST"
             assert call.request.url == "https://api.mixpanel.com/track"
-            posted_data = dict(urllib.parse.parse_qsl(six.ensure_str(call.request.body)))
+            body = call.request.body if isinstance(call.request.body, str) else call.request.body.decode('utf-8')
+            posted_data = dict(urllib_parse.parse_qsl(body))
             assert json.loads(posted_data["data"]) == {"event":"$create_alias","properties":{"alias":"ALIAS","token":"12345","distinct_id":"ORIGINAL ID"}}
 
-    def test_merge(self):
+    def test_merge(self) -> None:
         self.mp.merge('my_good_api_key', 'd1', 'd2')
         assert self.consumer.log == [(
             'imports',
@@ -362,7 +364,7 @@ class TestMixpanelIdentity(TestMixpanelBase):
 
 class TestMixpanelGroups(TestMixpanelBase):
 
-    def test_group_set(self):
+    def test_group_set(self) -> None:
         self.mp.group_set('company', 'amq', {'birth month': 'october', 'favorite color': 'purple'})
         assert self.consumer.log == [(
             'groups', {
@@ -377,7 +379,7 @@ class TestMixpanelGroups(TestMixpanelBase):
             }
         )]
 
-    def test_group_set_once(self):
+    def test_group_set_once(self) -> None:
         self.mp.group_set_once('company', 'amq', {'birth month': 'october', 'favorite color': 'purple'})
         assert self.consumer.log == [(
             'groups', {
@@ -392,7 +394,7 @@ class TestMixpanelGroups(TestMixpanelBase):
             }
         )]
 
-    def test_group_union(self):
+    def test_group_union(self) -> None:
         self.mp.group_union('company', 'amq', {'Albums': ['Diamond Dogs']})
         assert self.consumer.log == [(
             'groups', {
@@ -406,7 +408,7 @@ class TestMixpanelGroups(TestMixpanelBase):
             }
         )]
 
-    def test_group_unset(self):
+    def test_group_unset(self) -> None:
         self.mp.group_unset('company', 'amq', ['Albums', 'Singles'])
         assert self.consumer.log == [(
             'groups', {
@@ -418,7 +420,7 @@ class TestMixpanelGroups(TestMixpanelBase):
             }
         )]
 
-    def test_group_remove(self):
+    def test_group_remove(self) -> None:
         self.mp.group_remove('company', 'amq', {'Albums': 'Diamond Dogs'})
         assert self.consumer.log == [(
             'groups', {
@@ -430,7 +432,7 @@ class TestMixpanelGroups(TestMixpanelBase):
             }
         )]
 
-    def test_custom_json_serializer(self):
+    def test_custom_json_serializer(self) -> None:
         decimal_string = '12.05'
         with pytest.raises(TypeError) as excinfo:
             self.mp.track('ID', 'button press', {'size': decimal.Decimal(decimal_string)})
@@ -461,43 +463,43 @@ class TestMixpanelGroups(TestMixpanelBase):
 
 class TestConsumer:
     @classmethod
-    def setup_class(cls):
+    def setup_class(cls) -> None:
         cls.consumer = mixpanel.Consumer(request_timeout=30)
 
-    def test_send_events(self):
+    def test_send_events(self) -> None:
         with responses.RequestsMock() as rsps:
             rsps.add(
                 responses.POST,
                 'https://api.mixpanel.com/track',
                 json={"status": 1, "error": None},
                 status=200,
-                match=[responses.urlencoded_params_matcher({"ip": "0", "verbose": "1", "data": '{"foo":"bar"}'})],
+                match=[urlencoded_params_matcher({"ip": "0", "verbose": "1", "data": '{"foo":"bar"}'})],
             )
             self.consumer.send('events', '{"foo":"bar"}')
 
-    def test_send_people(self):
+    def test_send_people(self) -> None:
         with responses.RequestsMock() as rsps:
             rsps.add(
                 responses.POST,
                 'https://api.mixpanel.com/engage',
                 json={"status": 1, "error": None},
                 status=200,
-                match=[responses.urlencoded_params_matcher({"ip": "0", "verbose": "1", "data": '{"foo":"bar"}'})],
+                match=[urlencoded_params_matcher({"ip": "0", "verbose": "1", "data": '{"foo":"bar"}'})],
             )
             self.consumer.send('people', '{"foo":"bar"}')
 
-    def test_server_success(self):
+    def test_server_success(self) -> None:
         with responses.RequestsMock() as rsps:
             rsps.add(
                 responses.POST,
                 'https://api.mixpanel.com/track',
                 json={"status": 1, "error": None},
                 status=200,
-                match=[responses.urlencoded_params_matcher({"ip": "0", "verbose": "1", "data": '{"foo":"bar"}'})],
+                match=[urlencoded_params_matcher({"ip": "0", "verbose": "1", "data": '{"foo":"bar"}'})],
             )
             self.consumer.send('events', '{"foo":"bar"}')
 
-    def test_server_invalid_data(self):
+    def test_server_invalid_data(self) -> None:
         with responses.RequestsMock() as rsps:
             error_msg = "bad data"
             rsps.add(
@@ -505,52 +507,52 @@ class TestConsumer:
                 'https://api.mixpanel.com/track',
                 json={"status": 0, "error": error_msg},
                 status=200,
-                match=[responses.urlencoded_params_matcher({"ip": "0", "verbose": "1", "data": '{INVALID "foo":"bar"}'})],
+                match=[urlencoded_params_matcher({"ip": "0", "verbose": "1", "data": '{INVALID "foo":"bar"}'})],
             )
 
             with pytest.raises(mixpanel.MixpanelException) as exc:
                 self.consumer.send('events', '{INVALID "foo":"bar"}')
             assert error_msg in str(exc)
 
-    def test_server_unauthorized(self):
+    def test_server_unauthorized(self) -> None:
         with responses.RequestsMock() as rsps:
             rsps.add(
                 responses.POST,
                 'https://api.mixpanel.com/track',
                 json={"status": 0, "error": "unauthed"},
                 status=401,
-                match=[responses.urlencoded_params_matcher({"ip": "0", "verbose": "1", "data": '{"foo":"bar"}'})],
+                match=[urlencoded_params_matcher({"ip": "0", "verbose": "1", "data": '{"foo":"bar"}'})],
             )
             with pytest.raises(mixpanel.MixpanelException) as exc:
                 self.consumer.send('events', '{"foo":"bar"}')
             assert "unauthed" in str(exc)
 
-    def test_server_forbidden(self):
+    def test_server_forbidden(self) -> None:
         with responses.RequestsMock() as rsps:
             rsps.add(
                 responses.POST,
                 'https://api.mixpanel.com/track',
                 json={"status": 0, "error": "forbade"},
                 status=403,
-                match=[responses.urlencoded_params_matcher({"ip": "0", "verbose": "1", "data": '{"foo":"bar"}'})],
+                match=[urlencoded_params_matcher({"ip": "0", "verbose": "1", "data": '{"foo":"bar"}'})],
             )
             with pytest.raises(mixpanel.MixpanelException) as exc:
                 self.consumer.send('events', '{"foo":"bar"}')
             assert "forbade" in str(exc)
 
-    def test_server_5xx(self):
+    def test_server_5xx(self) -> None:
         with responses.RequestsMock() as rsps:
             rsps.add(
                 responses.POST,
                 'https://api.mixpanel.com/track',
                 body="Internal server error",
                 status=500,
-                match=[responses.urlencoded_params_matcher({"ip": "0", "verbose": "1", "data": '{"foo":"bar"}'})],
+                match=[urlencoded_params_matcher({"ip": "0", "verbose": "1", "data": '{"foo":"bar"}'})],
             )
             with pytest.raises(mixpanel.MixpanelException) as exc:
                 self.consumer.send('events', '{"foo":"bar"}')
 
-    def test_consumer_override_api_host(self):
+    def test_consumer_override_api_host(self) -> None:
         consumer = mixpanel.Consumer(api_host="api-zoltan.mixpanel.com")
 
         with responses.RequestsMock() as rsps:
@@ -559,7 +561,7 @@ class TestConsumer:
                 'https://api-zoltan.mixpanel.com/track',
                 json={"status": 1, "error": None},
                 status=200,
-                match=[responses.urlencoded_params_matcher({"ip": "0", "verbose": "1", "data": '{"foo":"bar"}'})],
+                match=[urlencoded_params_matcher({"ip": "0", "verbose": "1", "data": '{"foo":"bar"}'})],
             )
             consumer.send('events', '{"foo":"bar"}')
 
@@ -569,33 +571,33 @@ class TestConsumer:
                 'https://api-zoltan.mixpanel.com/engage',
                 json={"status": 1, "error": None},
                 status=200,
-                match=[responses.urlencoded_params_matcher({"ip": "0", "verbose": "1", "data": '{"foo":"bar"}'})],
+                match=[urlencoded_params_matcher({"ip": "0", "verbose": "1", "data": '{"foo":"bar"}'})],
             )
             consumer.send('people', '{"foo":"bar"}')
 
-    def test_unknown_endpoint(self):
+    def test_unknown_endpoint(self) -> None:
         with pytest.raises(mixpanel.MixpanelException):
             self.consumer.send('unknown', '1')
 
 
 class TestBufferedConsumer:
     @classmethod
-    def setup_class(cls):
+    def setup_class(cls) -> None:
         cls.MAX_LENGTH = 10
         cls.consumer = mixpanel.BufferedConsumer(cls.MAX_LENGTH)
         cls.consumer._consumer = LogConsumer()
         cls.log = cls.consumer._consumer.log
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         del self.log[:]
 
-    def test_buffer_hold_and_flush(self):
+    def test_buffer_hold_and_flush(self) -> None:
         self.consumer.send('events', '"Event"')
         assert len(self.log) == 0
         self.consumer.flush()
         assert self.log == [('events', ['Event'])]
 
-    def test_buffer_fills_up(self):
+    def test_buffer_fills_up(self) -> None:
         for i in range(self.MAX_LENGTH - 1):
             self.consumer.send('events', '"Event"')
         assert len(self.log) == 0
@@ -607,12 +609,12 @@ class TestBufferedConsumer:
             'Event', 'Event', 'Event', 'Event', 'Last Event',
         ])]
 
-    def test_unknown_endpoint_raises_on_send(self):
+    def test_unknown_endpoint_raises_on_send(self) -> None:
         # Ensure the exception isn't hidden until a flush.
         with pytest.raises(mixpanel.MixpanelException):
             self.consumer.send('unknown', '1')
 
-    def test_useful_reraise_in_flush_endpoint(self):
+    def test_useful_reraise_in_flush_endpoint(self) -> None:
         with responses.RequestsMock() as rsps:
             rsps.add(
                 responses.POST,
@@ -630,13 +632,13 @@ class TestBufferedConsumer:
             assert excinfo.value.message == '[%s]' % broken_json
             assert excinfo.value.endpoint == 'events'
 
-    def test_send_remembers_api_key(self):
+    def test_send_remembers_api_key(self) -> None:
         self.consumer.send('imports', '"Event"', api_key='MY_API_KEY')
         assert len(self.log) == 0
         self.consumer.flush()
         assert self.log == [('imports', ['Event'], ('MY_API_KEY', None))]
 
-    def test_send_remembers_api_secret(self):
+    def test_send_remembers_api_secret(self) -> None:
         self.consumer.send('imports', '"Event"', api_secret='ZZZZZZ')
         assert len(self.log) == 0
         self.consumer.flush()
@@ -647,12 +649,12 @@ class TestBufferedConsumer:
 
 class TestFunctional:
     @classmethod
-    def setup_class(cls):
+    def setup_class(cls) -> None:
         cls.TOKEN = '12345'
         cls.mp = mixpanel.Mixpanel(cls.TOKEN)
         cls.mp._now = lambda: 1000
 
-    def test_track_functional(self):
+    def test_track_functional(self) -> None:
         with responses.RequestsMock() as rsps:
             rsps.add(
                 responses.POST,
@@ -663,8 +665,8 @@ class TestFunctional:
 
             self.mp.track('player1', 'button_press', {'size': 'big', 'color': 'blue', '$insert_id': 'xyz1200'})
 
-            body = six.ensure_str(rsps.calls[0].request.body)
-            wrapper = dict(urllib.parse.parse_qsl(body))
+            body = rsps.calls[0].request.body if isinstance(rsps.calls[0].request.body, str) else rsps.calls[0].request.body.decode('utf-8')
+            wrapper = dict(urllib_parse.parse_qsl(body))
             data = json.loads(wrapper["data"])
             del wrapper["data"]
 
@@ -672,7 +674,7 @@ class TestFunctional:
             expected_data = {'event': 'button_press', 'properties': {'size': 'big', 'color': 'blue', 'mp_lib': 'python', 'token': '12345', 'distinct_id': 'player1', '$lib_version': mixpanel.__version__, 'time': 1000, '$insert_id': 'xyz1200'}}
             assert expected_data == data
 
-    def test_people_set_functional(self):
+    def test_people_set_functional(self) -> None:
         with responses.RequestsMock() as rsps:
             rsps.add(
                 responses.POST,
@@ -682,8 +684,8 @@ class TestFunctional:
             )
 
             self.mp.people_set('amq', {'birth month': 'october', 'favorite color': 'purple'})
-            body = six.ensure_str(rsps.calls[0].request.body)
-            wrapper = dict(urllib.parse.parse_qsl(body))
+            body = rsps.calls[0].request.body if isinstance(rsps.calls[0].request.body, str) else rsps.calls[0].request.body.decode('utf-8')
+            wrapper = dict(urllib_parse.parse_qsl(body))
             data = json.loads(wrapper["data"])
             del wrapper["data"]
 

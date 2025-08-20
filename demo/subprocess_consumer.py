@@ -38,10 +38,10 @@ def do_tracking(project_token, distinct_id, queue):
     '''
     consumer = QueueWriteConsumer(queue)
     mp = Mixpanel(project_token, consumer)
-    for i in xrange(100):
+    for i in range(100):
         event = 'Tick'
         mp.track(distinct_id, event, {'Tick Number': i})
-        print 'tick {0}'.format(i)
+        print(f'tick {i}')
 
     queue.put(None)  # tell worker we're out of jobs
 
@@ -64,7 +64,7 @@ def do_sending(queue):
 if __name__ == '__main__':
     # replace token with your real project token
     token = '0ba349286c780fe53d8b4617d90e2d01'
-    distinct_id = ''.join(random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') for x in xrange(32))
+    distinct_id = ''.join(random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') for x in range(32))
 
     queue = multiprocessing.Queue()
     sender = multiprocessing.Process(target=do_sending, args=(queue,))

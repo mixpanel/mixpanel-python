@@ -14,7 +14,6 @@ web, you may also be interested in our `JavaScript library`_.
 Analytics updates. :class:`~.Consumer` and :class:`~.BufferedConsumer` allow
 callers to customize the IO characteristics of their tracking.
 """
-from __future__ import absolute_import, unicode_literals
 import datetime
 import json
 import logging
@@ -23,11 +22,9 @@ import uuid
 
 import requests
 from requests.auth import HTTPBasicAuth
-import six
-from six.moves import range
 import urllib3
 
-__version__ = '4.10.1'
+__version__ = '4.11.0'
 VERSION = __version__  # TODO: remove when bumping major version.
 
 logger = logging.getLogger(__name__)
@@ -620,7 +617,7 @@ class Consumer(object):
                 verify=self._verify_cert,
             )
         except Exception as e:
-            six.raise_from(MixpanelException(e), e)
+            raise MixpanelException(e) from e
 
         try:
             response_dict = response.json()
@@ -733,6 +730,6 @@ class BufferedConsumer(object):
                 mp_e = MixpanelException(orig_e)
                 mp_e.message = batch_json
                 mp_e.endpoint = endpoint
-                six.raise_from(mp_e, orig_e)
+                raise mp_e from orig_e
             buf = buf[self._max_size:]
         self._buffers[endpoint] = buf

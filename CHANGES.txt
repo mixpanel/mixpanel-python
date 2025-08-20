@@ -1,3 +1,7 @@
+v5.0.0
+* Set minimum supported python version to 3.9, deprecating support for end-of-life versions of python 
+* Convert setup.py to pyproject.toml
+
 v4.9.0
 * To reduce TLS cert friction, use requests rather than directly using urllib3.
     Reinstate TLS cert validation by default. (#103)

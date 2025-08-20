@@ -8,22 +8,22 @@ Release process::
 6. Rebuild docs and publish to GitHub Pages (if appropriate -- see below)
 7. Publish to PyPI. (see below)
 
+Install test  and developer environment modules::
+  pip install -e .[test,dev]
+
 Run tests::
 
-  tox
+  python -m tox - runs all tests against all configured environments in the pyproject.toml
 
 Publish to PyPI::
 
-  pip install twine wheel
-  python setup.py sdist bdist_wheel
-  twine upload dist/*
+  python -m build
+  python -m twine upload dist/*
 
 Build docs::
 
-  pip install sphinx
-  python setup.py build_sphinx
+  python -m sphinx -b html docs docs/_build/html
 
 Publish docs to GitHub Pages::
 
-  pip install ghp-import
-  ghp-import -n -p build/sphinx/html
+  python -m ghp_import -n -p docs/_build/html
