@@ -45,9 +45,6 @@ dev = [
 [tool.setuptools.dynamic]
 version = {attr = "mixpanel.__version__"}
 
-[tool.setuptools.packages.find]
-exclude = ["tests*"]
-
 [tool.tox]
 envlist = ["py39", "py310", "py311", "py312", "py313"]
 
