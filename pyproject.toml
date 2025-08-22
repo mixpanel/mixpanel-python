@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mixpanel"
+dynamic = ["version"]
+description = "Official Mixpanel library for Python"
+readme = "README.rst"
+license = "Apache-2.0"
+authors = [
+    {name = "Mixpanel, Inc.", email = "dev@mixpanel.com"},
+]
+requires-python = ">=3.9"
+dependencies = [
+    "requests>=2.32.5",
+]
+keywords = ["mixpanel", "analytics"]
+classifiers = [
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+[project.urls]
+Homepage = "https://github.com/mixpanel/mixpanel-python"
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.4.1",
+    "responses>=0.25.8",
+]
+dev = [
+    "tox>=4.28.4",
+    "build",
+    "twine",
+    "sphinx",
+    "ghp-import",
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "mixpanel.__version__"}
+
+[tool.setuptools.packages.find]
+exclude = ["demo"]
+
+[tool.tox]
+envlist = ["py39", "py310", "py311", "py312"]
+
+[tool.tox.env_run_base]
+extras = ["test"]
+commands = [
+  ["pytest", "{posargs}"],
+]
