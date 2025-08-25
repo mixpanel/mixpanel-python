@@ -24,4 +24,4 @@ jobs:
         pip install -e .[test]
     - name: Test with pytest
       run: |
-        pytest test_mixpanel.py
+        pytest
