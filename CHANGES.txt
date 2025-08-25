@@ -1,3 +1,6 @@
+v5.0.0-rc1
+* Added feature flagging support
+
 v4.11.0
 * Set minimum supported python version to 3.9, deprecating support for end-of-life versions of python 
 * Convert setup.py to pyproject.toml

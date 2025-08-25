@@ -24,11 +24,13 @@ import requests
 from requests.auth import HTTPBasicAuth
 import urllib3
 
-__version__ = '4.11.0'
-VERSION = __version__  # TODO: remove when bumping major version.
+from .flags.local_feature_flags import LocalFeatureFlagsProvider
+from .flags.remote_feature_flags import RemoteFeatureFlagsProvider
+from .flags.types import LocalFlagsConfig, RemoteFlagsConfig
+
+__version__ = '5.0.0-rc1'
 
 logger = logging.getLogger(__name__)
-
 
 class DatetimeSerializer(json.JSONEncoder):
     def default(self, obj):
@@ -69,6 +71,23 @@ class Mixpanel(object):
 
     def _make_insert_id(self):
         return uuid.uuid4().hex
+
+    def getLocalFlagsProvider(self, config: LocalFlagsConfig) -> LocalFeatureFlagsProvider:
+        """Create and return a local feature flags provider.
+
+        :param LocalFlagsConfig config: Configuration for the local flags provider
+        :return: LocalFeatureFlagsProvider instance
+        """
+        return LocalFeatureFlagsProvider(self._token, config, self.track)
+
+    def getRemoteFlagsProvider(self, config: RemoteFlagsConfig) -> RemoteFeatureFlagsProvider:
+        """Create and return a remote feature flags provider.
+
+        :param RemoteFlagsConfig config: Configuration for the remote flags provider
+        :return: RemoteFeatureFlagsProvider instance
+        """
+        return RemoteFeatureFlagsProvider(self._token, config, self.track)
+
 
     def track(self, distinct_id, event_name, properties=None, meta=None):
         """Record an event.
