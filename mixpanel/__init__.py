@@ -24,7 +24,7 @@ import requests
 from requests.auth import HTTPBasicAuth
 import urllib3
 
-__version__ = '4.11.0'
+__version__ = '4.11.1'
 VERSION = __version__  # TODO: remove when bumping major version.
 
 logger = logging.getLogger(__name__)
