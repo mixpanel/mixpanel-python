@@ -13,7 +13,7 @@ authors = [
 ]
 requires-python = ">=3.9"
 dependencies = [
-    "requests>=2.32.5",
+    "requests>=2.25.0, <3",
 ]
 keywords = ["mixpanel", "analytics"]
 classifiers = [
