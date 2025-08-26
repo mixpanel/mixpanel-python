@@ -1,5 +1,8 @@
+v4.11.1
+* Loosen requirements for `requests` lib to >=2.4.2 to keep compatible with 2.10
+
 v4.11.0
-* Set minimum supported python version to 3.9, deprecating support for end-of-life versions of python 
+* Set minimum supported python version to 3.9, deprecating support for end-of-life versions of python
 * Convert setup.py to pyproject.toml
 
 v4.9.0
