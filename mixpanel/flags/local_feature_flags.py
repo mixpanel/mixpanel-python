@@ -30,20 +30,20 @@ class LocalFeatureFlagsProvider:
         self.async_client: httpx.AsyncClient = httpx.AsyncClient(**httpx_client_parameters)
         self._polling_task = None
 
-    async def start_polling_for_definitions(self):
-        await self._fetch_flag_definitions()
+    async def astart_polling_for_definitions(self):
+        await self._afetch_flag_definitions()
 
         if self._config.enablePolling:
             if not self._polling_task:
-                self._polling_task = asyncio.create_task(self._start_continuous_polling())
+                self._polling_task = asyncio.create_task(self._astart_continuous_polling())
             else:
                 logging.Error("Polling task is already running")
 
-    async def _start_continuous_polling(self):
+    async def _astart_continuous_polling(self):
         logging.info(f"Initialized async polling for flag definition updates every {self._config.pollingIntervalInSeconds} seconds")
         while True:
             await asyncio.sleep(self._config.pollingIntervalInSeconds)
-            await self._fetch_flag_definitions()
+            await self._afetch_flag_definitions()
 
     def are_flags_ready(self) -> bool:
         """
@@ -158,7 +158,7 @@ class LocalFeatureFlagsProvider:
                 return SelectedVariant(variant_key=variant.key, variant_value=variant.value)
         return None
 
-    async def _fetch_flag_definitions(self) -> None:
+    async def _afetch_flag_definitions(self) -> None:
         try:
             start_time = datetime.now()
             response = await self.async_client.get(self.FLAGS_DEFINITIONS_URL_PATH)

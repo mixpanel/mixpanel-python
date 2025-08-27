@@ -22,8 +22,8 @@ async def main():
     mp = mixpanel.Mixpanel(PROJECT_TOKEN)
     local_config = mixpanel.LocalFlagsConfig(api_host=API_HOST, enablePolling=SHOULD_POLL_CONTINOUSLY, pollingIntervalInSeconds=POLLING_INTERVAL_IN_SECONDS)
 
-    async with mp.getLocalFlagsProvider(local_config) as local_flags_provider:
-        await local_flags_provider.start_polling_for_definitions()
+    async with mp.get_local_flags_provider(local_config) as local_flags_provider:
+        await local_flags_provider.astart_polling_for_definitions()
 
         variant_value = local_flags_provider.get_variant_value(FLAG_KEY, FLAG_FALLBACK_VARIANT, USER_CONTEXT)
         print(f"Variant value: {variant_value}")

@@ -16,12 +16,12 @@ API_HOST = "api-eu.mixpanel.com"
 DEMO_ASYNC = True
 
 async def async_demo(remote_config):
-    async with mp.getRemoteFlagsProvider(remote_config) as remote_flags_provider:
+    async with mp.get_remote_flags_provider(remote_config) as remote_flags_provider:
         variant_value = await remote_flags_provider.get_variant_value(FLAG_KEY, FLAG_FALLBACK_VARIANT, USER_CONTEXT)
         print(f"Variant value: {variant_value}")
 
 def sync_demo(remote_config):
-    with mp.getRemoteFlagsProvider(remote_config) as remote_flags_provider:
+    with mp.get_remote_flags_provider(remote_config) as remote_flags_provider:
         variant_value = remote_flags_provider.get_variant_value_sync(FLAG_KEY, FLAG_FALLBACK_VARIANT, USER_CONTEXT)
         print(f"Variant value: {variant_value}")
 

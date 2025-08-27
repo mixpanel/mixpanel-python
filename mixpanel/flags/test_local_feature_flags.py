@@ -16,7 +16,7 @@ class TestLocalFeatureFlagsProvider:
         config.enablePolling = False
         mock_tracker = Mock()
         flags_provider = LocalFeatureFlagsProvider("test-token", config, mock_tracker)
-        await flags_provider.start_polling_for_definitions()
+        await flags_provider.astart_polling_for_definitions()
         return flags_provider
 
     @staticmethod

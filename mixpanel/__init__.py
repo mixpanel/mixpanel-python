@@ -72,7 +72,7 @@ class Mixpanel(object):
     def _make_insert_id(self):
         return uuid.uuid4().hex
 
-    def getLocalFlagsProvider(self, config: LocalFlagsConfig) -> LocalFeatureFlagsProvider:
+    def get_local_flags_provider(self, config: LocalFlagsConfig) -> LocalFeatureFlagsProvider:
         """Create and return a local feature flags provider.
 
         :param str token: The project token
@@ -82,7 +82,7 @@ class Mixpanel(object):
         """
         return LocalFeatureFlagsProvider(self._token, config, self.track)
 
-    def getRemoteFlagsProvider(self, config: RemoteFlagsConfig) -> RemoteFeatureFlagsProvider:
+    def get_remote_flags_provider(self, config: RemoteFlagsConfig) -> RemoteFeatureFlagsProvider:
         """Create and return a remote feature flags provider.
 
         :param str token: The project token
