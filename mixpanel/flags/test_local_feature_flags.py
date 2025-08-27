@@ -158,10 +158,8 @@ class TestLocalFeatureFlagsProvider:
             }
         }
 
-        with patch('mixpanel.flags.utils.normalized_hash') as mock_hash:
-            mock_hash.return_value = 0.5
-            result = flags.get_variant_value("test_flag", "fallback", context)
-            assert result != "fallback"
+        result = flags.get_variant_value("test_flag", "fallback", context)
+        assert result != "fallback"
 
     @respx.mock
     async def test_get_variant_value_returns_fallback_when_runtime_evaluation_not_satisfied(self):

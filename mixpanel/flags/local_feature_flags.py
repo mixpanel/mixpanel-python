@@ -173,6 +173,7 @@ class LocalFeatureFlagsProvider:
                 json_data = response.json()
                 experimentation_flags = ExperimentationFlags.model_validate(json_data)
                 for flag in experimentation_flags.flags:
+                    flag.ruleset.variants.sort(key=lambda variant: variant.key)
                     flags[flag.key] = flag
             except Exception as e:
                 logger.error("Failed to parse flag definitions: {}".format(e))

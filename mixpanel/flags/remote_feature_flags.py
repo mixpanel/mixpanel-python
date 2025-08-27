@@ -8,6 +8,9 @@ from typing import Dict, Any, Callable
 from .types import RemoteFlagsConfig, SelectedVariant, RemoteFlagsResponse
 from .utils import REQUEST_HEADERS, track_exposure_event
 
+logger = logging.getLogger(__name__)
+logging.getLogger("httpx").setLevel(logging.ERROR)
+
 class RemoteFeatureFlagsProvider:
     FLAGS_URL_PATH = "/flags"
 
