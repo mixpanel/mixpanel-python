@@ -24,7 +24,7 @@ class TestRemoteFeatureFlagsProvider:
     async def test_get_variant_value_is_fallback_if_call_fails(self):
         respx.get(ENDPOINT).mock(side_effect=httpx.RequestError("Network error"))
 
-        result = await self._flags.get_variant_value("test_flag", "control", {"distinct_id": "user123"})
+        result = await self._flags.aget_variant_value("test_flag", "control", {"distinct_id": "user123"})
 
         assert result == "control" 
 
@@ -32,7 +32,7 @@ class TestRemoteFeatureFlagsProvider:
     async def test_get_variant_value_is_fallback_if_bad_response_format(self):
         respx.get(ENDPOINT).mock(return_value=httpx.Response(200, text="invalid json"))
 
-        result = await self._flags.get_variant_value("test_flag", "control", {"distinct_id": "user123"})
+        result = await self._flags.aget_variant_value("test_flag", "control", {"distinct_id": "user123"})
 
         assert result == "control"
 
@@ -41,7 +41,7 @@ class TestRemoteFeatureFlagsProvider:
         respx.get(ENDPOINT).mock(
             return_value=self.create_success_response({}))
 
-        result = await self._flags.get_variant_value("test_flag", "control", {"distinct_id": "user123"})
+        result = await self._flags.aget_variant_value("test_flag", "control", {"distinct_id": "user123"})
 
         assert result == "control"
 
@@ -50,7 +50,7 @@ class TestRemoteFeatureFlagsProvider:
         respx.get(ENDPOINT).mock(
             return_value=self.create_success_response({"test_flag": SelectedVariant(variant_key="treatment", variant_value="treatment")}))
 
-        result = await self._flags.get_variant_value("test_flag", "control", {"distinct_id": "user123"})
+        result = await self._flags.aget_variant_value("test_flag", "control", {"distinct_id": "user123"})
 
         assert result == "treatment"
 
@@ -59,7 +59,7 @@ class TestRemoteFeatureFlagsProvider:
         respx.get(ENDPOINT).mock(
             return_value=self.create_success_response({"test_flag": SelectedVariant(variant_key="treatment", variant_value="treatment")}))
 
-        await self._flags.get_variant_value("test_flag", "control", {"distinct_id": "user123"})
+        await self._flags.aget_variant_value("test_flag", "control", {"distinct_id": "user123"})
 
         self._flags._tracker.assert_called_once()
 
@@ -67,6 +67,6 @@ class TestRemoteFeatureFlagsProvider:
     async def test_get_variant_value_does_not_track_exposure_event_if_fallback(self): 
         respx.get(ENDPOINT).mock(side_effect=httpx.RequestError("Network error"))
 
-        await self._flags.get_variant_value("test_flag", "control", {"distinct_id": "user123"})
+        await self._flags.aget_variant_value("test_flag", "control", {"distinct_id": "user123"})
 
         self._flags._tracker.assert_not_called()

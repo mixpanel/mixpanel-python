@@ -28,11 +28,11 @@ class RemoteFeatureFlagsProvider:
         self.async_client: httpx.AsyncClient = httpx.AsyncClient(**httpx_client_parameters)
         self.sync_client: httpx.Client = httpx.Client(**httpx_client_parameters)
 
-    async def get_variant_value(self, flag_key: str, fallback_value: str, context: Dict[str, str]) -> SelectedVariant:
-        variant = await self.get_variant(flag_key, SelectedVariant(variant_key=fallback_value, variant_value=fallback_value), context)
+    async def aget_variant_value(self, flag_key: str, fallback_value: str, context: Dict[str, str]) -> SelectedVariant:
+        variant = await self.aget_variant(flag_key, SelectedVariant(variant_key=fallback_value, variant_value=fallback_value), context)
         return variant.variant_value
 
-    async def get_variant(self, flag_key: str, fallback_value: SelectedVariant, context: Dict[str, str]) -> SelectedVariant:
+    async def aget_variant(self, flag_key: str, fallback_value: SelectedVariant, context: Dict[str, str]) -> SelectedVariant:
         try:
             params = self._prepare_query_params(flag_key, context)
             start_time = datetime.now()
@@ -43,15 +43,15 @@ class RemoteFeatureFlagsProvider:
             logging.exception(f"Failed to get remote variant for flag {flag_key}")
             return fallback_value
 
-    async def is_enabled(self, flag_key: str, context: Dict[str, str]) -> bool:
-        variant = await self.get_variant_value(flag_key, "false", context)
+    async def ais_enabled(self, flag_key: str, context: Dict[str, str]) -> bool:
+        variant = await self.aget_variant_value(flag_key, "false", context)
         return bool(variant.variant_value)
 
-    def get_variant_value_sync(self, flag_key: str, fallback_value: Any, context: Dict[str, str]) -> SelectedVariant:
-        variant = self.get_variant_sync(flag_key, SelectedVariant(variant_key=fallback_value, variant_value=fallback_value), context)
+    def get_variant_value(self, flag_key: str, fallback_value: Any, context: Dict[str, str]) -> SelectedVariant:
+        variant = self.get_variant(flag_key, SelectedVariant(variant_key=fallback_value, variant_value=fallback_value), context)
         return variant.variant_value
 
-    def get_variant_sync(self, flag_key: str, fallback_value: SelectedVariant, context: Dict[str, str]) -> SelectedVariant:
+    def get_variant(self, flag_key: str, fallback_value: SelectedVariant, context: Dict[str, str]) -> SelectedVariant:
         try:
             params = self._prepare_query_params(flag_key, context)
             start_time = datetime.now()
@@ -62,8 +62,8 @@ class RemoteFeatureFlagsProvider:
             logging.exception(f"Failed to get remote variant for flag {flag_key}")
             return fallback_value
 
-    def is_enabled_sync(self, flag_key: str, context: Dict[str, str]) -> bool:
-        variant = self.get_variant_value_sync(flag_key, "false", context)
+    def is_enabled(self, flag_key: str, context: Dict[str, str]) -> bool:
+        variant = self.get_variant_value(flag_key, "false", context)
         return bool(variant.variant_value)
 
     def _prepare_query_params(self, flag_key: str, context: Dict[str, str]) -> Dict[str, str]:
