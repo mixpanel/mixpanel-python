@@ -5,7 +5,8 @@ import time
 from datetime import datetime, timedelta
 from typing import Dict, Any, Callable, Optional
 from .types import ExperimentationFlag, ExperimentationFlags, SelectedVariant, LocalFlagsConfig, Rollout
-from .utils import REQUEST_HEADERS, normalized_hash, track_exposure_event
+from .utils import REQUEST_HEADERS, normalized_hash, track_exposure_event, prepare_common_query_params
+from .. import __version__
 
 logger = logging.getLogger(__name__)
 logging.getLogger("httpx").setLevel(logging.ERROR)
@@ -161,7 +162,8 @@ class LocalFeatureFlagsProvider:
     async def _afetch_flag_definitions(self) -> None:
         try:
             start_time = datetime.now()
-            response = await self.async_client.get(self.FLAGS_DEFINITIONS_URL_PATH)
+            params = prepare_common_query_params(self._token, __version__)
+            response = await self.async_client.get(self.FLAGS_DEFINITIONS_URL_PATH, params=params)
             end_time = datetime.now()
             request_duration: timedelta = end_time - start_time
             logging.info(f"Request started at {start_time.isoformat()}, completed at {end_time.isoformat()}, duration: {request_duration.total_seconds():.3f}s")

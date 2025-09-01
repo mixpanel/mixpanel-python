@@ -57,3 +57,18 @@ def _fnv1a64(data: bytes) -> int:
         hash_value &= 0xffffffffffffffff  # Keep it 64-bit
 
     return hash_value
+
+def prepare_common_query_params(token: str, sdk_version: str) -> Dict[str, str]:
+    """Prepare common query string parameters for feature flag evaluation.
+
+    :param token: The project token
+    :param sdk_version: The SDK version
+    :return: Dictionary of common query parameters
+    """
+    params = {
+        'sdk': 'python',
+        'sdk_version': sdk_version,
+        'token': token
+    }
+
+    return params

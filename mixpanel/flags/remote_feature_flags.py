@@ -6,7 +6,8 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, Callable
 
 from .types import RemoteFlagsConfig, SelectedVariant, RemoteFlagsResponse
-from .utils import REQUEST_HEADERS, track_exposure_event
+from .utils import REQUEST_HEADERS, track_exposure_event, prepare_common_query_params
+from .. import __version__
 
 logger = logging.getLogger(__name__)
 logging.getLogger("httpx").setLevel(logging.ERROR)
@@ -67,12 +68,13 @@ class RemoteFeatureFlagsProvider:
         return bool(variant.variant_value)
 
     def _prepare_query_params(self, flag_key: str, context: Dict[str, str]) -> Dict[str, str]:
+        params = prepare_common_query_params(self._token, __version__)
         context_json = json.dumps(context).encode('utf-8')
         url_encoded_context = urllib.parse.quote(context_json)
-        params = {
+        params.update({
             'flag_key': flag_key,
-            "context": url_encoded_context
-        }
+            'context': url_encoded_context
+        })
         return params
 
     def _handle_response(self, context: Dict[str, str], flag_key: str, fallback_value: SelectedVariant, response: httpx.Response, start_time: datetime, end_time: datetime) -> SelectedVariant:
