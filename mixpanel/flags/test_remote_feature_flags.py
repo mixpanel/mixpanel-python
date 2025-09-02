@@ -4,7 +4,7 @@ import respx
 import asyncio
 from typing import Dict
 from unittest.mock import Mock
-from .types import RemoteFlagsConfig, ExperimentationFlags, RemoteFlagsResponse, SelectedVariant
+from .types import RemoteFlagsConfig, RemoteFlagsResponse, SelectedVariant
 from .remote_feature_flags import RemoteFeatureFlagsProvider
 
 ENDPOINT = "https://api.mixpanel.com/flags"
