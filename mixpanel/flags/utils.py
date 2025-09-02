@@ -1,36 +1,13 @@
 from typing import Dict
 from .types import SelectedVariant
 
+EXPOSURE_EVENT = "$experiment_started"
+
 REQUEST_HEADERS: Dict[str, str] = {
     'X-Scheme': 'https',
     'X-Forwarded-Proto': 'https',
     'Content-Type': 'application/json'
 }
-
-def track_exposure_event(
-    distinct_id: str,
-    flag_key: str,
-    variant: SelectedVariant,
-    additional_properties: Dict[str, str],
-    tracker) -> None:
-    """Tracks an experiment started event to Mixpanel
-
-    :param distinct_id: The distinct ID of the user being tracked
-    :param flag: The experimentation flag being tracked.
-    :param variant: The selected variant for the experiment
-    :param additional_properties: Additional properties to include in the event
-    :param tracker: The tracker function to use for sending the event
-    """
-
-    properties = {
-        'Experiment name': flag_key,
-        'Variant name': variant.variant_key,
-        '$experiment_type': 'feature_flag',
-    }
-
-    properties.update(additional_properties)
-
-    tracker(distinct_id, '$experiment_started', properties) 
 
 def normalized_hash(key: str, salt: str) -> float:
     """Compute a normalized hash using FNV-1a algorithm.

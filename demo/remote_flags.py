@@ -4,7 +4,7 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 
-# Configure your project token, the feature flag  to test, and user context to evaluate.
+# Configure your project token, the feature flag to test, and user context to evaluate.
 PROJECT_TOKEN = ""
 FLAG_KEY = "sample-flag"
 FLAG_FALLBACK_VARIANT = "control"

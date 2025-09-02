@@ -80,7 +80,7 @@ class Mixpanel(object):
         :param Callable tracker: Delegate used to track exposure events 
         :return: LocalFeatureFlagsProvider instance
         """
-        return LocalFeatureFlagsProvider(self._token, config, self.track)
+        return LocalFeatureFlagsProvider(self._token, config, __version__, self.track)
 
     def get_remote_flags_provider(self, config: RemoteFlagsConfig) -> RemoteFeatureFlagsProvider:
         """Create and return a remote feature flags provider.
@@ -90,7 +90,7 @@ class Mixpanel(object):
         :param Callable tracker: Delegate used to track exposure events 
         :return: RemoteFeatureFlagsProvider instance
         """
-        return RemoteFeatureFlagsProvider(self._token, config, self.track)
+        return RemoteFeatureFlagsProvider(self._token, config, __version__, self.track)
 
 
     def track(self, distinct_id, event_name, properties=None, meta=None):

@@ -2,7 +2,7 @@ import pytest
 import respx
 import httpx
 from unittest.mock import Mock, patch
-from typing import Dict
+from typing import Dict, Optional
 from .types import LocalFlagsConfig, ExperimentationFlag, RuleSet, Variant, Rollout, FlagTestUsers, ExperimentationFlags
 from .local_feature_flags import LocalFeatureFlagsProvider
 
@@ -13,9 +13,9 @@ class TestLocalFeatureFlagsProvider:
             return_value=self.create_flags_response(flags))
 
         config = LocalFlagsConfig()
-        config.enablePolling = False
+        config.enable_polling = False
         mock_tracker = Mock()
-        flags_provider = LocalFeatureFlagsProvider("test-token", config, mock_tracker)
+        flags_provider = LocalFeatureFlagsProvider("test-token", config, "1.0.0", mock_tracker)
         await flags_provider.astart_polling_for_definitions()
         return flags_provider
 
@@ -23,10 +23,10 @@ class TestLocalFeatureFlagsProvider:
     def create_test_flag(
         flag_key: str = "test_flag",
         context: str = "distinct_id", 
-        variants: list = None,
+        variants: Optional[list]= None,
         rollout_percentage: float = 100.0,
-        runtime_evaluation: Dict = None,
-        test_users: Dict[str, str] = None) -> ExperimentationFlag:
+        runtime_evaluation: Optional[Dict] = None,
+        test_users: Optional[Dict[str, str]] = None) -> ExperimentationFlag:
 
         if variants is None:
             variants = [
@@ -60,7 +60,7 @@ class TestLocalFeatureFlagsProvider:
             context=context
         )
 
-    def create_flags_response(self, flags: list = None) -> Dict:
+    def create_flags_response(self, flags: list) -> httpx.Response:
         if flags is None:
             flags = []
         response_data = ExperimentationFlags(flags=flags).model_dump()
@@ -76,7 +76,6 @@ class TestLocalFeatureFlagsProvider:
     async def test_get_variant_value_returns_fallback_when_flag_does_not_exist(self):
         other_flag = self.create_test_flag("other_flag")
         flags = await self.setup_flags([other_flag])
-        
         result = flags.get_variant_value("nonexistent_flag", "control", {"distinct_id": "user123"})
         assert result == "control"
 
@@ -84,7 +83,6 @@ class TestLocalFeatureFlagsProvider:
     async def test_get_variant_value_returns_fallback_when_no_context(self):
         flag = self.create_test_flag(context="distinct_id")
         flags = await self.setup_flags([flag])
-        
         result = flags.get_variant_value("test_flag", "fallback", {})
         assert result == "fallback"
 
@@ -92,7 +90,6 @@ class TestLocalFeatureFlagsProvider:
     async def test_get_variant_value_returns_fallback_when_wrong_context_key(self):
         flag = self.create_test_flag(context="user_id")
         flags = await self.setup_flags([flag])
-        
         result = flags.get_variant_value("test_flag", "fallback", {"distinct_id": "user123"})
         assert result == "fallback"
 
@@ -174,7 +171,7 @@ class TestLocalFeatureFlagsProvider:
                 "region": "US"
             }
         }
-        
+
         result = flags.get_variant_value("test_flag", "fallback", context)
         assert result == "fallback"
 
@@ -195,7 +192,6 @@ class TestLocalFeatureFlagsProvider:
     async def test_get_variant_value_tracks_exposure_when_variant_selected(self):
         flag = self.create_test_flag()
         flags = await self.setup_flags([flag])
-        
         with patch('mixpanel.flags.utils.normalized_hash') as mock_hash:
             mock_hash.return_value = 0.5
             _ = flags.get_variant_value("test_flag", "fallback", {"distinct_id": "user123"})

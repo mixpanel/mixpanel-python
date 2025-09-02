@@ -1,16 +1,21 @@
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel
+from concurrent.futures import ThreadPoolExecutor
+from pydantic import BaseModel, ConfigDict
 
 MIXPANEL_DEFAULT_API_ENDPOINT = "api.mixpanel.com"
+
 class FlagsConfig(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     api_host: str = "api.mixpanel.com"
-    requestTimeoutInSeconds: int = 10
-    retryLimit: int = 3
-    retryExponentialBackoffFactor: int = 1
+    request_timeout_in_seconds: int = 10
+    retry_limit: int = 3
+    retry_exponential_backoff_factor: int = 1
+    custom_executor: Optional[ThreadPoolExecutor] = None
 
 class LocalFlagsConfig(FlagsConfig):
-    enablePolling: bool = True
-    pollingIntervalInSeconds: int = 60
+    enable_polling: bool = True
+    polling_interval_in_seconds: int = 60
 
 class RemoteFlagsConfig(FlagsConfig):
     pass
@@ -29,12 +34,12 @@ class VariantOverride(BaseModel):
 
 class Rollout(BaseModel):
     rollout_percentage: float
-    runtime_evaluation_definition: Optional[Dict[str, Any]] = None
+    runtime_evaluation_definition: Optional[Dict[str, str]] = None
     variant_override: Optional[VariantOverride] = None
 
 class RuleSet(BaseModel):
     variants: List[Variant]
-    rollout: List[Rollout] 
+    rollout: List[Rollout]
     test: Optional[FlagTestUsers] = None
 
 class ExperimentationFlag(BaseModel):
@@ -48,7 +53,7 @@ class ExperimentationFlag(BaseModel):
 
 class SelectedVariant(BaseModel):
     variant_key: str
-    variant_value: str
+    variant_value: Any
 
 class ExperimentationFlags(BaseModel):
     flags: List[ExperimentationFlag] 
