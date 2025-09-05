@@ -9,8 +9,6 @@ class FlagsConfig(BaseModel):
 
     api_host: str = "api.mixpanel.com"
     request_timeout_in_seconds: int = 10
-    retry_limit: int = 3
-    retry_exponential_backoff_factor: int = 1
     custom_executor: Optional[ThreadPoolExecutor] = None
 
 class LocalFlagsConfig(FlagsConfig):
@@ -22,7 +20,7 @@ class RemoteFlagsConfig(FlagsConfig):
 
 class Variant(BaseModel):
     key: str
-    value: str
+    value: Any
     is_control: bool
     split: float
 
@@ -52,7 +50,8 @@ class ExperimentationFlag(BaseModel):
     context: str
 
 class SelectedVariant(BaseModel):
-    variant_key: str
+    # variant_key can be None if being used as a fallback
+    variant_key: Optional[str] = None
     variant_value: Any
 
 class ExperimentationFlags(BaseModel):

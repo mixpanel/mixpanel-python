@@ -36,7 +36,7 @@ class RemoteFeatureFlagsProvider:
         self._request_params_base = prepare_common_query_params(self._token, version)
 
     async def aget_variant_value(self, flag_key: str, fallback_value: Any, context: Dict[str, Any]) -> Any:
-        variant = await self.aget_variant(flag_key, SelectedVariant(variant_key=fallback_value, variant_value=fallback_value), context)
+        variant = await self.aget_variant(flag_key, SelectedVariant(variant_value=fallback_value), context)
         return variant.variant_value
 
     async def aget_variant(self, flag_key: str, fallback_value: SelectedVariant, context: Dict[str, Any]) -> SelectedVariant:
@@ -55,15 +55,15 @@ class RemoteFeatureFlagsProvider:
 
             return selected_variant
         except Exception:
-            logging.exception(f"Failed to get remote variant for flag {flag_key}")
+            logging.exception(f"Failed to get remote variant for flag '{flag_key}'")
             return fallback_value
 
     async def ais_enabled(self, flag_key: str, context: Dict[str, Any]) -> bool:
-        variant = await self.aget_variant_value(flag_key, "false", context)
-        return bool(variant.variant_value)
+        variant_value = await self.aget_variant_value(flag_key, False, context)
+        return bool(variant_value)
 
     def get_variant_value(self, flag_key: str, fallback_value: Any, context: Dict[str, Any]) -> Any:
-        variant = self.get_variant(flag_key, SelectedVariant(variant_key=fallback_value, variant_value=fallback_value), context)
+        variant = self.get_variant(flag_key, SelectedVariant(variant_value=fallback_value), context)
         return variant.variant_value
 
     def get_variant(self, flag_key: str, fallback_value: SelectedVariant, context: Dict[str, Any]) -> SelectedVariant:
@@ -81,12 +81,12 @@ class RemoteFeatureFlagsProvider:
 
             return selected_variant
         except Exception:
-            logging.exception(f"Failed to get remote variant for flag {flag_key}")
+            logging.exception(f"Failed to get remote variant for flag '{flag_key}'")
             return fallback_value
 
     def is_enabled(self, flag_key: str, context: Dict[str, Any]) -> bool:
-        variant = self.get_variant_value(flag_key, "false", context)
-        return bool(variant.variant_value)
+        variant_value = self.get_variant_value(flag_key, False, context)
+        return bool(variant_value)
 
     def _prepare_query_params(self, flag_key: str, context: Dict[str, Any]) -> Dict[str, str]:
         params = self._request_params_base.copy()
@@ -102,7 +102,7 @@ class RemoteFeatureFlagsProvider:
         request_duration = end_time - start_time
         formatted_start_time = start_time.isoformat()
         formatted_end_time = end_time.isoformat()
-        logging.info(f"Request started at {formatted_start_time}, completed at {formatted_end_time}, duration: {request_duration.total_seconds():.3f}s")
+        logging.info(f"Request started at '{formatted_start_time}', completed at '{formatted_end_time}', duration: '{request_duration.total_seconds():.3f}s'")
 
     def _build_tracking_properties(self, flag_key: str, variant: SelectedVariant, start_time: datetime, end_time: datetime) -> Dict[str, Any]:
         request_duration = end_time - start_time
@@ -127,7 +127,7 @@ class RemoteFeatureFlagsProvider:
         if flag_key in flags_response.flags:
             return flags_response.flags[flag_key], False
         else:
-            logging.warning(f"Flag {flag_key} not found in remote response. Returning fallback, {fallback_value}")
+            logging.warning(f"Flag '{flag_key}' not found in remote response. Returning fallback, '{fallback_value}'")
             return fallback_value, True
 
     def __enter__(self):

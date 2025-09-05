@@ -24,11 +24,13 @@ import requests
 from requests.auth import HTTPBasicAuth
 import urllib3
 
+from typing import Optional
+
 from .flags.local_feature_flags import LocalFeatureFlagsProvider
 from .flags.remote_feature_flags import RemoteFeatureFlagsProvider
 from .flags.types import LocalFlagsConfig, RemoteFlagsConfig
 
-__version__ = '5.0.0-rc1'
+__version__ = '5.0.0b1'
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +48,7 @@ def json_dumps(data, cls=None):
     return json.dumps(data, separators=(',', ':'), cls=cls)
 
 
-class Mixpanel(object):
+class Mixpanel():
     """Instances of Mixpanel are used for all events and profile updates.
 
     :param str token: your project's Mixpanel token
@@ -61,10 +63,19 @@ class Mixpanel(object):
         The *serializer* parameter.
     """
 
-    def __init__(self, token, consumer=None, serializer=DatetimeSerializer):
+    def __init__(self, token, consumer=None, serializer=DatetimeSerializer, local_flags_config: Optional[LocalFlagsConfig] = None, remote_flags_config: Optional[RemoteFlagsConfig] = None):
         self._token = token
         self._consumer = consumer or Consumer()
         self._serializer = serializer
+
+        self._local_flags_provider = None
+        self._remote_flags_provider = None
+
+        if local_flags_config:
+            self._local_flags_provider = LocalFeatureFlagsProvider(self._token, local_flags_config, __version__, self.track)
+
+        if remote_flags_config:
+            self._remote_flags_provider = RemoteFeatureFlagsProvider(self._token, remote_flags_config, __version__, self.track)
 
     def _now(self):
         return time.time()
@@ -72,26 +83,19 @@ class Mixpanel(object):
     def _make_insert_id(self):
         return uuid.uuid4().hex
 
-    def get_local_flags_provider(self, config: LocalFlagsConfig) -> LocalFeatureFlagsProvider:
-        """Create and return a local feature flags provider.
+    @property
+    def local_flags(self) -> LocalFeatureFlagsProvider:
+        """Get the local flags provider if configured for it"""
+        if self._local_flags_provider is None:
+            raise ValueError("No local flags provider initialized. Pass local_flags_config to constructor.")
+        return self._local_flags_provider
 
-        :param str token: The project token
-        :param LocalFlagsConfig config: Configuration for the local flags provider
-        :param Callable tracker: Delegate used to track exposure events 
-        :return: LocalFeatureFlagsProvider instance
-        """
-        return LocalFeatureFlagsProvider(self._token, config, __version__, self.track)
-
-    def get_remote_flags_provider(self, config: RemoteFlagsConfig) -> RemoteFeatureFlagsProvider:
-        """Create and return a remote feature flags provider.
-
-        :param str token: The project token
-        :param RemoteFlagsConfig config: Configuration for the remote flags provider
-        :param Callable tracker: Delegate used to track exposure events 
-        :return: RemoteFeatureFlagsProvider instance
-        """
-        return RemoteFeatureFlagsProvider(self._token, config, __version__, self.track)
-
+    @property
+    def remote_flags(self) -> RemoteFeatureFlagsProvider:
+        """Get the remote flags provider if configured for it"""
+        if self._remote_flags_provider is None:
+            raise MixpanelException("No remote_flags_config was passed to the consttructor")
+        return self._remote_flags_provider
 
     def track(self, distinct_id, event_name, properties=None, meta=None):
         """Record an event.
@@ -527,6 +531,24 @@ class Mixpanel(object):
             record.update(meta)
         self._consumer.send('groups', json_dumps(record, cls=self._serializer))
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self._local_flags_provider is not None:
+            self._local_flags_provider.__exit__(exc_type, exc_val, exc_tb)
+        if self._remote_flags_provider is not None:
+            self._remote_flags_provider.__exit__(exc_type, exc_val, exc_tb)
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if self._local_flags_provider is not None:
+            await self._local_flags_provider.__aexit__(exc_type, exc_val, exc_tb)
+        if self._remote_flags_provider is not None:
+            await self._remote_flags_provider.__aexit__(exc_type, exc_val, exc_tb)
+
 
 class MixpanelException(Exception):
     """Raised by consumers when unable to send messages.
@@ -756,3 +778,4 @@ class BufferedConsumer(object):
                 raise mp_e from orig_e
             buf = buf[self._max_size:]
         self._buffers[endpoint] = buf
+

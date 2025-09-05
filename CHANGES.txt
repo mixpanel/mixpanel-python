@@ -1,4 +1,4 @@
-v5.0.0-rc1
+v5.0.0b1
 * Added initial feature flagging support
 
 v4.11.1

@@ -9,24 +9,25 @@ from .remote_feature_flags import RemoteFeatureFlagsProvider
 
 ENDPOINT = "https://api.mixpanel.com/flags"
 
-@pytest.mark.asyncio
-class TestRemoteFeatureFlagsProvider:
-    def setup_method(self):
-        config = RemoteFlagsConfig()
-        mock_tracker = Mock()
-        self._flags = RemoteFeatureFlagsProvider("test-token", config, "1.0.0", mock_tracker)
+def create_success_response(assigned_variants_per_flag: Dict[str, SelectedVariant]) -> httpx.Response:
+    serialized_response = RemoteFlagsResponse(code=200, flags=assigned_variants_per_flag).model_dump()
+    return httpx.Response(status_code=200, json=serialized_response)
 
-    @staticmethod
-    def create_success_response(assigned_variants_per_flag: Dict[str, SelectedVariant]) -> httpx.Response:
-        serialized_response = RemoteFlagsResponse(code=200, flags=assigned_variants_per_flag).model_dump()
-        return httpx.Response(status_code=200, json=serialized_response)
+class TestRemoteFeatureFlagsProviderAsync:
+    @pytest.fixture(autouse=True)
+    async def setup_method(self):
+        config = RemoteFlagsConfig()
+        self.mock_tracker = Mock()
+        self._flags = RemoteFeatureFlagsProvider("test-token", config, "1.0.0", self.mock_tracker)
+        yield
+        await self._flags.__aexit__(None, None, None)
 
     @respx.mock
+    @pytest.mark.asyncio
     async def test_get_variant_value_is_fallback_if_call_fails(self):
         respx.get(ENDPOINT).mock(side_effect=httpx.RequestError("Network error"))
 
         result = await self._flags.aget_variant_value("test_flag", "control", {"distinct_id": "user123"})
-
         assert result == "control" 
 
     @respx.mock
@@ -34,31 +35,28 @@ class TestRemoteFeatureFlagsProvider:
         respx.get(ENDPOINT).mock(return_value=httpx.Response(200, text="invalid json"))
 
         result = await self._flags.aget_variant_value("test_flag", "control", {"distinct_id": "user123"})
-
         assert result == "control"
 
     @respx.mock
     async def test_get_variant_value_is_fallback_if_success_but_no_flag_found(self):
         respx.get(ENDPOINT).mock(
-            return_value=self.create_success_response({}))
+            return_value=create_success_response({}))
 
         result = await self._flags.aget_variant_value("test_flag", "control", {"distinct_id": "user123"})
-
         assert result == "control"
 
     @respx.mock
     async def test_get_variant_value_returns_expected_variant_from_api(self):
         respx.get(ENDPOINT).mock(
-            return_value=self.create_success_response({"test_flag": SelectedVariant(variant_key="treatment", variant_value="treatment")}))
+            return_value=create_success_response({"test_flag": SelectedVariant(variant_key="treatment", variant_value="treatment")}))
 
         result = await self._flags.aget_variant_value("test_flag", "control", {"distinct_id": "user123"})
-
         assert result == "treatment"
 
     @respx.mock
     async def test_get_variant_value_tracks_exposure_event_if_variant_selected(self):
         respx.get(ENDPOINT).mock(
-            return_value=self.create_success_response({"test_flag": SelectedVariant(variant_key="treatment", variant_value="treatment")}))
+            return_value=create_success_response({"test_flag": SelectedVariant(variant_key="treatment", variant_value="treatment")}))
 
         await self._flags.aget_variant_value("test_flag", "control", {"distinct_id": "user123"})
 
@@ -66,12 +64,97 @@ class TestRemoteFeatureFlagsProvider:
         if pending:
             await asyncio.gather(*pending, return_exceptions=True)
 
-        self._flags._tracker.assert_called_once()
+        self.mock_tracker.assert_called_once()
 
     @respx.mock
     async def test_get_variant_value_does_not_track_exposure_event_if_fallback(self): 
         respx.get(ENDPOINT).mock(side_effect=httpx.RequestError("Network error"))
-
         await self._flags.aget_variant_value("test_flag", "control", {"distinct_id": "user123"})
+        self.mock_tracker.assert_not_called()
 
-        self._flags._tracker.assert_not_called()
+    @respx.mock
+    async def test_ais_enabled_returns_true_for_true_variant_value(self):
+        respx.get(ENDPOINT).mock(
+            return_value=create_success_response({"test_flag": SelectedVariant(variant_key="enabled", variant_value=True)}))
+
+        result = await self._flags.ais_enabled("test_flag", {"distinct_id": "user123"})
+        assert result == True
+
+    @respx.mock
+    async def test_ais_enabled_returns_false_for_false_variant_value(self):
+        respx.get(ENDPOINT).mock(
+            return_value=create_success_response({"test_flag": SelectedVariant(variant_key="disabled", variant_value=False)}))
+
+        result = await self._flags.ais_enabled("test_flag", {"distinct_id": "user123"})
+        assert result == False
+
+class TestRemoteFeatureFlagsProviderSync:
+    def setup_method(self):
+        config = RemoteFlagsConfig()
+        self.mock_tracker = Mock()
+        self._flags = RemoteFeatureFlagsProvider("test-token", config, "1.0.0", self.mock_tracker)
+
+    def teardown_method(self):
+        self._flags.__exit__(None, None, None)
+
+    @respx.mock
+    def test_get_variant_value_is_fallback_if_call_fails(self):
+        respx.get(ENDPOINT).mock(side_effect=httpx.RequestError("Network error"))
+
+        result = self._flags.get_variant_value("test_flag", "control", {"distinct_id": "user123"})
+        assert result == "control"
+
+    @respx.mock
+    def test_get_variant_value_is_fallback_if_bad_response_format(self):
+        respx.get(ENDPOINT).mock(return_value=httpx.Response(200, text="invalid json"))
+
+        result = self._flags.get_variant_value("test_flag", "control", {"distinct_id": "user123"})
+        assert result == "control"
+
+    @respx.mock
+    def test_get_variant_value_is_fallback_if_success_but_no_flag_found(self):
+        respx.get(ENDPOINT).mock(
+            return_value=create_success_response({}))
+
+        result = self._flags.get_variant_value("test_flag", "control", {"distinct_id": "user123"})
+        assert result == "control"
+
+    @respx.mock
+    def test_get_variant_value_returns_expected_variant_from_api(self):
+        respx.get(ENDPOINT).mock(
+            return_value=create_success_response({"test_flag": SelectedVariant(variant_key="treatment", variant_value="treatment")}))
+
+        result = self._flags.get_variant_value("test_flag", "control", {"distinct_id": "user123"})
+        assert result == "treatment"
+
+    @respx.mock
+    def test_get_variant_value_tracks_exposure_event_if_variant_selected(self):
+        respx.get(ENDPOINT).mock(
+            return_value=create_success_response({"test_flag": SelectedVariant(variant_key="treatment", variant_value="treatment")}))
+
+        self._flags.get_variant_value("test_flag", "control", {"distinct_id": "user123"})
+        self.mock_tracker.assert_called_once()
+
+    @respx.mock
+    def test_get_variant_value_does_not_track_exposure_event_if_fallback(self):
+        respx.get(ENDPOINT).mock(side_effect=httpx.RequestError("Network error"))
+        
+        self._flags.get_variant_value("test_flag", "control", {"distinct_id": "user123"})
+        self.mock_tracker.assert_not_called()
+
+    @respx.mock
+    def test_is_enabled_returns_true_for_true_variant_value(self):
+        respx.get(ENDPOINT).mock(
+            return_value=create_success_response({"test_flag": SelectedVariant(variant_key="enabled", variant_value=True)}))
+
+        result = self._flags.is_enabled("test_flag", {"distinct_id": "user123"})
+        assert result == True
+
+    @respx.mock
+    def test_is_enabled_returns_false_for_false_variant_value(self):
+        respx.get(ENDPOINT).mock(
+            return_value=create_success_response({"test_flag": SelectedVariant(variant_key="disabled", variant_value=False)}))
+
+        result = self._flags.is_enabled("test_flag", {"distinct_id": "user123"})
+        assert result == False
+
