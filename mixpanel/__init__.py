@@ -87,7 +87,7 @@ class Mixpanel():
     def local_flags(self) -> LocalFeatureFlagsProvider:
         """Get the local flags provider if configured for it"""
         if self._local_flags_provider is None:
-            raise ValueError("No local flags provider initialized. Pass local_flags_config to constructor.")
+            raise MixpanelException("No local flags provider initialized. Pass local_flags_config to constructor.")
         return self._local_flags_provider
 
     @property
