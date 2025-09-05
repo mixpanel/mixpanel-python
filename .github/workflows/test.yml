@@ -25,8 +25,8 @@ jobs:
     - name: Run tests 
       run: |
         pytest --cov --cov-branch --cov-report=xml
-    - name: Upload coverage reports to Codecov with GitHub Action
-      uses: codecov/codecov-action@0565863a31f2c772f9f0395002a31e3f06189574 # v5.4.0
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v5
       with:
-        flags: mixpanel-python
-        disable_search: true
+        token: ${{ secrets.CODECOV_TOKEN }}
+        slug: mixpanel/mixpanel-python
