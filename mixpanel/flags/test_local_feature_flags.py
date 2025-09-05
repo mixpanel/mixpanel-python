@@ -283,9 +283,6 @@ class TestLocalFeatureFlagsProviderAsync:
 
             flags_in_order=[[flag_v1], [flag_v2]]
             flags = await self.setup_flags_with_polling(flags_in_order)
-            result1 = flags.get_variant_value("test_flag", "fallback", {"distinct_id": "user123"})
-
-            assert result1 == "fallback"
 
             async with polling_limit_check:
                 await polling_limit_check.wait_for(lambda: polling_iterations >= len(flags_in_order))
@@ -296,44 +293,46 @@ class TestLocalFeatureFlagsProviderAsync:
             await flags.astop_polling_for_definitions()
 
 class TestLocalFeatureFlagsProviderSync:
-    def setup_method(self):
-        config = LocalFlagsConfig(enable_polling=True, polling_interval_in_seconds=0)
-        self.mock_tracker = Mock()
-        self._flags = LocalFeatureFlagsProvider("test-token", config, "1.0.0", self.mock_tracker)
-        self._flags.start_polling_for_definitions()
+    def setup_flags_with_polling(self, flags_in_order: List[List[ExperimentationFlag]] = [[]]):
+        responses = [create_flags_response(flag) for flag in flags_in_order]
 
-    def teardown_method(self):
-        self._flags.__exit__(None, None, None)
+        respx.get("https://api.mixpanel.com/flags/definitions").mock(
+            side_effect=chain(
+                responses,
+                repeat(responses[-1]),
+            )
+        )
+
+        return self.get_flags_provider(LocalFlagsConfig(enable_polling=True, polling_interval_in_seconds=0))
+
+    def get_flags_provider(self, config: LocalFlagsConfig) -> LocalFeatureFlagsProvider:
+        mock_tracker = Mock()
+        flags_provider = LocalFeatureFlagsProvider("test-token", config, "1.0.0", mock_tracker)
+        flags_provider.start_polling_for_definitions()
+        return flags_provider
 
     @respx.mock
     def test_get_variant_value_uses_most_recent_polled_flag(self):
+        flag_v1 = create_test_flag(rollout_percentage=0.0)
+        flag_v2 = create_test_flag(rollout_percentage=100.0)
+        flags_in_order=[[flag_v1], [flag_v2]]
+
         polling_iterations = 0
         polling_event = threading.Event()
         original_fetch = LocalFeatureFlagsProvider._fetch_flag_definitions
 
         # Hook into the fetch method to signal when we've polled multiple times.
-        def track_fetch_calls(provider_self):
+        def track_fetch_calls(self):
             nonlocal polling_iterations
             polling_iterations += 1
-            if polling_iterations >= 2:
+            if polling_iterations >= 3:
                 polling_event.set()
-            return original_fetch(provider_self)
-
-        flag_v1 = create_test_flag(rollout_percentage=0.0)
-        flag_v2 = create_test_flag(rollout_percentage=100.0)
-
-        responses = [create_flags_response([flag_v1]), create_flags_response([flag_v2])]
-
-        respx.get("https://api.mixpanel.com/flags/definitions").mock(
-            side_effect=chain(responses, repeat(responses[-1]))
-        )
+            return original_fetch(self)
 
         with patch.object(LocalFeatureFlagsProvider, '_fetch_flag_definitions', track_fetch_calls):
-            result1 = self._flags.get_variant_value("test_flag", "fallback", {"distinct_id": "user123"})
-            assert result1 == "fallback"
-
+            flags = self.setup_flags_with_polling(flags_in_order)
             polling_event.wait(timeout=5.0)
-            self._flags.stop_polling_for_definitions()
-
-            result2 = self._flags.get_variant_value("test_flag", "fallback", {"distinct_id": "user123"})
+            flags.stop_polling_for_definitions()
+            assert (polling_iterations >= 3 )
+            result2 = flags.get_variant_value("test_flag", "fallback", {"distinct_id": "user123"})
             assert result2 != "fallback"

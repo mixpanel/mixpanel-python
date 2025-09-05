@@ -55,7 +55,7 @@ version = {attr = "mixpanel.__version__"}
 exclude = ["demo"]
 
 [tool.tox]
-envlist = ["py39", "py310", "py311", "py312"]
+envlist = ["py39", "py310", "py311", "py312", "pypy39", "pypy311"]
 
 [tool.tox.env_run_base]
 extras = ["test"]
