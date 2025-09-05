@@ -64,12 +64,14 @@ class TestRemoteFeatureFlagsProviderAsync:
         if pending:
             await asyncio.gather(*pending, return_exceptions=True)
 
+        self._flags._executor.shutdown()
         self.mock_tracker.assert_called_once()
 
     @respx.mock
     async def test_get_variant_value_does_not_track_exposure_event_if_fallback(self): 
         respx.get(ENDPOINT).mock(side_effect=httpx.RequestError("Network error"))
         await self._flags.aget_variant_value("test_flag", "control", {"distinct_id": "user123"})
+        self._flags._executor.shutdown()
         self.mock_tracker.assert_not_called()
 
     @respx.mock
@@ -133,13 +135,14 @@ class TestRemoteFeatureFlagsProviderSync:
             return_value=create_success_response({"test_flag": SelectedVariant(variant_key="treatment", variant_value="treatment")}))
 
         self._flags.get_variant_value("test_flag", "control", {"distinct_id": "user123"})
+        self._flags._executor.shutdown()
         self.mock_tracker.assert_called_once()
 
     @respx.mock
     def test_get_variant_value_does_not_track_exposure_event_if_fallback(self):
         respx.get(ENDPOINT).mock(side_effect=httpx.RequestError("Network error"))
-        
         self._flags.get_variant_value("test_flag", "control", {"distinct_id": "user123"})
+        self._flags._executor.shutdown()
         self.mock_tracker.assert_not_called()
 
     @respx.mock

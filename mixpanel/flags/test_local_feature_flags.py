@@ -227,12 +227,14 @@ class TestLocalFeatureFlagsProviderAsync:
         with patch('mixpanel.flags.utils.normalized_hash') as mock_hash:
             mock_hash.return_value = 0.5
             _ = flags.get_variant_value("test_flag", "fallback", {"distinct_id": "user123"})
+            flags._executor.shutdown()
             flags._tracker.assert_called_once()
 
     @respx.mock
     async def test_get_variant_value_does_not_track_exposure_on_fallback(self):
         flags = await self.setup_flags([])
         _ = flags.get_variant_value("nonexistent_flag", "fallback", {"distinct_id": "user123"})
+        flags._executor.shutdown()
         flags._tracker.assert_not_called()
 
     @respx.mock
@@ -240,6 +242,7 @@ class TestLocalFeatureFlagsProviderAsync:
         flag = create_test_flag(context="company")
         flags = await self.setup_flags([flag])
         _ = flags.get_variant_value("nonexistent_flag", "fallback", {"company_id": "company123"})
+        flags._executor.shutdown()
         flags._tracker.assert_not_called()
 
     @respx.mock
@@ -283,7 +286,6 @@ class TestLocalFeatureFlagsProviderAsync:
 
             flags_in_order=[[flag_v1], [flag_v2]]
             flags = await self.setup_flags_with_polling(flags_in_order)
-
             async with polling_limit_check:
                 await polling_limit_check.wait_for(lambda: polling_iterations >= len(flags_in_order))
 
