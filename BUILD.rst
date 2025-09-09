@@ -15,6 +15,11 @@ Run tests::
 
   python -m tox - runs all tests against all configured environments in the pyproject.toml
 
+Run tests under code coverage::
+  python -m coverage run -m pytest
+  python -m coverage report -m
+  python -m coverage html
+
 Publish to PyPI::
 
   python -m build
