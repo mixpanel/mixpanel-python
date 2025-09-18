@@ -1,3 +1,6 @@
+v5.0.0b2
+* Update local flags evaluation to not use threadpool for exposure event tracking and add some docs
+
 v5.0.0b1
 * Added initial feature flagging support
 

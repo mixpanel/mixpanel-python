@@ -8,7 +8,6 @@ from typing import Dict, Any, Callable
 from asgiref.sync import sync_to_async
 
 from .types import RemoteFlagsConfig, SelectedVariant, RemoteFlagsResponse
-from concurrent.futures import ThreadPoolExecutor
 from .utils import REQUEST_HEADERS, EXPOSURE_EVENT, prepare_common_query_params
 
 logger = logging.getLogger(__name__)
@@ -22,7 +21,6 @@ class RemoteFeatureFlagsProvider:
         self._config: RemoteFlagsConfig = config
         self._version: str = version
         self._tracker: Callable = tracker
-        self._executor: ThreadPoolExecutor = config.custom_executor or ThreadPoolExecutor(max_workers=5)
 
         httpx_client_parameters = {
             "base_url": f"https://{config.api_host}",
@@ -36,10 +34,24 @@ class RemoteFeatureFlagsProvider:
         self._request_params_base = prepare_common_query_params(self._token, version)
 
     async def aget_variant_value(self, flag_key: str, fallback_value: Any, context: Dict[str, Any]) -> Any:
+        """
+        Gets the selected variant value of a feature flag variant for the current user context from remote server.
+
+        :param str flag_key: The key of the feature flag to evaluate
+        :param Any fallback_value: The default value to return if the flag is not found or evaluation fails
+        :param Dict[str, Any] context: Context dictionary containing user attributes and rollout context
+        """
         variant = await self.aget_variant(flag_key, SelectedVariant(variant_value=fallback_value), context)
         return variant.variant_value
 
     async def aget_variant(self, flag_key: str, fallback_value: SelectedVariant, context: Dict[str, Any]) -> SelectedVariant:
+        """
+        Asynchronously gets the selected variant  of a feature flag variant for the current user context from remote server.
+
+        :param str flag_key: The key of the feature flag to evaluate
+        :param SelectedVariant fallback_value: The default variant to return if evaluation fails
+        :param Dict[str, Any] context: Context dictionary containing user attributes and rollout context
+        """
         try:
             params = self._prepare_query_params(flag_key, context)
             start_time = datetime.now()
@@ -51,7 +63,7 @@ class RemoteFeatureFlagsProvider:
             if not is_fallback and (distinct_id := context.get("distinct_id")):
                 properties = self._build_tracking_properties(flag_key, selected_variant, start_time, end_time)
                 asyncio.create_task(
-                    sync_to_async(self._tracker, executor=self._executor, thread_sensitive=False)(distinct_id, EXPOSURE_EVENT, properties))
+                    sync_to_async(self._tracker, thread_sensitive=False)(distinct_id, EXPOSURE_EVENT, properties))
 
             return selected_variant
         except Exception:
@@ -59,14 +71,34 @@ class RemoteFeatureFlagsProvider:
             return fallback_value
 
     async def ais_enabled(self, flag_key: str, context: Dict[str, Any]) -> bool:
+        """
+        Asynchronously checks if a feature flag is enabled for the given context.
+
+        :param str flag_key: The key of the feature flag to check
+        :param Dict[str, Any] context: Context dictionary containing user attributes and rollout context
+        """
         variant_value = await self.aget_variant_value(flag_key, False, context)
         return bool(variant_value)
 
     def get_variant_value(self, flag_key: str, fallback_value: Any, context: Dict[str, Any]) -> Any:
+        """
+        Synchronously gets the value of a feature flag variant from remote server.
+
+        :param str flag_key: The key of the feature flag to evaluate
+        :param Any fallback_value: The default value to return if the flag is not found or evaluation fails
+        :param Dict[str, Any] context: Context dictionary containing user attributes and rollout context
+        """
         variant = self.get_variant(flag_key, SelectedVariant(variant_value=fallback_value), context)
         return variant.variant_value
 
     def get_variant(self, flag_key: str, fallback_value: SelectedVariant, context: Dict[str, Any]) -> SelectedVariant:
+        """
+        Synchronously getsthe selected variant for a feature flag from remote server.
+
+        :param str flag_key: The key of the feature flag to evaluate
+        :param SelectedVariant fallback_value: The default variant to return if evaluation fails
+        :param Dict[str, Any] context: Context dictionary containing user attributes and rollout context
+        """
         try:
             params = self._prepare_query_params(flag_key, context)
             start_time = datetime.now()
@@ -77,7 +109,7 @@ class RemoteFeatureFlagsProvider:
 
             if not is_fallback and (distinct_id := context.get("distinct_id")):
                 properties = self._build_tracking_properties(flag_key, selected_variant, start_time, end_time)
-                self._executor.submit(self._tracker, distinct_id, EXPOSURE_EVENT, properties)
+                self._tracker(distinct_id, EXPOSURE_EVENT, properties)
 
             return selected_variant
         except Exception:
@@ -85,6 +117,12 @@ class RemoteFeatureFlagsProvider:
             return fallback_value
 
     def is_enabled(self, flag_key: str, context: Dict[str, Any]) -> bool:
+        """
+        Synchronously checks if a feature flag is enabled for the given context.
+
+        :param str flag_key: The key of the feature flag to check
+        :param Dict[str, Any] context: Context dictionary containing user attributes and rollout context
+        """
         variant_value = self.get_variant_value(flag_key, False, context)
         return bool(variant_value)
 

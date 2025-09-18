@@ -5,7 +5,6 @@ import time
 import threading
 from datetime import datetime, timedelta
 from typing import Dict, Any, Callable, Optional
-from concurrent.futures import Future, ThreadPoolExecutor
 from .types import ExperimentationFlag, ExperimentationFlags, SelectedVariant, LocalFlagsConfig, Rollout
 from .utils import REQUEST_HEADERS, normalized_hash, prepare_common_query_params, EXPOSURE_EVENT
 
@@ -16,13 +15,20 @@ class LocalFeatureFlagsProvider:
     FLAGS_DEFINITIONS_URL_PATH = "/flags/definitions"
 
     def __init__(self, token: str, config: LocalFlagsConfig, version: str, tracker: Callable) -> None:
+        """
+        Initializes the LocalFeatureFlagsProvider
+        :param str token: your project's Mixpanel token
+        :param LocalFlagsConfig config: configuration options for the local feature flags provider
+        :param str version: the version of the Mixpanel library being used, just for tracking
+        :param str tracker: A function used to track flags exposure events to mixpanel 
+        """
         self._token: str = token
         self._config: LocalFlagsConfig = config
         self._version = version
         self._tracker: Callable = tracker
-        self._executor: ThreadPoolExecutor = config.custom_executor or ThreadPoolExecutor(max_workers=5)
 
         self._flag_definitions: Dict[str, ExperimentationFlag] = dict()
+        self._are_flags_ready = False
 
         httpx_client_parameters = {
             "base_url": f"https://{config.api_host}",
@@ -37,29 +43,41 @@ class LocalFeatureFlagsProvider:
         self._sync_client: httpx.Client = httpx.Client(**httpx_client_parameters)
 
         self._async_polling_task: Optional[asyncio.Task] = None
-        self._sync_polling_task: Optional[Future] = None
+        self._sync_polling_task: Optional[threading.Thread] = None
 
         self._sync_stop_event = threading.Event()
 
     def start_polling_for_definitions(self):
+        """
+        Fetches flag definitions for the current project.
+        If configured by the caller, starts a background thread to poll for updates at regular intervals, if one does not already exist. 
+        """
         self._fetch_flag_definitions()
 
         if self._config.enable_polling:
             if not self._sync_polling_task and not self._async_polling_task:
                 self._sync_stop_event.clear()
-                self._sync_polling_task = self._executor.submit(self._start_continuous_polling)
+                self._sync_polling_task = threading.Thread(target=self._start_continuous_polling, daemon=True)
+                self._sync_polling_task.start()
             else:
-                logging.error("A polling task is already running")
+                logging.warning("A polling task is already running")
 
     def stop_polling_for_definitions(self):
+        """
+        If there exists a reference to a background thread polling for flag definition updates, signal it to stop and clear the reference.
+        Once stopped, the polling thread cannot be restarted.
+        """
         if self._sync_polling_task:
             self._sync_stop_event.set()
-            self._sync_polling_task.cancel()
             self._sync_polling_task = None
         else:
             logging.info("There is no polling task to cancel.")
 
     async def astart_polling_for_definitions(self):
+        """
+        Fetches flag definitions for the current project.
+        If configured by the caller, starts an async task on the event loop to poll for updates at regular intervals, if one does not already exist.
+        """
         await self._afetch_flag_definitions()
 
         if self._config.enable_polling:
@@ -69,6 +87,9 @@ class LocalFeatureFlagsProvider:
                 logging.error("A polling task is already running")
 
     async def astop_polling_for_definitions(self):
+        """
+        If there exists an async task  to poll for flag definition updates, cancel the task and clear the reference to it.
+        """
         if self._async_polling_task:
             self._async_polling_task.cancel()
             self._async_polling_task = None
@@ -94,20 +115,39 @@ class LocalFeatureFlagsProvider:
 
     def are_flags_ready(self) -> bool:
         """
-        Check if flag definitions have been loaded and are ready for use.
-        :return: True if flag definitions are populated, False otherwise.
+        Check if the call to fetch flag definitions has been made successfully. 
         """
-        return bool(self._flag_definitions)
+        return self._are_flags_ready
 
     def get_variant_value(self, flag_key: str, fallback_value: Any, context: Dict[str, Any]) -> Any:
+        """
+        Get the value of a feature flag variant.
+
+        :param str flag_key: The key of the feature flag to evaluate
+        :param Any fallback_value: The default value to return if the flag is not found or evaluation fails
+        :param Dict[str, Any] context: Context dictionary containing user's distinct_id and any other attributes needed for rollout evaluation 
+        """
         variant = self.get_variant(flag_key, SelectedVariant(variant_value=fallback_value), context)
         return variant.variant_value
 
     def is_enabled(self, flag_key: str, context: Dict[str, Any]) -> bool:
+        """
+        Check if a feature flag is enabled for the given context.
+
+        :param str flag_key: The key of the feature flag to check
+        :param Dict[str, Any] context: Context dictionary containing user's distinct_id and any other attributes needed for rollout evaluation 
+        """
         variant_value = self.get_variant_value(flag_key, False, context)
         return bool(variant_value)
 
     def get_variant(self, flag_key: str, fallback_value: SelectedVariant, context: Dict[str, Any]) -> SelectedVariant:
+        """
+        Gets the selected variant for a feature flag
+
+        :param str flag_key: The key of the feature flag to evaluate
+        :param SelectedVariant fallback_value: The default variant to return if evaluation fails
+        :param Dict[str, Any] context: Context dictionary containing user's distinct_id and any other attributes needed for rollout evaluation 
+        """
         start_time = time.perf_counter()
         flag_definition = self._flag_definitions.get(flag_key)
 
@@ -125,7 +165,7 @@ class LocalFeatureFlagsProvider:
         if rollout := self._get_assigned_rollout(flag_definition, context_value, context):
             variant = self._get_assigned_variant(flag_definition, context_value, flag_key, rollout)
             end_time = time.perf_counter()
-            self.track_exposure(flag_key, variant, end_time - start_time, context)
+            self._track_exposure(flag_key, variant, end_time - start_time, context)
             return variant
 
         logger.info(f"{flag_definition.context} context {context_value} not eligible for any rollout for flag: {flag_key}")
@@ -237,10 +277,11 @@ class LocalFeatureFlagsProvider:
             logger.exception("Failed to parse flag definitions")
 
         self._flag_definitions = flags
+        self._are_flags_ready = True
         logger.info(f"Successfully fetched {len(self._flag_definitions)} flag definitions")
 
 
-    def track_exposure(self, flag_key: str, variant: SelectedVariant, latency_in_seconds: float, context: Dict[str, Any]):
+    def _track_exposure(self, flag_key: str, variant: SelectedVariant, latency_in_seconds: float, context: Dict[str, Any]):
         if distinct_id := context.get("distinct_id"):
             properties = {
                 'Experiment name': flag_key,
@@ -249,7 +290,8 @@ class LocalFeatureFlagsProvider:
                 "Flag evaluation mode": "local",
                 "Variant fetch latency (ms)": latency_in_seconds * 1000
             }
-            self._executor.submit(self._tracker, distinct_id, EXPOSURE_EVENT, properties)
+
+            self._tracker(distinct_id, EXPOSURE_EVENT, properties)
         else:
             logging.error("Cannot track exposure event without a distinct_id in the context")
 

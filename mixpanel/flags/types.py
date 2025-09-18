@@ -1,5 +1,4 @@
 from typing import Optional, List, Dict, Any
-from concurrent.futures import ThreadPoolExecutor
 from pydantic import BaseModel, ConfigDict
 
 MIXPANEL_DEFAULT_API_ENDPOINT = "api.mixpanel.com"
@@ -9,7 +8,6 @@ class FlagsConfig(BaseModel):
 
     api_host: str = "api.mixpanel.com"
     request_timeout_in_seconds: int = 10
-    custom_executor: Optional[ThreadPoolExecutor] = None
 
 class LocalFlagsConfig(FlagsConfig):
     enable_polling: bool = True
