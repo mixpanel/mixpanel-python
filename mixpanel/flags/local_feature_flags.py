@@ -34,7 +34,7 @@ class LocalFeatureFlagsProvider:
         :param str token: your project's Mixpanel token
         :param LocalFlagsConfig config: configuration options for the local feature flags provider
         :param str version: the version of the Mixpanel library being used, just for tracking
-        :param str tracker: A function used to track flags exposure events to mixpanel
+        :param Callable tracker: A function used to track flags exposure events to mixpanel
         """
         self._token: str = token
         self._config: LocalFlagsConfig = config
