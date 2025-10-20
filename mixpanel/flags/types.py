@@ -32,6 +32,7 @@ class Rollout(BaseModel):
     rollout_percentage: float
     runtime_evaluation_definition: Optional[Dict[str, str]] = None
     variant_override: Optional[VariantOverride] = None
+    variant_splits: Optional[Dict[str,float]] = None
 
 class RuleSet(BaseModel):
     variants: List[Variant]
@@ -41,16 +42,23 @@ class RuleSet(BaseModel):
 class ExperimentationFlag(BaseModel):
     id: str
     name: str
-    key: str 
+    key: str
     status: str
     project_id: int
-    ruleset: RuleSet 
+    ruleset: RuleSet
     context: str
+    experiment_id: Optional[str] = None
+    is_experiment_active: Optional[bool] = None
+
 
 class SelectedVariant(BaseModel):
     # variant_key can be None if being used as a fallback
     variant_key: Optional[str] = None
     variant_value: Any
+    experiment_id: Optional[str] = None
+    is_experiment_active: Optional[bool] = None
+    is_qa_tester: Optional[bool] = None
+
 
 class ExperimentationFlags(BaseModel):
     flags: List[ExperimentationFlag] 

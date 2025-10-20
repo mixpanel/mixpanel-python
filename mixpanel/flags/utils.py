@@ -1,4 +1,5 @@
 from typing import Dict
+from uuid import uuid
 
 EXPOSURE_EVENT = "$experiment_started"
 
@@ -48,3 +49,18 @@ def prepare_common_query_params(token: str, sdk_version: str) -> Dict[str, str]:
     }
 
     return params
+
+def generate_traceparent() -> str:
+    """ Generates a W3C traceparent header for easy interop with distributed tracing systems i.e Open Telemetry
+    https://www.w3.org/TR/trace-context/#traceparent-header
+    :return: A traceparent string
+    """
+
+    trace_id = uuid.uuid4().hex
+    span_id = uuid.uuid4().hex[:16]
+
+    # Trace flags: '01' for sampled
+    trace_flags = '01'
+
+    traceparent = f"00-{trace_id}-{span_id}-{trace_flags}"
+    return traceparent

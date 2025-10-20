@@ -8,7 +8,7 @@ from typing import Dict, Any, Callable
 from asgiref.sync import sync_to_async
 
 from .types import RemoteFlagsConfig, SelectedVariant, RemoteFlagsResponse
-from .utils import REQUEST_HEADERS, EXPOSURE_EVENT, prepare_common_query_params
+from .utils import REQUEST_HEADERS, EXPOSURE_EVENT, prepare_common_query_params, generate_traceparent
 
 logger = logging.getLogger(__name__)
 logging.getLogger("httpx").setLevel(logging.ERROR)
@@ -66,7 +66,8 @@ class RemoteFeatureFlagsProvider:
         try:
             params = self._prepare_query_params(flag_key, context)
             start_time = datetime.now()
-            response = await self._async_client.get(self.FLAGS_URL_PATH, params=params)
+            headers = {"traceparent": generate_traceparent()}
+            response = await self._async_client.get(self.FLAGS_URL_PATH, params=params, headers=headers)
             end_time = datetime.now()
             self._instrument_call(start_time, end_time)
             selected_variant, is_fallback = self._handle_response(
@@ -126,7 +127,8 @@ class RemoteFeatureFlagsProvider:
         try:
             params = self._prepare_query_params(flag_key, context)
             start_time = datetime.now()
-            response = self._sync_client.get(self.FLAGS_URL_PATH, params=params)
+            headers = {"traceparent": generate_traceparent()}
+            response = self._sync_client.get(self.FLAGS_URL_PATH, params=params, headers=headers)
             end_time = datetime.now()
             self._instrument_call(start_time, end_time)
             selected_variant, is_fallback = self._handle_response(

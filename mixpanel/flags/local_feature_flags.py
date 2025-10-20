@@ -4,7 +4,7 @@ import asyncio
 import time
 import threading
 from datetime import datetime, timedelta
-from typing import Dict, Any, Callable, Optional
+from typing import List, Dict, Any, Callable, Optional
 from .types import (
     ExperimentationFlag,
     ExperimentationFlags,
@@ -17,6 +17,7 @@ from .utils import (
     normalized_hash,
     prepare_common_query_params,
     EXPOSURE_EVENT,
+    generate_traceparent,
 )
 
 logger = logging.getLogger(__name__)
@@ -170,8 +171,24 @@ class LocalFeatureFlagsProvider:
         variant_value = self.get_variant_value(flag_key, False, context)
         return bool(variant_value)
 
+    def get_all_variants(self, context: Dict[str, Any], reportExposureEvents: bool = False) -> List[SelectedVariant]:
+        """
+        Gets the selected variant for all feature flags that the current user context is in the rollout for.
+        :param Dict[str, Any] context: The user context to evaluate against the feature flags
+        :param bool reportExposureEvents: Whether to immediately report exposure events to your Mixpanel project for each flag evaluated. Defaults to False.
+        """
+        variants: Dict[str, SelectedVariant] = {}
+        fallback = SelectedVariant(variant_key=None, variant_value=None)
+
+        for flag_key in self._flag_definitions.keys():
+            variant = self.get_variant(flag_key, fallback, context, report_exposure=reportExposureEvents)
+            if variant.variant_key is not None:
+                variants[flag_key] = variant
+
+        return variants
+
     def get_variant(
-        self, flag_key: str, fallback_value: SelectedVariant, context: Dict[str, Any]
+        self, flag_key: str, fallback_value: SelectedVariant, context: Dict[str, Any], report_exposure: bool = True
     ) -> SelectedVariant:
         """
         Gets the selected variant for a feature flag
@@ -179,6 +196,7 @@ class LocalFeatureFlagsProvider:
         :param str flag_key: The key of the feature flag to evaluate
         :param SelectedVariant fallback_value: The default variant to return if evaluation fails
         :param Dict[str, Any] context: Context dictionary containing user's distinct_id and any other attributes needed for rollout evaluation
+        :param bool report_exposure: Whether to track an exposure event for this flag evaluation. Defaults to True.
         """
         start_time = time.perf_counter()
         flag_definition = self._flag_definitions.get(flag_key)
@@ -205,7 +223,8 @@ class LocalFeatureFlagsProvider:
                 flag_definition, context_value, flag_key, rollout
             )
             end_time = time.perf_counter()
-            self._track_exposure(flag_key, variant, end_time - start_time, context)
+            if report_exposure:
+                self._track_exposure(flag_key, variant, end_time - start_time, context)
             return variant
 
         logger.info(
@@ -241,11 +260,16 @@ class LocalFeatureFlagsProvider:
             ):
                 return variant
 
-        variants = flag_definition.ruleset.variants
 
         hash_input = str(context_value) + flag_name
 
         variant_hash = normalized_hash(hash_input, "variant")
+
+        variants = [variant.model_copy(deep=True) for variant in flag_definition.ruleset.variants]
+        if rollout.variant_splits:
+            for variant in variants:
+                if variant.key in rollout.variant_splits:
+                    variant.split = rollout.variant_splits[variant.key]
 
         selected = variants[0]
         cumulative = 0.0
@@ -255,7 +279,11 @@ class LocalFeatureFlagsProvider:
             if variant_hash < cumulative:
                 break
 
-        return SelectedVariant(variant_key=selected.key, variant_value=selected.value)
+        return SelectedVariant(
+            variant_key=selected.key,
+            variant_value=selected.value,
+            experiment_id=flag_definition.experiment_id,
+            is_experiment_active=flag_definition.is_experiment_active)
 
     def _get_assigned_rollout(
         self,
@@ -304,15 +332,20 @@ class LocalFeatureFlagsProvider:
         for variant in flag.ruleset.variants:
             if variant_key.casefold() == variant.key.casefold():
                 return SelectedVariant(
-                    variant_key=variant.key, variant_value=variant.value
+                    variant_key=variant.key,
+                    variant_value=variant.value,
+                    experiment_id=flag.experiment_id,
+                    is_experiment_active=flag.is_experiment_active,
+                    is_qa_tester=True,
                 )
         return None
 
     async def _afetch_flag_definitions(self) -> None:
         try:
             start_time = datetime.now()
+            headers = {"traceparent": generate_traceparent()}
             response = await self._async_client.get(
-                self.FLAGS_DEFINITIONS_URL_PATH, params=self._request_params
+                self.FLAGS_DEFINITIONS_URL_PATH, params=self._request_params, headers=headers
             )
             end_time = datetime.now()
             self._handle_response(response, start_time, end_time)
@@ -322,8 +355,9 @@ class LocalFeatureFlagsProvider:
     def _fetch_flag_definitions(self) -> None:
         try:
             start_time = datetime.now()
+            headers = {"traceparent": generate_traceparent()}
             response = self._sync_client.get(
-                self.FLAGS_DEFINITIONS_URL_PATH, params=self._request_params
+                self.FLAGS_DEFINITIONS_URL_PATH, params=self._request_params, headers=headers
             )
             end_time = datetime.now()
             self._handle_response(response, start_time, end_time)
@@ -370,6 +404,9 @@ class LocalFeatureFlagsProvider:
                 "$experiment_type": "feature_flag",
                 "Flag evaluation mode": "local",
                 "Variant fetch latency (ms)": latency_in_seconds * 1000,
+                "$experiment_id": variant.experiment_id,
+                "$is_experiment_active": variant.is_experiment_active,
+                "$is_qa_tester": variant.is_qa_tester,
             }
 
             self._tracker(distinct_id, EXPOSURE_EVENT, properties)
