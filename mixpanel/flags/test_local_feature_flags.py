@@ -9,6 +9,7 @@ from itertools import chain, repeat
 from .types import LocalFlagsConfig, ExperimentationFlag, RuleSet, Variant, Rollout, FlagTestUsers, ExperimentationFlags, VariantOverride
 from .local_feature_flags import LocalFeatureFlagsProvider
 
+
 def create_test_flag(
     flag_key: str = "test_flag",
     context: str = "distinct_id",
@@ -16,7 +17,10 @@ def create_test_flag(
     variant_override: Optional[VariantOverride] = None,
     rollout_percentage: float = 100.0,
     runtime_evaluation: Optional[Dict] = None,
-    test_users: Optional[Dict[str, str]] = None) -> ExperimentationFlag:
+    test_users: Optional[Dict[str, str]] = None,
+    experiment_id: Optional[str] = None,
+    is_experiment_active: Optional[bool] = None,
+    variant_splits: Optional[Dict[str, float]] = None) -> ExperimentationFlag:
 
     if variants is None:
         variants = [
@@ -27,7 +31,8 @@ def create_test_flag(
     rollouts = [Rollout(
         rollout_percentage=rollout_percentage,
         runtime_evaluation_definition=runtime_evaluation,
-        variant_override=variant_override
+        variant_override=variant_override,
+        variant_splits=variant_splits
     )]
 
     test_config = None
@@ -47,7 +52,9 @@ def create_test_flag(
         status="active",
         project_id=123,
         ruleset=ruleset,
-        context=context
+        context=context,
+        experiment_id=experiment_id,
+        is_experiment_active=is_experiment_active
     )
 
 
@@ -217,6 +224,32 @@ class TestLocalFeatureFlagsProviderAsync:
         assert result == "variant_a"
 
     @respx.mock
+    async def test_get_variant_value_picks_correct_variant_with_half_migrated_group_splits(self):
+        variants = [
+            Variant(key="A", value="variant_a", is_control=False, split=100.0),
+            Variant(key="B", value="variant_b", is_control=False, split=0.0),
+            Variant(key="C", value="variant_c", is_control=False, split=0.0)
+        ]
+        variant_splits = {"A": 0.0, "B": 100.0, "C": 0.0}
+        flag = create_test_flag(variants=variants, rollout_percentage=100.0, variant_splits=variant_splits)
+        await self.setup_flags([flag])
+        result = self._flags.get_variant_value("test_flag", "fallback", {"distinct_id": "user123"})
+        assert result == "variant_b"
+
+    @respx.mock
+    async def test_get_variant_value_picks_correct_variant_with_full_migrated_group_splits(self):
+        variants = [
+            Variant(key="A", value="variant_a", is_control=False),
+            Variant(key="B", value="variant_b", is_control=False),
+            Variant(key="C", value="variant_c", is_control=False),
+        ]
+        variant_splits = {"A": 0.0, "B": 0.0, "C": 100.0}
+        flag = create_test_flag(variants=variants, rollout_percentage=100.0, variant_splits=variant_splits)
+        await self.setup_flags([flag])
+        result = self._flags.get_variant_value("test_flag", "fallback", {"distinct_id": "user123"})
+        assert result == "variant_c"
+
+    @respx.mock
     async def test_get_variant_value_picks_overriden_variant(self):
         variants = [
             Variant(key="A", value="variant_a", is_control=False, split=100.0),
@@ -235,6 +268,43 @@ class TestLocalFeatureFlagsProviderAsync:
             mock_hash.return_value = 0.5
             _ = self._flags.get_variant_value("test_flag", "fallback", {"distinct_id": "user123"})
             self._mock_tracker.assert_called_once()
+
+    @respx.mock
+    @pytest.mark.parametrize("experiment_id,is_experiment_active,use_qa_user", [
+        ("exp-123", True, True),   # QA tester with active experiment
+        ("exp-456", False, True),  # QA tester with inactive experiment
+        ("exp-789", True, False),  # Regular user with active experiment
+        ("exp-000", False, False), # Regular user with inactive experiment
+        (None, None, True),        # QA tester with no experiment
+        (None, None, False),       # Regular user with no experiment
+    ])
+    async def test_get_variant_value_tracks_exposure_with_correct_properties(self, experiment_id, is_experiment_active, use_qa_user):
+        flag = create_test_flag(
+            experiment_id=experiment_id,
+            is_experiment_active=is_experiment_active,
+            test_users={"qa_user": "treatment"}
+        )
+
+        await self.setup_flags([flag])
+
+        distinct_id = "qa_user" if use_qa_user else "regular_user"
+
+        with patch('mixpanel.flags.utils.normalized_hash') as mock_hash:
+            mock_hash.return_value = 0.5
+            _ = self._flags.get_variant_value("test_flag", "fallback", {"distinct_id": distinct_id})
+
+        self._mock_tracker.assert_called_once()
+
+        call_args = self._mock_tracker.call_args
+        properties = call_args[0][2]
+
+        assert properties["$experiment_id"] == experiment_id
+        assert properties["$is_experiment_active"] == is_experiment_active
+
+        if use_qa_user:
+            assert properties["$is_qa_tester"] == True
+        else:
+            assert properties.get("$is_qa_tester") is None
 
     @respx.mock
     async def test_get_variant_value_does_not_track_exposure_on_fallback(self):

@@ -4,7 +4,7 @@ import asyncio
 import time
 import threading
 from datetime import datetime, timedelta
-from typing import List, Dict, Any, Callable, Optional
+from typing import Dict, Any, Callable, Optional
 from .types import (
     ExperimentationFlag,
     ExperimentationFlags,
@@ -17,7 +17,7 @@ from .utils import (
     normalized_hash,
     prepare_common_query_params,
     EXPOSURE_EVENT,
-    add_traceparent_header_to_request
+    generate_traceparent
 )
 
 logger = logging.getLogger(__name__)
@@ -50,7 +50,6 @@ class LocalFeatureFlagsProvider:
             "headers": REQUEST_HEADERS,
             "auth": httpx.BasicAuth(token, ""),
             "timeout": httpx.Timeout(config.request_timeout_in_seconds),
-            "event_hooks": {"request": [add_traceparent_header_to_request]},
         }
 
         self._request_params = prepare_common_query_params(self._token, self._version)
@@ -170,7 +169,7 @@ class LocalFeatureFlagsProvider:
         :param Dict[str, Any] context: Context dictionary containing user's distinct_id and any other attributes needed for rollout evaluation
         """
         variant_value = self.get_variant_value(flag_key, False, context)
-        return bool(variant_value)
+        return variant_value == True
 
     def get_variant(
         self, flag_key: str, fallback_value: SelectedVariant, context: Dict[str, Any], report_exposure: bool = True
@@ -196,21 +195,21 @@ class LocalFeatureFlagsProvider:
             )
             return fallback_value
 
+        selected_variant: Optional[SelectedVariant] = None
+
         if test_user_variant := self._get_variant_override_for_test_user(
             flag_definition, context
         ):
-            return test_user_variant
-
-        if rollout := self._get_assigned_rollout(
-            flag_definition, context_value, context
-        ):
-            variant = self._get_assigned_variant(
+            selected_variant = test_user_variant
+        elif rollout := self._get_assigned_rollout(flag_definition, context_value, context):
+            selected_variant = self._get_assigned_variant(
                 flag_definition, context_value, flag_key, rollout
             )
+
+        if report_exposure and selected_variant is not None:
             end_time = time.perf_counter()
-            if report_exposure:
-                self._track_exposure(flag_key, variant, end_time - start_time, context)
-            return variant
+            self._track_exposure(flag_key, selected_variant, end_time - start_time, context)
+            return selected_variant
 
         logger.info(
             f"{flag_definition.context} context {context_value} not eligible for any rollout for flag: {flag_key}"
@@ -328,8 +327,9 @@ class LocalFeatureFlagsProvider:
     async def _afetch_flag_definitions(self) -> None:
         try:
             start_time = datetime.now()
+            headers = {"traceparent": generate_traceparent()}
             response = await self._async_client.get(
-                self.FLAGS_DEFINITIONS_URL_PATH, params=self._request_params,
+                self.FLAGS_DEFINITIONS_URL_PATH, params=self._request_params, headers=headers
             )
             end_time = datetime.now()
             self._handle_response(response, start_time, end_time)
@@ -339,8 +339,9 @@ class LocalFeatureFlagsProvider:
     def _fetch_flag_definitions(self) -> None:
         try:
             start_time = datetime.now()
+            headers = {"traceparent": generate_traceparent()}
             response = self._sync_client.get(
-                self.FLAGS_DEFINITIONS_URL_PATH, params=self._request_params,
+                self.FLAGS_DEFINITIONS_URL_PATH, params=self._request_params, headers=headers
             )
             end_time = datetime.now()
             self._handle_response(response, start_time, end_time)

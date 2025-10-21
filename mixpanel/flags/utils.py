@@ -64,10 +64,3 @@ def generate_traceparent() -> str:
 
     traceparent = f"00-{trace_id}-{span_id}-{trace_flags}"
     return traceparent
-
-def add_traceparent_header_to_request(request: httpx.Request) -> None:
-    """Adds a W3C traceparent header to an outgoing HTTPX request for distributed tracing
-    :param request: The HTTPX request object
-    """
-    traceparent = generate_traceparent()
-    request.headers['traceparent'] = traceparent
