@@ -17,7 +17,7 @@ from .utils import (
     normalized_hash,
     prepare_common_query_params,
     EXPOSURE_EVENT,
-    generate_traceparent,
+    add_traceparent_header_to_request
 )
 
 logger = logging.getLogger(__name__)
@@ -50,6 +50,7 @@ class LocalFeatureFlagsProvider:
             "headers": REQUEST_HEADERS,
             "auth": httpx.BasicAuth(token, ""),
             "timeout": httpx.Timeout(config.request_timeout_in_seconds),
+            "event_hooks": {"request": [add_traceparent_header_to_request]},
         }
 
         self._request_params = prepare_common_query_params(self._token, self._version)
@@ -170,22 +171,6 @@ class LocalFeatureFlagsProvider:
         """
         variant_value = self.get_variant_value(flag_key, False, context)
         return bool(variant_value)
-
-    def get_all_variants(self, context: Dict[str, Any], reportExposureEvents: bool = False) -> List[SelectedVariant]:
-        """
-        Gets the selected variant for all feature flags that the current user context is in the rollout for.
-        :param Dict[str, Any] context: The user context to evaluate against the feature flags
-        :param bool reportExposureEvents: Whether to immediately report exposure events to your Mixpanel project for each flag evaluated. Defaults to False.
-        """
-        variants: Dict[str, SelectedVariant] = {}
-        fallback = SelectedVariant(variant_key=None, variant_value=None)
-
-        for flag_key in self._flag_definitions.keys():
-            variant = self.get_variant(flag_key, fallback, context, report_exposure=reportExposureEvents)
-            if variant.variant_key is not None:
-                variants[flag_key] = variant
-
-        return variants
 
     def get_variant(
         self, flag_key: str, fallback_value: SelectedVariant, context: Dict[str, Any], report_exposure: bool = True
@@ -343,9 +328,8 @@ class LocalFeatureFlagsProvider:
     async def _afetch_flag_definitions(self) -> None:
         try:
             start_time = datetime.now()
-            headers = {"traceparent": generate_traceparent()}
             response = await self._async_client.get(
-                self.FLAGS_DEFINITIONS_URL_PATH, params=self._request_params, headers=headers
+                self.FLAGS_DEFINITIONS_URL_PATH, params=self._request_params,
             )
             end_time = datetime.now()
             self._handle_response(response, start_time, end_time)
@@ -355,9 +339,8 @@ class LocalFeatureFlagsProvider:
     def _fetch_flag_definitions(self) -> None:
         try:
             start_time = datetime.now()
-            headers = {"traceparent": generate_traceparent()}
             response = self._sync_client.get(
-                self.FLAGS_DEFINITIONS_URL_PATH, params=self._request_params, headers=headers
+                self.FLAGS_DEFINITIONS_URL_PATH, params=self._request_params,
             )
             end_time = datetime.now()
             self._handle_response(response, start_time, end_time)

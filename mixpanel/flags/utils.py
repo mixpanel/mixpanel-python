@@ -1,5 +1,6 @@
+import uuid
+import httpx
 from typing import Dict
-from uuid import uuid
 
 EXPOSURE_EVENT = "$experiment_started"
 
@@ -51,11 +52,10 @@ def prepare_common_query_params(token: str, sdk_version: str) -> Dict[str, str]:
     return params
 
 def generate_traceparent() -> str:
-    """ Generates a W3C traceparent header for easy interop with distributed tracing systems i.e Open Telemetry
+    """Generates a W3C traceparent header for easy interop with distributed tracing systems i.e Open Telemetry
     https://www.w3.org/TR/trace-context/#traceparent-header
     :return: A traceparent string
     """
-
     trace_id = uuid.uuid4().hex
     span_id = uuid.uuid4().hex[:16]
 
@@ -64,3 +64,10 @@ def generate_traceparent() -> str:
 
     traceparent = f"00-{trace_id}-{span_id}-{trace_flags}"
     return traceparent
+
+def add_traceparent_header_to_request(request: httpx.Request) -> None:
+    """Adds a W3C traceparent header to an outgoing HTTPX request for distributed tracing
+    :param request: The HTTPX request object
+    """
+    traceparent = generate_traceparent()
+    request.headers['traceparent'] = traceparent
