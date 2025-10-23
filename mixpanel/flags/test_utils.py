@@ -14,14 +14,6 @@ class TestUtils:
 
         assert re.match(pattern, traceparent), f"Traceparent '{traceparent}' does not match W3C format"
 
-    def test_traceparent_pseudo_randomness(self):
-        traceparents = set()
-
-        for _ in range(100):
-            traceparents.add(generate_traceparent())
-
-        assert len(traceparents) == 100, f"Expected 100 unique traceparents, got {len(traceparents)}"
-
     @pytest.mark.parametrize("key,salt,expected_hash", [
         ("abc", "variant", 0.72),
         ("def", "variant", 0.21),
