@@ -20,7 +20,7 @@ class Variant(BaseModel):
     key: str
     value: Any
     is_control: bool
-    split: Optional[float] = None
+    split: Optional[float] = 0.0
 
 class FlagTestUsers(BaseModel):
     users: Dict[str, str]
