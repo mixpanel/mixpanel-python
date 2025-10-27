@@ -17,6 +17,7 @@ from .utils import (
     normalized_hash,
     prepare_common_query_params,
     EXPOSURE_EVENT,
+    generate_traceparent
 )
 
 logger = logging.getLogger(__name__)
@@ -168,10 +169,10 @@ class LocalFeatureFlagsProvider:
         :param Dict[str, Any] context: Context dictionary containing user's distinct_id and any other attributes needed for rollout evaluation
         """
         variant_value = self.get_variant_value(flag_key, False, context)
-        return bool(variant_value)
+        return variant_value == True
 
     def get_variant(
-        self, flag_key: str, fallback_value: SelectedVariant, context: Dict[str, Any]
+        self, flag_key: str, fallback_value: SelectedVariant, context: Dict[str, Any], report_exposure: bool = True
     ) -> SelectedVariant:
         """
         Gets the selected variant for a feature flag
@@ -179,6 +180,7 @@ class LocalFeatureFlagsProvider:
         :param str flag_key: The key of the feature flag to evaluate
         :param SelectedVariant fallback_value: The default variant to return if evaluation fails
         :param Dict[str, Any] context: Context dictionary containing user's distinct_id and any other attributes needed for rollout evaluation
+        :param bool report_exposure: Whether to track an exposure event for this flag evaluation. Defaults to True.
         """
         start_time = time.perf_counter()
         flag_definition = self._flag_definitions.get(flag_key)
@@ -193,20 +195,21 @@ class LocalFeatureFlagsProvider:
             )
             return fallback_value
 
+        selected_variant: Optional[SelectedVariant] = None
+
         if test_user_variant := self._get_variant_override_for_test_user(
             flag_definition, context
         ):
-            return test_user_variant
-
-        if rollout := self._get_assigned_rollout(
-            flag_definition, context_value, context
-        ):
-            variant = self._get_assigned_variant(
+            selected_variant = test_user_variant
+        elif rollout := self._get_assigned_rollout(flag_definition, context_value, context):
+            selected_variant = self._get_assigned_variant(
                 flag_definition, context_value, flag_key, rollout
             )
+
+        if report_exposure and selected_variant is not None:
             end_time = time.perf_counter()
-            self._track_exposure(flag_key, variant, end_time - start_time, context)
-            return variant
+            self._track_exposure(flag_key, selected_variant, end_time - start_time, context)
+            return selected_variant
 
         logger.info(
             f"{flag_definition.context} context {context_value} not eligible for any rollout for flag: {flag_key}"
@@ -241,11 +244,16 @@ class LocalFeatureFlagsProvider:
             ):
                 return variant
 
-        variants = flag_definition.ruleset.variants
 
         hash_input = str(context_value) + flag_name
 
         variant_hash = normalized_hash(hash_input, "variant")
+
+        variants = [variant.model_copy(deep=True) for variant in flag_definition.ruleset.variants]
+        if rollout.variant_splits:
+            for variant in variants:
+                if variant.key in rollout.variant_splits:
+                    variant.split = rollout.variant_splits[variant.key]
 
         selected = variants[0]
         cumulative = 0.0
@@ -255,7 +263,11 @@ class LocalFeatureFlagsProvider:
             if variant_hash < cumulative:
                 break
 
-        return SelectedVariant(variant_key=selected.key, variant_value=selected.value)
+        return SelectedVariant(
+            variant_key=selected.key,
+            variant_value=selected.value,
+            experiment_id=flag_definition.experiment_id,
+            is_experiment_active=flag_definition.is_experiment_active)
 
     def _get_assigned_rollout(
         self,
@@ -304,15 +316,20 @@ class LocalFeatureFlagsProvider:
         for variant in flag.ruleset.variants:
             if variant_key.casefold() == variant.key.casefold():
                 return SelectedVariant(
-                    variant_key=variant.key, variant_value=variant.value
+                    variant_key=variant.key,
+                    variant_value=variant.value,
+                    experiment_id=flag.experiment_id,
+                    is_experiment_active=flag.is_experiment_active,
+                    is_qa_tester=True,
                 )
         return None
 
     async def _afetch_flag_definitions(self) -> None:
         try:
             start_time = datetime.now()
+            headers = {"traceparent": generate_traceparent()}
             response = await self._async_client.get(
-                self.FLAGS_DEFINITIONS_URL_PATH, params=self._request_params
+                self.FLAGS_DEFINITIONS_URL_PATH, params=self._request_params, headers=headers
             )
             end_time = datetime.now()
             self._handle_response(response, start_time, end_time)
@@ -322,8 +339,9 @@ class LocalFeatureFlagsProvider:
     def _fetch_flag_definitions(self) -> None:
         try:
             start_time = datetime.now()
+            headers = {"traceparent": generate_traceparent()}
             response = self._sync_client.get(
-                self.FLAGS_DEFINITIONS_URL_PATH, params=self._request_params
+                self.FLAGS_DEFINITIONS_URL_PATH, params=self._request_params, headers=headers
             )
             end_time = datetime.now()
             self._handle_response(response, start_time, end_time)
@@ -370,6 +388,9 @@ class LocalFeatureFlagsProvider:
                 "$experiment_type": "feature_flag",
                 "Flag evaluation mode": "local",
                 "Variant fetch latency (ms)": latency_in_seconds * 1000,
+                "$experiment_id": variant.experiment_id,
+                "$is_experiment_active": variant.is_experiment_active,
+                "$is_qa_tester": variant.is_qa_tester,
             }
 
             self._tracker(distinct_id, EXPOSURE_EVENT, properties)
