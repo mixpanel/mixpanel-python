@@ -49,6 +49,7 @@ class ExperimentationFlag(BaseModel):
     context: str
     experiment_id: Optional[str] = None
     is_experiment_active: Optional[bool] = None
+    hash_salt: Optional[str] = None
 
 
 class SelectedVariant(BaseModel):

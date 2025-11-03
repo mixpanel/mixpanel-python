@@ -6,7 +6,7 @@ import threading
 from unittest.mock import Mock, patch
 from typing import Dict, Optional, List
 from itertools import chain, repeat
-from .types import LocalFlagsConfig, ExperimentationFlag, RuleSet, Variant, Rollout, FlagTestUsers, ExperimentationFlags, VariantOverride
+from .types import LocalFlagsConfig, ExperimentationFlag, RuleSet, Variant, Rollout, FlagTestUsers, ExperimentationFlags, VariantOverride, SelectedVariant
 from .local_feature_flags import LocalFeatureFlagsProvider
 
 
@@ -20,8 +20,8 @@ def create_test_flag(
     test_users: Optional[Dict[str, str]] = None,
     experiment_id: Optional[str] = None,
     is_experiment_active: Optional[bool] = None,
-    variant_splits: Optional[Dict[str, float]] = None) -> ExperimentationFlag:
-
+    variant_splits: Optional[Dict[str, float]] = None,
+    hash_salt: Optional[str] = None) -> ExperimentationFlag:
     if variants is None:
         variants = [
             Variant(key="control", value="control", is_control=True, split=50.0),
@@ -54,7 +54,8 @@ def create_test_flag(
         ruleset=ruleset,
         context=context,
         experiment_id=experiment_id,
-        is_experiment_active=is_experiment_active
+        is_experiment_active=is_experiment_active,
+        hash_salt=hash_salt
     )
 
 
@@ -318,6 +319,54 @@ class TestLocalFeatureFlagsProviderAsync:
         await self.setup_flags([flag])
         _ = self._flags.get_variant_value("nonexistent_flag", "fallback", {"company_id": "company123"})
         self._mock_tracker.assert_not_called()
+
+    @respx.mock
+    async def test_get_all_variants_returns_all_variants_when_user_in_rollout(self):
+        flag1 = create_test_flag(flag_key="flag1", rollout_percentage=100.0)
+        flag2 = create_test_flag(flag_key="flag2", rollout_percentage=100.0)
+        await self.setup_flags([flag1, flag2])
+
+        result = self._flags.get_all_variants({"distinct_id": "user123"})
+
+        assert len(result) == 2 and "flag1" in result and "flag2" in result
+
+    @respx.mock
+    async def test_get_all_variants_returns_partial_variants_when_user_in_some_rollout(self):
+        flag1 = create_test_flag(flag_key="flag1", rollout_percentage=100.0)
+        flag2 = create_test_flag(flag_key="flag2", rollout_percentage=0.0)
+        await self.setup_flags([flag1, flag2])
+
+        result = self._flags.get_all_variants({"distinct_id": "user123"})
+
+        assert len(result) == 1 and "flag1" in result and "flag2" not in result
+
+    @respx.mock
+    async def test_get_all_variants_returns_empty_dict_when_no_flags_configured(self):
+        await self.setup_flags([])
+
+        result = self._flags.get_all_variants({"distinct_id": "user123"})
+
+        assert result == {}
+
+    @respx.mock
+    async def test_get_all_variants_does_not_track_exposure_events(self):
+        flag1 = create_test_flag(flag_key="flag1", rollout_percentage=100.0)
+        flag2 = create_test_flag(flag_key="flag2", rollout_percentage=100.0)
+        await self.setup_flags([flag1, flag2])
+
+        _ = self._flags.get_all_variants({"distinct_id": "user123"})
+
+        self._mock_tracker.assert_not_called()
+
+    @respx.mock
+    async def test_track_exposure_event_successfully_tracks(self):
+        flag = create_test_flag()
+        await self.setup_flags([flag])
+
+        variant = SelectedVariant(key="treatment", variant_value="treatment")
+        self._flags.track_exposure_event("test_flag", variant, {"distinct_id": "user123"})
+
+        self._mock_tracker.assert_called_once()
 
     @respx.mock
     async def test_are_flags_ready_returns_true_when_flags_loaded(self):
