@@ -306,7 +306,7 @@ class LocalFeatureFlagsProvider:
         for index, rollout in enumerate(flag_definition.ruleset.rollout):
             salt = None
             if flag_definition.hash_salt is not None:
-                salt = flag_definition.key + flag_definition.hash_salt + "rollout" + str(index)
+                salt = flag_definition.key + flag_definition.hash_salt + str(index)
             else:
                 salt = flag_definition.key + "rollout"
 
