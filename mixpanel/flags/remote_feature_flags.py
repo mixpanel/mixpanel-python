@@ -54,7 +54,7 @@ class RemoteFeatureFlagsProvider:
             self._instrument_call(start_time, end_time)
             flags = self._handle_response(response)
         except Exception:
-            logging.exception(f"Failed to get remote variants")
+            logger.exception(f"Failed to get remote variants")
 
         return flags
 
@@ -106,7 +106,7 @@ class RemoteFeatureFlagsProvider:
 
             return selected_variant
         except Exception:
-            logging.exception(f"Failed to get remote variant for flag '{flag_key}'")
+            logger.exception(f"Failed to get remote variant for flag '{flag_key}'")
             return fallback_value
 
     async def ais_enabled(self, flag_key: str, context: Dict[str, Any]) -> bool:
@@ -139,7 +139,7 @@ class RemoteFeatureFlagsProvider:
                 distinct_id, EXPOSURE_EVENT, properties
             )
         else:
-            logging.error(
+            logger.error(
                 "Cannot track exposure event without a distinct_id in the context"
             )
 
@@ -160,7 +160,7 @@ class RemoteFeatureFlagsProvider:
             self._instrument_call(start_time, end_time)
             flags = self._handle_response(response)
         except Exception:
-            logging.exception(f"Failed to get remote variants")
+            logger.exception(f"Failed to get remote variants")
 
         return flags
 

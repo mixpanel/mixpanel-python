@@ -79,7 +79,7 @@ class LocalFeatureFlagsProvider:
                 )
                 self._sync_polling_task.start()
             else:
-                logging.warning("A polling task is already running")
+                logger.warning("A polling task is already running")
 
     def stop_polling_for_definitions(self):
         """
@@ -90,7 +90,7 @@ class LocalFeatureFlagsProvider:
             self._sync_stop_event.set()
             self._sync_polling_task = None
         else:
-            logging.info("There is no polling task to cancel.")
+            logger.info("There is no polling task to cancel.")
 
     async def astart_polling_for_definitions(self):
         """
@@ -105,7 +105,7 @@ class LocalFeatureFlagsProvider:
                     self._astart_continuous_polling()
                 )
             else:
-                logging.error("A polling task is already running")
+                logger.error("A polling task is already running")
 
     async def astop_polling_for_definitions(self):
         """
@@ -115,10 +115,10 @@ class LocalFeatureFlagsProvider:
             self._async_polling_task.cancel()
             self._async_polling_task = None
         else:
-            logging.info("There is no polling task to cancel.")
+            logger.info("There is no polling task to cancel.")
 
     async def _astart_continuous_polling(self):
-        logging.info(
+        logger.info(
             f"Initialized async polling for flag definition updates every '{self._config.polling_interval_in_seconds}' seconds"
         )
         try:
@@ -126,10 +126,10 @@ class LocalFeatureFlagsProvider:
                 await asyncio.sleep(self._config.polling_interval_in_seconds)
                 await self._afetch_flag_definitions()
         except asyncio.CancelledError:
-            logging.info("Async polling was cancelled")
+            logger.info("Async polling was cancelled")
 
     def _start_continuous_polling(self):
-        logging.info(
+        logger.info(
             f"Initialized sync polling for flag definition updates every '{self._config.polling_interval_in_seconds}' seconds"
         )
         while not self._sync_stop_event.is_set():
@@ -228,7 +228,7 @@ class LocalFeatureFlagsProvider:
                 self._track_exposure(flag_key, selected_variant, context, end_time - start_time)
             return selected_variant
 
-        logger.info(
+        logger.debug(
             f"{flag_definition.context} context {context_value} not eligible for any rollout for flag: {flag_key}"
         )
         return fallback_value
@@ -382,7 +382,7 @@ class LocalFeatureFlagsProvider:
         self, response: httpx.Response, start_time: datetime, end_time: datetime
     ) -> None:
         request_duration: timedelta = end_time - start_time
-        logging.debug(
+        logger.debug(
             f"Request started at '{start_time.isoformat()}', completed at '{end_time.isoformat()}', duration: '{request_duration.total_seconds():.3f}s'"
         )
 
@@ -427,7 +427,7 @@ class LocalFeatureFlagsProvider:
 
             self._tracker(distinct_id, EXPOSURE_EVENT, properties)
         else:
-            logging.error(
+            logger.error(
                 "Cannot track exposure event without a distinct_id in the context"
             )
 
@@ -438,11 +438,11 @@ class LocalFeatureFlagsProvider:
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        logging.info("Exiting the LocalFeatureFlagsProvider and cleaning up resources")
+        logger.info("Exiting the LocalFeatureFlagsProvider and cleaning up resources")
         await self.astop_polling_for_definitions()
         await self._async_client.aclose()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        logging.info("Exiting the LocalFeatureFlagsProvider and cleaning up resources")
+        logger.info("Exiting the LocalFeatureFlagsProvider and cleaning up resources")
         self.stop_polling_for_definitions()
         self._sync_client.close()
