@@ -88,6 +88,58 @@ class TestRemoteFeatureFlagsProviderAsync:
         result = await self._flags.ais_enabled("test_flag", {"distinct_id": "user123"})
         assert result == False
 
+    @respx.mock
+    async def test_aget_all_variants_returns_all_variants_from_api(self):
+        variants = {
+            "flag1": SelectedVariant(variant_key="treatment1", variant_value="value1"),
+            "flag2": SelectedVariant(variant_key="treatment2", variant_value="value2")
+        }
+        respx.get(ENDPOINT).mock(return_value=create_success_response(variants))
+
+        result = await self._flags.aget_all_variants({"distinct_id": "user123"})
+
+        assert result == variants
+
+    @respx.mock
+    async def test_aget_all_variants_returns_none_on_network_error(self):
+        respx.get(ENDPOINT).mock(side_effect=httpx.RequestError("Network error"))
+
+        result = await self._flags.aget_all_variants({"distinct_id": "user123"})
+
+        assert result is None
+
+    @respx.mock
+    async def test_aget_all_variants_does_not_track_exposure_events(self):
+        variants = {
+            "flag1": SelectedVariant(variant_key="treatment1", variant_value="value1"),
+            "flag2": SelectedVariant(variant_key="treatment2", variant_value="value2")
+        }
+        respx.get(ENDPOINT).mock(return_value=create_success_response(variants))
+
+        await self._flags.aget_all_variants({"distinct_id": "user123"})
+
+        self.mock_tracker.assert_not_called()
+
+    @respx.mock
+    async def test_aget_all_variants_handles_empty_response(self):
+        respx.get(ENDPOINT).mock(return_value=create_success_response({}))
+
+        result = await self._flags.aget_all_variants({"distinct_id": "user123"})
+
+        assert result == {}
+
+    @respx.mock
+    async def test_atrack_exposure_event_successfully_tracks(self):
+        variant = SelectedVariant(variant_key="treatment", variant_value="treatment")
+
+        await self._flags.atrack_exposure_event("test_flag", variant, {"distinct_id": "user123"})
+
+        pending = [task for task in asyncio.all_tasks() if not task.done() and task != asyncio.current_task()]
+        if pending:
+            await asyncio.gather(*pending, return_exceptions=True)
+
+        self.mock_tracker.assert_called_once()
+
 class TestRemoteFeatureFlagsProviderSync:
     def setup_method(self):
         config = RemoteFlagsConfig()
@@ -156,4 +208,52 @@ class TestRemoteFeatureFlagsProviderSync:
 
         result = self._flags.is_enabled("test_flag", {"distinct_id": "user123"})
         assert result == False
+
+    @respx.mock
+    def test_get_all_variants_returns_all_variants_from_api(self):
+        variants = {
+            "flag1": SelectedVariant(variant_key="treatment1", variant_value="value1"),
+            "flag2": SelectedVariant(variant_key="treatment2", variant_value="value2")
+        }
+        respx.get(ENDPOINT).mock(return_value=create_success_response(variants))
+
+        result = self._flags.get_all_variants({"distinct_id": "user123"})
+
+        assert result == variants
+
+    @respx.mock
+    def test_get_all_variants_returns_none_on_network_error(self):
+        respx.get(ENDPOINT).mock(side_effect=httpx.RequestError("Network error"))
+
+        result = self._flags.get_all_variants({"distinct_id": "user123"})
+
+        assert result is None
+
+    @respx.mock
+    def test_get_all_variants_does_not_track_exposure_events(self):
+        variants = {
+            "flag1": SelectedVariant(variant_key="treatment1", variant_value="value1"),
+            "flag2": SelectedVariant(variant_key="treatment2", variant_value="value2")
+        }
+        respx.get(ENDPOINT).mock(return_value=create_success_response(variants))
+
+        self._flags.get_all_variants({"distinct_id": "user123"})
+
+        self.mock_tracker.assert_not_called()
+
+    @respx.mock
+    def test_get_all_variants_handles_empty_response(self):
+        respx.get(ENDPOINT).mock(return_value=create_success_response({}))
+
+        result = self._flags.get_all_variants({"distinct_id": "user123"})
+
+        assert result == {}
+
+    @respx.mock
+    def test_track_exposure_event_successfully_tracks(self):
+        variant = SelectedVariant(variant_key="treatment", variant_value="treatment")
+
+        self._flags.track_exposure_event("test_flag", variant, {"distinct_id": "user123"})
+
+        self.mock_tracker.assert_called_once()
 
