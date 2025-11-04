@@ -241,7 +241,6 @@ class LocalFeatureFlagsProvider:
         :param str flag_key: The key of the feature flag
         :param SelectedVariant variant: The selected variant for the feature flag
         :param Dict[str, Any] context: The user context used to evaluate the feature flag
-        :
         """
         self._track_exposure(flag_key, variant, context)
 

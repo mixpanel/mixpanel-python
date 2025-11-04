@@ -289,7 +289,7 @@ class RemoteFeatureFlagsProvider:
 
         return tracking_properties
 
-    def _handle_response(self, response: httpx.Response) -> Dict[SelectedVariant, bool]:
+    def _handle_response(self, response: httpx.Response) -> Dict[str, SelectedVariant]:
         response.raise_for_status()
         flags_response = RemoteFlagsResponse.model_validate(response.json())
         return flags_response.flags
