@@ -31,6 +31,7 @@ class VariantOverride(BaseModel):
 class Rollout(BaseModel):
     rollout_percentage: float
     runtime_evaluation_definition: Optional[Dict[str, str]] = None
+    runtime_evaluation_rule: Optional[Dict[str, str]] = None
     variant_override: Optional[VariantOverride] = None
     variant_splits: Optional[Dict[str,float]] = None
 
