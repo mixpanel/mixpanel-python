@@ -318,7 +318,6 @@ class LocalFeatureFlagsProvider:
                 return rollout
 
         return None
-    
     def _is_runtime_rules_engine_satisfied(self, rollout: Rollout, context: Dict[str, Any]) -> bool:
         if not rollout.runtime_evaluation_rule:
             return self._is_runtime_evaluation_satisfied(rollout, context)
