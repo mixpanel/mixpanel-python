@@ -24,7 +24,6 @@ from .utils import (
 logger = logging.getLogger(__name__)
 logging.getLogger("httpx").setLevel(logging.ERROR)
 
-
 class LocalFeatureFlagsProvider:
     FLAGS_DEFINITIONS_URL_PATH = "/flags/definitions"
 
@@ -319,12 +318,40 @@ class LocalFeatureFlagsProvider:
 
         return None
     
+    def lowercase_keys_and_values(self, val: Any) -> Any:
+        if isinstance(val, str): 
+            return val.casefold()
+        elif isinstance(val, list):
+            return [self.lowercase_keys_and_values(item) for item in val]
+        elif isinstance(val, dict):
+            return {
+                (key.casefold() if isinstance(key, str) else key):
+                self.lowercase_keys_and_values(value)
+                for key, value in val.items()
+            }
+        else:
+            return val
+    
+    def lowercase_only_leaf_nodes(self, val: Any) -> Dict[str, Any]:
+        if isinstance(val, str): 
+            return val
+        elif isinstance(val, list):
+            return [self.lowercase_keys_and_values(item) for item in val]
+        elif isinstance(val, dict):
+            return {
+                key:
+                self.lowercase_keys_and_values(value)
+                for key, value in val.items()
+            }
+        else:
+            return val
+    
     def _get_runtime_parameters(self, context: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         if not (custom_properties := context.get("custom_properties")):
             return None
         if not isinstance(custom_properties, dict):
             return None
-        return custom_properties
+        return self.lowercase_keys_and_values(custom_properties)
 
     def _is_runtime_rules_engine_satisfied(self, rollout: Rollout, context: Dict[str, Any]) -> bool:
         if rollout.runtime_evaluation_rule:
@@ -333,7 +360,8 @@ class LocalFeatureFlagsProvider:
                 return False
 
             try:
-                result = json_logic.jsonLogic(rollout.runtime_evaluation_rule, parameters_for_runtime_rule)
+                rule = self.lowercase_only_leaf_nodes(rollout.runtime_evaluation_rule)
+                result = json_logic.jsonLogic(rule, parameters_for_runtime_rule)
                 return bool(result)
             except Exception:
                 logger.exception("Error evaluating runtime evaluation rule")
