@@ -312,26 +312,11 @@ class LocalFeatureFlagsProvider:
             rollout_hash = normalized_hash(str(context_value), salt)
 
             if (rollout_hash < rollout.rollout_percentage
-                and self._is_runtime_rules_engine_satisfied(rollout, context)
+                and self._is_runtime_evaluation_satisfied(rollout, context)
             ):
                 return rollout
 
         return None
-    
-    def _is_runtime_rules_engine_satisfied(self, rollout: Rollout, context: Dict[str, Any]) -> bool:
-        if not rollout.runtime_evaluation_rule:
-            return self._is_runtime_evaluation_satisfied(rollout, context)
-        if not (custom_properties := context.get("custom_properties")):
-            return False
-        if not isinstance(custom_properties, dict):
-            return False
-        import json_logic
-        try:
-            result = json_logic.jsonLogic(rollout.runtime_evaluation_rule, custom_properties)
-            return bool(result)
-        except Exception as e:
-            logger.exception("Error evaluating runtime evaluation rule", e)
-            return False
 
     def _is_runtime_evaluation_satisfied(
         self, rollout: Rollout, context: Dict[str, Any]

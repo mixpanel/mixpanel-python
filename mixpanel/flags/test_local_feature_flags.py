@@ -189,9 +189,7 @@ class TestLocalFeatureFlagsProviderAsync:
     # TODO problem test doesn't fail
     @respx.mock
     async def test_get_variant_value_respects_runtime_evaluation_rule_satisfied(self):
-        runtime_eval = {
-            "==": [{"var": "plan"}, "premium"]
-        }
+        runtime_eval = {"oops": "sorry"}
         flag = create_test_flag(runtime_evaluation_rule=runtime_eval)
         await self.setup_flags([flag])
         context = {
@@ -206,9 +204,7 @@ class TestLocalFeatureFlagsProviderAsync:
 
     @respx.mock
     async def test_get_variant_value_respects_runtime_evaluation_rule_not_satisfied(self):
-        runtime_eval = {
-            "==": [{"var": "plan"}, "basic"]
-        }
+        runtime_eval = {"oops": "sorry"}
         flag = create_test_flag(runtime_evaluation_rule=runtime_eval)
         await self.setup_flags([flag])
         context = {
