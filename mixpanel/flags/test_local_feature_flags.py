@@ -187,7 +187,6 @@ class TestLocalFeatureFlagsProviderAsync:
         result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", USER_CONTEXT)
         assert result != "fallback"
 
-
     @respx.mock
     async def test_get_variant_value_respects_runtime_evaluation_rule_satisfied(self):
         runtime_eval = {
