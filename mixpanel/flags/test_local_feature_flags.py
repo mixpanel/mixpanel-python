@@ -214,6 +214,32 @@ class TestLocalFeatureFlagsProviderAsync:
         assert result == "fallback"
 
     @respx.mock
+    async def test_get_variant_value_respects_runtime_evaluation_rule_caseinsensitive_values__satisfied(self):
+        runtime_eval = {
+            "==": [{"var": "plan"}, "premium"]
+        }
+        flag = create_test_flag(runtime_evaluation_rule=runtime_eval)
+        await self.setup_flags([flag])
+        context = self.user_context_with_properties({
+            "plan": "PremIum",
+        })
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
+        assert result != "fallback"
+
+    @respx.mock
+    async def test_get_variant_value_respects_runtime_evaluation_rule_caseinsensitive_varnames__satisfied(self):
+        runtime_eval = {
+            "==": [{"var": "Plan"}, "premium"]
+        }
+        flag = create_test_flag(runtime_evaluation_rule=runtime_eval)
+        await self.setup_flags([flag])
+        context = self.user_context_with_properties({
+            "plan": "premium",
+        })
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
+        assert result != "fallback"
+
+    @respx.mock
     async def test_get_variant_value_respects_runtime_evaluation_rule_contains_satisfied(self):
         runtime_eval = {
             "in": ["Springfield", {"var": "url"}]
