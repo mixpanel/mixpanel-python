@@ -318,37 +318,48 @@ class LocalFeatureFlagsProvider:
                 return rollout
 
         return None
-    def _is_runtime_rules_engine_satisfied(self, rollout: Rollout, context: Dict[str, Any]) -> bool:
-        if not rollout.runtime_evaluation_rule:
-            return self._is_runtime_evaluation_satisfied(rollout, context)
+    
+    def _get_runtime_parameters(self, context: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         if not (custom_properties := context.get("custom_properties")):
-            return False
+            return None
         if not isinstance(custom_properties, dict):
-            return False
-        try:
-            result = json_logic.jsonLogic(rollout.runtime_evaluation_rule, custom_properties)
-            return bool(result)
-        except Exception:
-            logger.exception("Error evaluating runtime evaluation rule")
-            return False
+            return None
+        return custom_properties
 
-    def _is_runtime_evaluation_satisfied(
+    def _is_runtime_rules_engine_satisfied(self, rollout: Rollout, context: Dict[str, Any]) -> bool:
+        if rollout.runtime_evaluation_rule:
+            parameters_for_runtime_rule = self._get_runtime_parameters(context)
+            if parameters_for_runtime_rule is None:
+                return False
+
+            try:
+                result = json_logic.jsonLogic(rollout.runtime_evaluation_rule, parameters_for_runtime_rule)
+                return bool(result)
+            except Exception:
+                logger.exception("Error evaluating runtime evaluation rule")
+                return False
+
+        elif rollout.runtime_evaluation_definition:  # legacy field supporting only exact match conditions
+            return self._is_legacy_runtime_evaluation_rule_satisfied(rollout, context)
+
+        else:
+            return True
+
+    def _is_legacy_runtime_evaluation_rule_satisfied(
         self, rollout: Rollout, context: Dict[str, Any]
     ) -> bool:
         if not rollout.runtime_evaluation_definition:
             return True
 
-        if not (custom_properties := context.get("custom_properties")):
-            return False
-
-        if not isinstance(custom_properties, dict):
+        parameters_for_runtime_rule = self._get_runtime_parameters(context)
+        if parameters_for_runtime_rule is None:
             return False
 
         for key, expected_value in rollout.runtime_evaluation_definition.items():
-            if key not in custom_properties:
+            if key not in parameters_for_runtime_rule:
                 return False
 
-            actual_value = custom_properties[key]
+            actual_value = parameters_for_runtime_rule[key]
             if actual_value.casefold() != expected_value.casefold():
                 return False
 
