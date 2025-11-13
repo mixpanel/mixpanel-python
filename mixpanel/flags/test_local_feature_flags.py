@@ -4,7 +4,7 @@ import respx
 import httpx
 import threading
 from unittest.mock import Mock, patch
-from typing import Dict, Optional, List
+from typing import Any, Dict, Optional, List
 from itertools import chain, repeat
 from .types import LocalFlagsConfig, ExperimentationFlag, RuleSet, Variant, Rollout, FlagTestUsers, ExperimentationFlags, VariantOverride, SelectedVariant
 from .local_feature_flags import LocalFeatureFlagsProvider
@@ -222,19 +222,20 @@ class TestLocalFeatureFlagsProviderAsync:
         }
         result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
         assert result == "fallback"
+    
+    def user_context_with_properties(self, properties: Dict[str, Any]) -> Dict[str, Any]:
+        context = {"distinct_id": DISTINCT_ID, "custom_properties": properties}
+        return context
 
     @respx.mock
     async def test_get_variant_value_respects_runtime_evaluation_satisfied(self):
         runtime_eval = {"plan": "premium", "region": "US"}
         flag = create_test_flag(runtime_evaluation_legacy_definition=runtime_eval)
         await self.setup_flags([flag])
-        context = {
-            "distinct_id": DISTINCT_ID,
-            "custom_properties": {
-                "plan": "premium",
-                "region": "US"
-            }
-        }
+        context = self.user_context_with_properties({
+            "plan": "premium",
+            "region": "US"
+        })
         result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
         assert result != "fallback"
 
