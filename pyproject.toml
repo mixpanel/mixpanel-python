@@ -17,6 +17,7 @@ dependencies = [
     "httpx>=0.27.0",
     "pydantic>=2.0.0",
     "asgiref>=3.0.0",
+    "json-logic>=0.6.3"
 ]
 keywords = ["mixpanel", "analytics"]
 classifiers = [
