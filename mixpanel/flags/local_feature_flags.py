@@ -3,6 +3,7 @@ import logging
 import asyncio
 import time
 import threading
+import json_logic
 from datetime import datetime, timedelta
 from typing import Dict, Any, Callable, Optional
 from .types import (
@@ -325,7 +326,6 @@ class LocalFeatureFlagsProvider:
             return False
         if not isinstance(custom_properties, dict):
             return False
-        import json_logic
         try:
             result = json_logic.jsonLogic(rollout.runtime_evaluation_rule, custom_properties)
             return bool(result)
