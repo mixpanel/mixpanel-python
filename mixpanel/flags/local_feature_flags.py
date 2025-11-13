@@ -330,7 +330,7 @@ class LocalFeatureFlagsProvider:
             result = json_logic.jsonLogic(rollout.runtime_evaluation_rule, custom_properties)
             return bool(result)
         except Exception as e:
-            logger.exception("Error evaluating runtime evaluation rule", e)
+            logger.exception("Error evaluating runtime evaluation rule")
             return False
 
     def _is_runtime_evaluation_satisfied(
