@@ -213,7 +213,131 @@ class TestLocalFeatureFlagsProviderAsync:
         })
         result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
         assert result == "fallback"
-    
+
+    @respx.mock
+    async def test_get_variant_value_respects_runtime_evaluation_rule_contains_satisfied(self):
+        runtime_eval = {
+            "in": ["Springfield", {"var": "url"}]
+        }
+        flag = create_test_flag(runtime_evaluation_rule=runtime_eval)
+        await self.setup_flags([flag])
+        context = self.user_context_with_properties({
+            "url": "https://helloworld.com/Springfield/all-about-it",
+        })
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
+        assert result != "fallback"
+
+    @respx.mock
+    async def test_get_variant_value_respects_runtime_evaluation_rule_contains_not_satisfied(self):
+        runtime_eval = {
+            "in": ["Springfield", {"var": "url"}]
+        }
+        flag = create_test_flag(runtime_evaluation_rule=runtime_eval)
+        await self.setup_flags([flag])
+        context = self.user_context_with_properties({
+            "url": "https://helloworld.com/Boston/all-about-it",
+        })
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
+        assert result == "fallback"
+
+    @respx.mock
+    async def test_get_variant_value_respects_runtime_evaluation_rule_multi_value_satisfied(self):
+        runtime_eval = {
+            "in": [
+                {"var": "name"},
+                ["a", "b", "c", "all-from-the-ui"]
+            ]
+        }
+        flag = create_test_flag(runtime_evaluation_rule=runtime_eval)
+        await self.setup_flags([flag])
+        context = self.user_context_with_properties({
+            "name": "b",
+        })
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
+        assert result != "fallback"
+
+    @respx.mock
+    async def test_get_variant_value_respects_runtime_evaluation_rule_multi_value_not_satisfied(self):
+        runtime_eval = {
+            "in": [
+                {"var": "name"},
+                ["a", "b", "c", "all-from-the-ui"]
+            ]
+        }
+        flag = create_test_flag(runtime_evaluation_rule=runtime_eval)
+        await self.setup_flags([flag])
+        context = self.user_context_with_properties({
+            "name": "d",
+        })
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
+        assert result == "fallback"
+
+    @respx.mock
+    async def test_get_variant_value_respects_runtime_evaluation_rule_and_satisfied(self):
+        runtime_eval = {
+            "and": [
+                {"==": [{"var": "name"}, "Johannes"]},
+                {"==": [{"var": "country"}, "Deutschland"]}
+            ]
+        }
+        flag = create_test_flag(runtime_evaluation_rule=runtime_eval)
+        await self.setup_flags([flag])
+        context = self.user_context_with_properties({
+            "name": "Johannes",
+            "country": "Deutschland",
+        })
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
+        assert result != "fallback"
+
+    @respx.mock
+    async def test_get_variant_value_respects_runtime_evaluation_rule_and_not_satisfied(self):
+        runtime_eval = {
+            "and": [
+                {"==": [{"var": "name"}, "Johannes"]},
+                {"==": [{"var": "country"}, "Deutschland"]}
+            ]
+        }
+        flag = create_test_flag(runtime_evaluation_rule=runtime_eval)
+        await self.setup_flags([flag])
+        context = self.user_context_with_properties({
+            "name": "Johannes",
+            "country": "France",
+        })
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
+        assert result == "fallback"
+
+    @respx.mock
+    async def test_get_variant_value_respects_runtime_evaluation_rule_comparison_satisfied(self):
+        runtime_eval = {
+            ">": [
+                {"var": "queries_ran"},
+                25
+            ]
+        }
+        flag = create_test_flag(runtime_evaluation_rule=runtime_eval)
+        await self.setup_flags([flag])
+        context = self.user_context_with_properties({
+            "queries_ran": 30,
+        })
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
+        assert result != "fallback"
+
+    @respx.mock
+    async def test_get_variant_value_respects_runtime_evaluation_rule_comparison_not_satisfied(self):
+        runtime_eval = {
+            ">": [
+                {"var": "queries_ran"},
+                25
+            ]
+        }
+        flag = create_test_flag(runtime_evaluation_rule=runtime_eval)
+        await self.setup_flags([flag])
+        context = self.user_context_with_properties({
+            "queries_ran": 20,
+        })
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
+        assert result == "fallback"
+
     def user_context_with_properties(self, properties: Dict[str, Any]) -> Dict[str, Any]:
         context = {"distinct_id": DISTINCT_ID, "custom_properties": properties}
         return context
