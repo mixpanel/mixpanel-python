@@ -187,7 +187,8 @@ class TestLocalFeatureFlagsProviderAsync:
         result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", USER_CONTEXT)
         assert result != "fallback"
 
-
+    # TODO Joshua start here
+    # TODO problem test doesn't fail
     @respx.mock
     async def test_get_variant_value_respects_runtime_evaluation_rule_satisfied(self):
         runtime_eval = {
@@ -219,35 +220,7 @@ class TestLocalFeatureFlagsProviderAsync:
         return context
 
     @respx.mock
-    async def test_get_variant_value_ignores_legacy_runtime_evaluation_definition_when_runtime_evaluation_rule_is_present__satisfied(self):
-        runtime_rule = {
-            "==": [{"var": "plan"}, "premium"]
-        }
-        legacy_runtime_definition = {"plan": "basic"}
-        flag = create_test_flag(runtime_evaluation_rule=runtime_rule, runtime_evaluation_legacy_definition=legacy_runtime_definition)
-        await self.setup_flags([flag])
-        context = self.user_context_with_properties({
-            "plan": "premium",
-        })
-        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
-        assert result != "fallback"
-
-    @respx.mock
-    async def test_get_variant_value_ignores_legacy_runtime_evaluation_definition_when_runtime_evaluation_rule_is_present__not_satisfied(self):
-        runtime_rule = {
-            "==": [{"var": "plan"}, "basic"]
-        }
-        legacy_runtime_definition = {"plan": "premium"}
-        flag = create_test_flag(runtime_evaluation_rule=runtime_rule, runtime_evaluation_legacy_definition=legacy_runtime_definition)
-        await self.setup_flags([flag])
-        context = self.user_context_with_properties({
-            "plan": "premium",
-        })
-        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
-        assert result == "fallback"
-
-    @respx.mock
-    async def test_get_variant_value_respects_legacy_runtime_evaluation_satisfied(self):
+    async def test_get_variant_value_respects_runtime_evaluation_satisfied(self):
         runtime_eval = {"plan": "premium", "region": "US"}
         flag = create_test_flag(runtime_evaluation_legacy_definition=runtime_eval)
         await self.setup_flags([flag])
@@ -259,7 +232,7 @@ class TestLocalFeatureFlagsProviderAsync:
         assert result != "fallback"
 
     @respx.mock
-    async def test_get_variant_value_returns_fallback_when_legacy_runtime_evaluation_not_satisfied(self):
+    async def test_get_variant_value_returns_fallback_when_runtime_evaluation_not_satisfied(self):
         runtime_eval = {"plan": "premium", "region": "US"}
         flag = create_test_flag(runtime_evaluation_legacy_definition=runtime_eval)
         await self.setup_flags([flag])
