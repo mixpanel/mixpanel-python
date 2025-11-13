@@ -214,6 +214,30 @@ class TestLocalFeatureFlagsProviderAsync:
         assert result == "fallback"
 
     @respx.mock
+    async def test_get_variant_value_invalid_runtime_rule_resorts_to_fallback(self):
+        runtime_eval = {
+            "=oops=": [{"var": "plan"}, "premium"]
+        }
+        flag = create_test_flag(runtime_evaluation_rule=runtime_eval)
+        await self.setup_flags([flag])
+        context = self.user_context_with_properties({
+            "plan": "basic",
+        })
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
+        assert result == "fallback"
+
+    @respx.mock
+    async def test_get_variant_value_respects_runtime_evaluation_rule_not_satisfied_when_no_custom_properties_provided(self):
+        runtime_eval = {
+            "=": [{"var": "plan"}, "premium"]
+        }
+        flag = create_test_flag(runtime_evaluation_rule=runtime_eval)
+        await self.setup_flags([flag])
+        context = self.user_context_with_properties({})
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
+        assert result == "fallback"
+
+    @respx.mock
     async def test_get_variant_value_respects_runtime_evaluation_rule_caseinsensitive_values__satisfied(self):
         runtime_eval = {
             "==": [{"var": "plan"}, "premium"]
