@@ -196,22 +196,30 @@ class TestLocalFeatureFlagsProviderAsync:
         }
         flag = create_test_flag(runtime_evaluation_rule=runtime_eval)
         await self.setup_flags([flag])
-        context = self.user_context_with_properties({
-            "plan": "premium",
-        })
+        context = {
+            "distinct_id": DISTINCT_ID,
+            "custom_properties": {
+                "plan": "premium",
+                "region": "US"
+            }
+        }
         result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
         assert result != "fallback"
 
     @respx.mock
     async def test_get_variant_value_respects_runtime_evaluation_rule_not_satisfied(self):
         runtime_eval = {
-            "==": [{"var": "plan"}, "premium"]
+            "==": [{"var": "plan"}, "basic"]
         }
         flag = create_test_flag(runtime_evaluation_rule=runtime_eval)
         await self.setup_flags([flag])
-        context = self.user_context_with_properties({
-            "plan": "basic",
-        })
+        context = {
+            "distinct_id": DISTINCT_ID,
+            "custom_properties": {
+                "plan": "premium",
+                "region": "US"
+            }
+        }
         result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
         assert result == "fallback"
     
@@ -236,10 +244,13 @@ class TestLocalFeatureFlagsProviderAsync:
         runtime_eval = {"plan": "premium", "region": "US"}
         flag = create_test_flag(runtime_evaluation_legacy_definition=runtime_eval)
         await self.setup_flags([flag])
-        context = self.user_context_with_properties({
-            "plan": "basic",
-            "region": "US"
-        })
+        context = {
+            "distinct_id": DISTINCT_ID,
+            "custom_properties": {
+                "plan": "basic",
+                "region": "US"
+            }
+        }
         result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
         assert result == "fallback"
 
