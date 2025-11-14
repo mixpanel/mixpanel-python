@@ -4,19 +4,23 @@ import respx
 import httpx
 import threading
 from unittest.mock import Mock, patch
-from typing import Dict, Optional, List
+from typing import Any, Dict, Optional, List
 from itertools import chain, repeat
 from .types import LocalFlagsConfig, ExperimentationFlag, RuleSet, Variant, Rollout, FlagTestUsers, ExperimentationFlags, VariantOverride, SelectedVariant
 from .local_feature_flags import LocalFeatureFlagsProvider
 
+TEST_FLAG_KEY = "test_flag"
+DISTINCT_ID = "user123"
+USER_CONTEXT = {"distinct_id": DISTINCT_ID}
 
 def create_test_flag(
-    flag_key: str = "test_flag",
+    flag_key: str = TEST_FLAG_KEY,
     context: str = "distinct_id",
     variants: Optional[list[Variant]] = None,
     variant_override: Optional[VariantOverride] = None,
     rollout_percentage: float = 100.0,
-    runtime_evaluation: Optional[Dict] = None,
+    runtime_evaluation_legacy_definition: Optional[Dict] = None,
+    runtime_evaluation_rule: Optional[Dict] = None,
     test_users: Optional[Dict[str, str]] = None,
     experiment_id: Optional[str] = None,
     is_experiment_active: Optional[bool] = None,
@@ -30,7 +34,8 @@ def create_test_flag(
 
     rollouts = [Rollout(
         rollout_percentage=rollout_percentage,
-        runtime_evaluation_definition=runtime_evaluation,
+        runtime_evaluation_definition=runtime_evaluation_legacy_definition,
+        runtime_evaluation_rule=runtime_evaluation_rule,
         variant_override=variant_override,
         variant_splits=variant_splits
     )]
@@ -103,7 +108,7 @@ class TestLocalFeatureFlagsProviderAsync:
     @respx.mock
     async def test_get_variant_value_returns_fallback_when_no_flag_definitions(self):
         await self.setup_flags([])
-        result = self._flags.get_variant_value("nonexistent_flag", "control", {"distinct_id": "user123"})
+        result = self._flags.get_variant_value("nonexistent_flag", "control", USER_CONTEXT)
         assert result == "control"
 
     @respx.mock
@@ -113,28 +118,28 @@ class TestLocalFeatureFlagsProviderAsync:
         )
 
         await self._flags.astart_polling_for_definitions()
-        result = self._flags.get_variant_value("nonexistent_flag", "control", {"distinct_id": "user123"})
+        result = self._flags.get_variant_value("nonexistent_flag", "control", USER_CONTEXT)
         assert result == "control"
 
     @respx.mock
     async def test_get_variant_value_returns_fallback_when_flag_does_not_exist(self):
         other_flag = create_test_flag("other_flag")
         await self.setup_flags([other_flag])
-        result = self._flags.get_variant_value("nonexistent_flag", "control", {"distinct_id": "user123"})
+        result = self._flags.get_variant_value("nonexistent_flag", "control", USER_CONTEXT)
         assert result == "control"
 
     @respx.mock
     async def test_get_variant_value_returns_fallback_when_no_context(self):
         flag = create_test_flag(context="distinct_id")
         await self.setup_flags([flag])
-        result = self._flags.get_variant_value("test_flag", "fallback", {})
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", {})
         assert result == "fallback"
 
     @respx.mock
     async def test_get_variant_value_returns_fallback_when_wrong_context_key(self):
         flag = create_test_flag(context="user_id")
         await self.setup_flags([flag])
-        result = self._flags.get_variant_value("test_flag", "fallback", {"distinct_id": "user123"})
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", USER_CONTEXT)
         assert result == "fallback"
 
     @respx.mock
@@ -149,7 +154,7 @@ class TestLocalFeatureFlagsProviderAsync:
         )
 
         await self.setup_flags([flag])
-        result = self._flags.get_variant_value("test_flag", "control", {"distinct_id": "test_user"})
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "control", {"distinct_id": "test_user"})
         assert result == "true"
 
     @respx.mock
@@ -165,51 +170,290 @@ class TestLocalFeatureFlagsProviderAsync:
         await self.setup_flags([flag])
         with patch('mixpanel.flags.utils.normalized_hash') as mock_hash:
             mock_hash.return_value = 0.5
-            result = self._flags.get_variant_value("test_flag", "fallback", {"distinct_id": "test_user"})
+            result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", {"distinct_id": "test_user"})
             assert result == "false"
 
     @respx.mock
     async def test_get_variant_value_returns_fallback_when_rollout_percentage_zero(self):
         flag = create_test_flag(rollout_percentage=0.0)
         await self.setup_flags([flag])
-        result = self._flags.get_variant_value("test_flag", "fallback", {"distinct_id": "user123"})
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", USER_CONTEXT)
         assert result == "fallback"
 
     @respx.mock
     async def test_get_variant_value_returns_variant_when_rollout_percentage_hundred(self):
         flag = create_test_flag(rollout_percentage=100.0)
         await self.setup_flags([flag])
-        result = self._flags.get_variant_value("test_flag", "fallback", {"distinct_id": "user123"})
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", USER_CONTEXT)
         assert result != "fallback"
 
     @respx.mock
-    async def test_get_variant_value_respects_runtime_evaluation_satisfied(self):
-        runtime_eval = {"plan": "premium", "region": "US"}
-        flag = create_test_flag(runtime_evaluation=runtime_eval)
-        await self.setup_flags([flag])
-        context = {
-            "distinct_id": "user123",
-            "custom_properties": {
-                "plan": "premium",
-                "region": "US"
-            }
+    async def test_get_variant_value_respects_runtime_evaluation_rule_satisfied(self):
+        runtime_eval = {
+            "==": [{"var": "plan"}, "premium"]
         }
-        result = self._flags.get_variant_value("test_flag", "fallback", context)
+        flag = create_test_flag(runtime_evaluation_rule=runtime_eval)
+        await self.setup_flags([flag])
+        context = self.user_context_with_properties({
+            "plan": "premium",
+        })
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
         assert result != "fallback"
 
     @respx.mock
-    async def test_get_variant_value_returns_fallback_when_runtime_evaluation_not_satisfied(self):
-        runtime_eval = {"plan": "premium", "region": "US"}
-        flag = create_test_flag(runtime_evaluation=runtime_eval)
-        await self.setup_flags([flag])
-        context = {
-            "distinct_id": "user123",
-            "custom_properties": {
-                "plan": "basic",
-                "region": "US"
-            }
+    async def test_get_variant_value_respects_runtime_evaluation_rule_not_satisfied(self):
+        runtime_eval = {
+            "==": [{"var": "plan"}, "premium"]
         }
-        result = self._flags.get_variant_value("test_flag", "fallback", context)
+        flag = create_test_flag(runtime_evaluation_rule=runtime_eval)
+        await self.setup_flags([flag])
+        context = self.user_context_with_properties({
+            "plan": "basic",
+        })
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
+        assert result == "fallback"
+
+    @respx.mock
+    async def test_get_variant_value_invalid_runtime_rule_resorts_to_fallback(self):
+        runtime_eval = {
+            "=oops=": [{"var": "plan"}, "premium"]
+        }
+        flag = create_test_flag(runtime_evaluation_rule=runtime_eval)
+        await self.setup_flags([flag])
+        context = self.user_context_with_properties({
+            "plan": "basic",
+        })
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
+        assert result == "fallback"
+
+    @respx.mock
+    async def test_get_variant_value_respects_runtime_evaluation_rule_not_satisfied_when_no_custom_properties_provided(self):
+        runtime_eval = {
+            "=": [{"var": "plan"}, "premium"]
+        }
+        flag = create_test_flag(runtime_evaluation_rule=runtime_eval)
+        await self.setup_flags([flag])
+        context = self.user_context_with_properties({})
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
+        assert result == "fallback"
+
+    @respx.mock
+    async def test_get_variant_value_respects_runtime_evaluation_rule_caseinsensitive_param_value__satisfied(self):
+        runtime_eval = {
+            "==": [{"var": "plan"}, "premium"]
+        }
+        flag = create_test_flag(runtime_evaluation_rule=runtime_eval)
+        await self.setup_flags([flag])
+        context = self.user_context_with_properties({
+            "plan": "PremIum",
+        })
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
+        assert result != "fallback"
+
+    @respx.mock
+    async def test_get_variant_value_respects_runtime_evaluation_rule_caseinsensitive_varnames__satisfied(self):
+        runtime_eval = {
+            "==": [{"var": "Plan"}, "premium"]
+        }
+        flag = create_test_flag(runtime_evaluation_rule=runtime_eval)
+        await self.setup_flags([flag])
+        context = self.user_context_with_properties({
+            "plan": "premium",
+        })
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
+        assert result != "fallback"
+
+    @respx.mock
+    async def test_get_variant_value_respects_runtime_evaluation_rule_caseinsensitive_rule_value__satisfied(self):
+        runtime_eval = {
+            "==": [{"var": "plan"}, "pREMIUm"]
+        }
+        flag = create_test_flag(runtime_evaluation_rule=runtime_eval)
+        await self.setup_flags([flag])
+        context = self.user_context_with_properties({
+            "plan": "premium",
+        })
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
+        assert result != "fallback"
+
+    @respx.mock
+    async def test_get_variant_value_respects_runtime_evaluation_rule_contains_satisfied(self):
+        runtime_eval = {
+            "in": ["Springfield", {"var": "url"}]
+        }
+        flag = create_test_flag(runtime_evaluation_rule=runtime_eval)
+        await self.setup_flags([flag])
+        context = self.user_context_with_properties({
+            "url": "https://helloworld.com/Springfield/all-about-it",
+        })
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
+        assert result != "fallback"
+
+    @respx.mock
+    async def test_get_variant_value_respects_runtime_evaluation_rule_contains_not_satisfied(self):
+        runtime_eval = {
+            "in": ["Springfield", {"var": "url"}]
+        }
+        flag = create_test_flag(runtime_evaluation_rule=runtime_eval)
+        await self.setup_flags([flag])
+        context = self.user_context_with_properties({
+            "url": "https://helloworld.com/Boston/all-about-it",
+        })
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
+        assert result == "fallback"
+
+    @respx.mock
+    async def test_get_variant_value_respects_runtime_evaluation_rule_multi_value_satisfied(self):
+        runtime_eval = {
+            "in": [
+                {"var": "name"},
+                ["a", "b", "c", "all-from-the-ui"]
+            ]
+        }
+        flag = create_test_flag(runtime_evaluation_rule=runtime_eval)
+        await self.setup_flags([flag])
+        context = self.user_context_with_properties({
+            "name": "b",
+        })
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
+        assert result != "fallback"
+
+    @respx.mock
+    async def test_get_variant_value_respects_runtime_evaluation_rule_multi_value_not_satisfied(self):
+        runtime_eval = {
+            "in": [
+                {"var": "name"},
+                ["a", "b", "c", "all-from-the-ui"]
+            ]
+        }
+        flag = create_test_flag(runtime_evaluation_rule=runtime_eval)
+        await self.setup_flags([flag])
+        context = self.user_context_with_properties({
+            "name": "d",
+        })
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
+        assert result == "fallback"
+
+    @respx.mock
+    async def test_get_variant_value_respects_runtime_evaluation_rule_and_satisfied(self):
+        runtime_eval = {
+            "and": [
+                {"==": [{"var": "name"}, "Johannes"]},
+                {"==": [{"var": "country"}, "Deutschland"]}
+            ]
+        }
+        flag = create_test_flag(runtime_evaluation_rule=runtime_eval)
+        await self.setup_flags([flag])
+        context = self.user_context_with_properties({
+            "name": "Johannes",
+            "country": "Deutschland",
+        })
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
+        assert result != "fallback"
+
+    @respx.mock
+    async def test_get_variant_value_respects_runtime_evaluation_rule_and_not_satisfied(self):
+        runtime_eval = {
+            "and": [
+                {"==": [{"var": "name"}, "Johannes"]},
+                {"==": [{"var": "country"}, "Deutschland"]}
+            ]
+        }
+        flag = create_test_flag(runtime_evaluation_rule=runtime_eval)
+        await self.setup_flags([flag])
+        context = self.user_context_with_properties({
+            "name": "Johannes",
+            "country": "France",
+        })
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
+        assert result == "fallback"
+
+    @respx.mock
+    async def test_get_variant_value_respects_runtime_evaluation_rule_comparison_satisfied(self):
+        runtime_eval = {
+            ">": [
+                {"var": "queries_ran"},
+                25
+            ]
+        }
+        flag = create_test_flag(runtime_evaluation_rule=runtime_eval)
+        await self.setup_flags([flag])
+        context = self.user_context_with_properties({
+            "queries_ran": 30,
+        })
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
+        assert result != "fallback"
+
+    @respx.mock
+    async def test_get_variant_value_respects_runtime_evaluation_rule_comparison_not_satisfied(self):
+        runtime_eval = {
+            ">": [
+                {"var": "queries_ran"},
+                25
+            ]
+        }
+        flag = create_test_flag(runtime_evaluation_rule=runtime_eval)
+        await self.setup_flags([flag])
+        context = self.user_context_with_properties({
+            "queries_ran": 20,
+        })
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
+        assert result == "fallback"
+
+    def user_context_with_properties(self, properties: Dict[str, Any]) -> Dict[str, Any]:
+        context = {"distinct_id": DISTINCT_ID, "custom_properties": properties}
+        return context
+
+    @respx.mock
+    async def test_get_variant_value_ignores_legacy_runtime_evaluation_definition_when_runtime_evaluation_rule_is_present__satisfied(self):
+        runtime_rule = {
+            "==": [{"var": "plan"}, "premium"]
+        }
+        legacy_runtime_definition = {"plan": "basic"}
+        flag = create_test_flag(runtime_evaluation_rule=runtime_rule, runtime_evaluation_legacy_definition=legacy_runtime_definition)
+        await self.setup_flags([flag])
+        context = self.user_context_with_properties({
+            "plan": "premium",
+        })
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
+        assert result != "fallback"
+
+    @respx.mock
+    async def test_get_variant_value_ignores_legacy_runtime_evaluation_definition_when_runtime_evaluation_rule_is_present__not_satisfied(self):
+        runtime_rule = {
+            "==": [{"var": "plan"}, "basic"]
+        }
+        legacy_runtime_definition = {"plan": "premium"}
+        flag = create_test_flag(runtime_evaluation_rule=runtime_rule, runtime_evaluation_legacy_definition=legacy_runtime_definition)
+        await self.setup_flags([flag])
+        context = self.user_context_with_properties({
+            "plan": "premium",
+        })
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
+        assert result == "fallback"
+
+    @respx.mock
+    async def test_get_variant_value_respects_legacy_runtime_evaluation_satisfied(self):
+        runtime_eval = {"plan": "premium", "region": "US"}
+        flag = create_test_flag(runtime_evaluation_legacy_definition=runtime_eval)
+        await self.setup_flags([flag])
+        context = self.user_context_with_properties({
+            "plan": "premium",
+            "region": "US"
+        })
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
+        assert result != "fallback"
+
+    @respx.mock
+    async def test_get_variant_value_returns_fallback_when_legacy_runtime_evaluation_not_satisfied(self):
+        runtime_eval = {"plan": "premium", "region": "US"}
+        flag = create_test_flag(runtime_evaluation_legacy_definition=runtime_eval)
+        await self.setup_flags([flag])
+        context = self.user_context_with_properties({
+            "plan": "basic",
+            "region": "US"
+        })
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
         assert result == "fallback"
 
     @respx.mock
@@ -221,7 +465,7 @@ class TestLocalFeatureFlagsProviderAsync:
         ]
         flag = create_test_flag(variants=variants, rollout_percentage=100.0)
         await self.setup_flags([flag])
-        result = self._flags.get_variant_value("test_flag", "fallback", {"distinct_id": "user123"})
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", USER_CONTEXT)
         assert result == "variant_a"
 
     @respx.mock
@@ -234,7 +478,7 @@ class TestLocalFeatureFlagsProviderAsync:
         variant_splits = {"A": 0.0, "B": 100.0, "C": 0.0}
         flag = create_test_flag(variants=variants, rollout_percentage=100.0, variant_splits=variant_splits)
         await self.setup_flags([flag])
-        result = self._flags.get_variant_value("test_flag", "fallback", {"distinct_id": "user123"})
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", USER_CONTEXT)
         assert result == "variant_b"
 
     @respx.mock
@@ -247,7 +491,7 @@ class TestLocalFeatureFlagsProviderAsync:
         variant_splits = {"A": 0.0, "B": 0.0, "C": 100.0}
         flag = create_test_flag(variants=variants, rollout_percentage=100.0, variant_splits=variant_splits)
         await self.setup_flags([flag])
-        result = self._flags.get_variant_value("test_flag", "fallback", {"distinct_id": "user123"})
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", USER_CONTEXT)
         assert result == "variant_c"
 
     @respx.mock
@@ -258,7 +502,7 @@ class TestLocalFeatureFlagsProviderAsync:
         ]
         flag = create_test_flag(variants=variants, variant_override=VariantOverride(key="B"))
         await self.setup_flags([flag])
-        result = self._flags.get_variant_value("test_flag", "control", {"distinct_id": "user123"})
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "control", USER_CONTEXT)
         assert result == "variant_b"
 
     @respx.mock
@@ -267,7 +511,7 @@ class TestLocalFeatureFlagsProviderAsync:
         await self.setup_flags([flag])
         with patch('mixpanel.flags.utils.normalized_hash') as mock_hash:
             mock_hash.return_value = 0.5
-            _ = self._flags.get_variant_value("test_flag", "fallback", {"distinct_id": "user123"})
+            _ = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", USER_CONTEXT)
             self._mock_tracker.assert_called_once()
 
     @respx.mock
@@ -292,7 +536,7 @@ class TestLocalFeatureFlagsProviderAsync:
 
         with patch('mixpanel.flags.utils.normalized_hash') as mock_hash:
             mock_hash.return_value = 0.5
-            _ = self._flags.get_variant_value("test_flag", "fallback", {"distinct_id": distinct_id})
+            _ = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", {"distinct_id": distinct_id})
 
         self._mock_tracker.assert_called_once()
 
@@ -310,7 +554,7 @@ class TestLocalFeatureFlagsProviderAsync:
     @respx.mock
     async def test_get_variant_value_does_not_track_exposure_on_fallback(self):
         await self.setup_flags([])
-        _ = self._flags.get_variant_value("nonexistent_flag", "fallback", {"distinct_id": "user123"})
+        _ = self._flags.get_variant_value("nonexistent_flag", "fallback", USER_CONTEXT)
         self._mock_tracker.assert_not_called()
 
     @respx.mock
@@ -326,7 +570,7 @@ class TestLocalFeatureFlagsProviderAsync:
         flag2 = create_test_flag(flag_key="flag2", rollout_percentage=100.0)
         await self.setup_flags([flag1, flag2])
 
-        result = self._flags.get_all_variants({"distinct_id": "user123"})
+        result = self._flags.get_all_variants(USER_CONTEXT)
 
         assert len(result) == 2 and "flag1" in result and "flag2" in result
 
@@ -336,7 +580,7 @@ class TestLocalFeatureFlagsProviderAsync:
         flag2 = create_test_flag(flag_key="flag2", rollout_percentage=0.0)
         await self.setup_flags([flag1, flag2])
 
-        result = self._flags.get_all_variants({"distinct_id": "user123"})
+        result = self._flags.get_all_variants(USER_CONTEXT)
 
         assert len(result) == 1 and "flag1" in result and "flag2" not in result
 
@@ -344,7 +588,7 @@ class TestLocalFeatureFlagsProviderAsync:
     async def test_get_all_variants_returns_empty_dict_when_no_flags_configured(self):
         await self.setup_flags([])
 
-        result = self._flags.get_all_variants({"distinct_id": "user123"})
+        result = self._flags.get_all_variants(USER_CONTEXT)
 
         assert result == {}
 
@@ -354,7 +598,7 @@ class TestLocalFeatureFlagsProviderAsync:
         flag2 = create_test_flag(flag_key="flag2", rollout_percentage=100.0)
         await self.setup_flags([flag1, flag2])
 
-        _ = self._flags.get_all_variants({"distinct_id": "user123"})
+        _ = self._flags.get_all_variants(USER_CONTEXT)
 
         self._mock_tracker.assert_not_called()
 
@@ -364,7 +608,7 @@ class TestLocalFeatureFlagsProviderAsync:
         await self.setup_flags([flag])
 
         variant = SelectedVariant(key="treatment", variant_value="treatment")
-        self._flags.track_exposure_event("test_flag", variant, {"distinct_id": "user123"})
+        self._flags.track_exposure_event(TEST_FLAG_KEY, variant, USER_CONTEXT)
 
         self._mock_tracker.assert_called_once()
 
@@ -384,7 +628,7 @@ class TestLocalFeatureFlagsProviderAsync:
     @respx.mock
     async def test_is_enabled_returns_false_for_nonexistent_flag(self):
         await self.setup_flags([])
-        result = self._flags.is_enabled("nonexistent_flag", {"distinct_id": "user123"})
+        result = self._flags.is_enabled("nonexistent_flag", USER_CONTEXT)
         assert result == False
 
     @respx.mock
@@ -394,7 +638,7 @@ class TestLocalFeatureFlagsProviderAsync:
         ]
         flag = create_test_flag(variants=variants, rollout_percentage=100.0)
         await self.setup_flags([flag])
-        result = self._flags.is_enabled("test_flag", {"distinct_id": "user123"})
+        result = self._flags.is_enabled(TEST_FLAG_KEY, USER_CONTEXT)
         assert result == True
 
     @respx.mock
@@ -419,7 +663,7 @@ class TestLocalFeatureFlagsProviderAsync:
             async with polling_limit_check:
                 await polling_limit_check.wait_for(lambda: polling_iterations >= len(flags_in_order))
 
-            result2 = self._flags_with_polling.get_variant_value("test_flag", "fallback", {"distinct_id": "user123"})
+            result2 = self._flags_with_polling.get_variant_value(TEST_FLAG_KEY, "fallback", USER_CONTEXT)
             assert result2 != "fallback"
 
 class TestLocalFeatureFlagsProviderSync:
@@ -465,5 +709,5 @@ class TestLocalFeatureFlagsProviderSync:
             self.setup_flags_with_polling(flags_in_order)
             polling_event.wait(timeout=5.0)
             assert (polling_iterations >= 3 )
-            result2 = self._flags_with_polling.get_variant_value("test_flag", "fallback", {"distinct_id": "user123"})
+            result2 = self._flags_with_polling.get_variant_value(TEST_FLAG_KEY, "fallback", USER_CONTEXT)
             assert result2 != "fallback"

@@ -3,6 +3,7 @@ import logging
 import asyncio
 import time
 import threading
+import json_logic
 from datetime import datetime, timedelta
 from typing import Dict, Any, Callable, Optional
 from .types import (
@@ -22,7 +23,6 @@ from .utils import (
 
 logger = logging.getLogger(__name__)
 logging.getLogger("httpx").setLevel(logging.ERROR)
-
 
 class LocalFeatureFlagsProvider:
     FLAGS_DEFINITIONS_URL_PATH = "/flags/definitions"
@@ -312,29 +312,82 @@ class LocalFeatureFlagsProvider:
             rollout_hash = normalized_hash(str(context_value), salt)
 
             if (rollout_hash < rollout.rollout_percentage
-                and self._is_runtime_evaluation_satisfied(rollout, context)
+                and self._is_runtime_rules_engine_satisfied(rollout, context)
             ):
                 return rollout
 
         return None
+    
+    def lowercase_keys_and_values(self, val: Any) -> Any:
+        if isinstance(val, str): 
+            return val.casefold()
+        elif isinstance(val, list):
+            return [self.lowercase_keys_and_values(item) for item in val]
+        elif isinstance(val, dict):
+            return {
+                (key.casefold() if isinstance(key, str) else key):
+                self.lowercase_keys_and_values(value)
+                for key, value in val.items()
+            }
+        else:
+            return val
+    
+    def lowercase_only_leaf_nodes(self, val: Any) -> Dict[str, Any]:
+        if isinstance(val, str): 
+            return val.casefold()
+        elif isinstance(val, list):
+            return [self.lowercase_only_leaf_nodes(item) for item in val]
+        elif isinstance(val, dict):
+            return {
+                key:
+                self.lowercase_only_leaf_nodes(value)
+                for key, value in val.items()
+            }
+        else:
+            return val
+    
+    def _get_runtime_parameters(self, context: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        if not (custom_properties := context.get("custom_properties")):
+            return None
+        if not isinstance(custom_properties, dict):
+            return None
+        return self.lowercase_keys_and_values(custom_properties)
 
-    def _is_runtime_evaluation_satisfied(
+    def _is_runtime_rules_engine_satisfied(self, rollout: Rollout, context: Dict[str, Any]) -> bool:
+        if rollout.runtime_evaluation_rule:
+            parameters_for_runtime_rule = self._get_runtime_parameters(context)
+            if parameters_for_runtime_rule is None:
+                return False
+
+            try:
+                rule = self.lowercase_only_leaf_nodes(rollout.runtime_evaluation_rule)
+                result = json_logic.jsonLogic(rule, parameters_for_runtime_rule)
+                return bool(result)
+            except Exception:
+                logger.exception("Error evaluating runtime evaluation rule")
+                return False
+
+        elif rollout.runtime_evaluation_definition:  # legacy field supporting only exact match conditions
+            return self._is_legacy_runtime_evaluation_rule_satisfied(rollout, context)
+
+        else:
+            return True
+
+    def _is_legacy_runtime_evaluation_rule_satisfied(
         self, rollout: Rollout, context: Dict[str, Any]
     ) -> bool:
         if not rollout.runtime_evaluation_definition:
             return True
 
-        if not (custom_properties := context.get("custom_properties")):
-            return False
-
-        if not isinstance(custom_properties, dict):
+        parameters_for_runtime_rule = self._get_runtime_parameters(context)
+        if parameters_for_runtime_rule is None:
             return False
 
         for key, expected_value in rollout.runtime_evaluation_definition.items():
-            if key not in custom_properties:
+            if key not in parameters_for_runtime_rule:
                 return False
 
-            actual_value = custom_properties[key]
+            actual_value = parameters_for_runtime_rule[key]
             if actual_value.casefold() != expected_value.casefold():
                 return False
 
