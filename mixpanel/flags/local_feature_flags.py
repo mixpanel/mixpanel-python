@@ -334,13 +334,13 @@ class LocalFeatureFlagsProvider:
     
     def lowercase_only_leaf_nodes(self, val: Any) -> Dict[str, Any]:
         if isinstance(val, str): 
-            return val
+            return val.casefold()
         elif isinstance(val, list):
-            return [self.lowercase_keys_and_values(item) for item in val]
+            return [self.lowercase_only_leaf_nodes(item) for item in val]
         elif isinstance(val, dict):
             return {
                 key:
-                self.lowercase_keys_and_values(value)
+                self.lowercase_only_leaf_nodes(value)
                 for key, value in val.items()
             }
         else:
