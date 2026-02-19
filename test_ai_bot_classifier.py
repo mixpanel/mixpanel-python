@@ -83,6 +83,7 @@ class TestClassifyUserAgent:
         assert result['$is_ai_bot'] is True
         assert result['$ai_bot_name'] == 'Bytespider'
         assert result['$ai_bot_provider'] == 'ByteDance'
+        assert result['$ai_bot_category'] == 'indexing'
 
     # === Common Crawl ===
 
@@ -91,6 +92,7 @@ class TestClassifyUserAgent:
         assert result['$is_ai_bot'] is True
         assert result['$ai_bot_name'] == 'CCBot'
         assert result['$ai_bot_provider'] == 'Common Crawl'
+        assert result['$ai_bot_category'] == 'indexing'
 
     # === Apple ===
 
@@ -102,6 +104,7 @@ class TestClassifyUserAgent:
         assert result['$is_ai_bot'] is True
         assert result['$ai_bot_name'] == 'Applebot-Extended'
         assert result['$ai_bot_provider'] == 'Apple'
+        assert result['$ai_bot_category'] == 'indexing'
 
     # === Meta ===
 
@@ -110,6 +113,7 @@ class TestClassifyUserAgent:
         assert result['$is_ai_bot'] is True
         assert result['$ai_bot_name'] == 'Meta-ExternalAgent'
         assert result['$ai_bot_provider'] == 'Meta'
+        assert result['$ai_bot_category'] == 'indexing'
 
     # === Cohere ===
 
