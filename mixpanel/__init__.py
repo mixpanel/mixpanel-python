@@ -30,6 +30,9 @@ from .flags.local_feature_flags import LocalFeatureFlagsProvider
 from .flags.remote_feature_flags import RemoteFeatureFlagsProvider
 from .flags.types import LocalFlagsConfig, RemoteFlagsConfig
 
+from .ai_bot_classifier import classify_user_agent, create_classifier, get_bot_database
+from .ai_bot_consumer import BotClassifyingConsumer
+
 __version__ = '5.1.0'
 
 logger = logging.getLogger(__name__)
