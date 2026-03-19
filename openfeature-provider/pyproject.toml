@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mixpanel-openfeature"
+version = "0.1.0"
+description = "OpenFeature provider for the Mixpanel Python SDK"
+license = "Apache-2.0"
+authors = [
+    {name = "Mixpanel, Inc.", email = "dev@mixpanel.com"},
+]
+requires-python = ">=3.9"
+dependencies = [
+    "mixpanel",
+    "openfeature-sdk>=0.7.0",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.4.1",
+    "pytest-asyncio>=0.23.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
