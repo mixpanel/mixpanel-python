@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock
 import pytest
+from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import ErrorCode
 from openfeature.flag_evaluation import Reason
 
@@ -294,3 +295,142 @@ def test_remote_provider_always_ready():
 
 def test_shutdown_is_noop(provider):
     provider.shutdown()  # Should not raise
+
+
+# --- EvaluationContext forwarding ---
+
+
+def test_forwards_targeting_key_as_distinct_id(provider, mock_flags):
+    setup_flag(mock_flags, "flag", "val")
+    ctx = EvaluationContext(targeting_key="user-123")
+    provider.resolve_string_details("flag", "default", ctx)
+    _, _, user_context = mock_flags.get_variant.call_args[0]
+    assert user_context["distinct_id"] == "user-123"
+
+
+def test_forwards_attributes_as_custom_properties(provider, mock_flags):
+    setup_flag(mock_flags, "flag", "val")
+    ctx = EvaluationContext(attributes={"plan": "pro", "beta": True})
+    provider.resolve_string_details("flag", "default", ctx)
+    _, _, user_context = mock_flags.get_variant.call_args[0]
+    assert user_context["custom_properties"] == {"plan": "pro", "beta": True}
+
+
+def test_forwards_full_context(provider, mock_flags):
+    setup_flag(mock_flags, "flag", "val")
+    ctx = EvaluationContext(
+        targeting_key="user-456", attributes={"tier": "enterprise"}
+    )
+    provider.resolve_string_details("flag", "default", ctx)
+    _, _, user_context = mock_flags.get_variant.call_args[0]
+    assert user_context == {
+        "distinct_id": "user-456",
+        "custom_properties": {"tier": "enterprise"},
+    }
+
+
+def test_no_context_passes_empty_dict(provider, mock_flags):
+    setup_flag(mock_flags, "flag", "val")
+    provider.resolve_string_details("flag", "default")
+    _, _, user_context = mock_flags.get_variant.call_args[0]
+    assert user_context == {}
+
+
+# --- Variant key passthrough ---
+
+
+def test_variant_key_present_in_boolean_resolution(provider, mock_flags):
+    setup_flag(mock_flags, "bool-flag", True, variant_key="control")
+    result = provider.resolve_boolean_details("bool-flag", False)
+    assert result.value is True
+    assert result.variant == "control"
+    assert result.reason == Reason.STATIC
+
+
+def test_variant_key_present_in_string_resolution(provider, mock_flags):
+    setup_flag(mock_flags, "string-flag", "hello", variant_key="treatment-a")
+    result = provider.resolve_string_details("string-flag", "default")
+    assert result.value == "hello"
+    assert result.variant == "treatment-a"
+    assert result.reason == Reason.STATIC
+
+
+def test_variant_key_present_in_integer_resolution(provider, mock_flags):
+    setup_flag(mock_flags, "int-flag", 42, variant_key="v2")
+    result = provider.resolve_integer_details("int-flag", 0)
+    assert result.value == 42
+    assert result.variant == "v2"
+    assert result.reason == Reason.STATIC
+
+
+def test_variant_key_present_in_float_resolution(provider, mock_flags):
+    setup_flag(mock_flags, "float-flag", 3.14, variant_key="v3")
+    result = provider.resolve_float_details("float-flag", 0.0)
+    assert result.value == pytest.approx(3.14)
+    assert result.variant == "v3"
+    assert result.reason == Reason.STATIC
+
+
+def test_variant_key_present_in_object_resolution(provider, mock_flags):
+    setup_flag(mock_flags, "obj-flag", {"key": "value"}, variant_key="v4")
+    result = provider.resolve_object_details("obj-flag", {})
+    assert result.value == {"key": "value"}
+    assert result.variant == "v4"
+    assert result.reason == Reason.STATIC
+
+
+# --- SDK exception handling ---
+
+
+def test_sdk_exception_returns_default_boolean(provider, mock_flags):
+    mock_flags.get_variant.side_effect = RuntimeError("SDK failure")
+    result = provider.resolve_boolean_details("flag", True)
+    assert result.value is True
+    assert result.error_code == ErrorCode.GENERAL
+    assert result.reason == Reason.ERROR
+
+
+def test_sdk_exception_returns_default_string(provider, mock_flags):
+    mock_flags.get_variant.side_effect = RuntimeError("SDK failure")
+    result = provider.resolve_string_details("flag", "fallback")
+    assert result.value == "fallback"
+    assert result.error_code == ErrorCode.GENERAL
+    assert result.reason == Reason.ERROR
+
+
+def test_sdk_exception_returns_default_integer(provider, mock_flags):
+    mock_flags.get_variant.side_effect = RuntimeError("SDK failure")
+    result = provider.resolve_integer_details("flag", 99)
+    assert result.value == 99
+    assert result.error_code == ErrorCode.GENERAL
+    assert result.reason == Reason.ERROR
+
+
+# --- Null variant key ---
+
+
+def test_null_variant_key_boolean(provider, mock_flags):
+    setup_flag(mock_flags, "flag", True, variant_key=None)
+    result = provider.resolve_boolean_details("flag", False)
+    assert result.value is True
+    assert result.variant is None
+    assert result.reason == Reason.STATIC
+    assert result.error_code is None
+
+
+def test_null_variant_key_string(provider, mock_flags):
+    setup_flag(mock_flags, "flag", "hello", variant_key=None)
+    result = provider.resolve_string_details("flag", "default")
+    assert result.value == "hello"
+    assert result.variant is None
+    assert result.reason == Reason.STATIC
+    assert result.error_code is None
+
+
+def test_null_variant_key_object(provider, mock_flags):
+    setup_flag(mock_flags, "flag", {"key": "value"}, variant_key=None)
+    result = provider.resolve_object_details("flag", {})
+    assert result.value == {"key": "value"}
+    assert result.variant is None
+    assert result.reason == Reason.STATIC
+    assert result.error_code is None

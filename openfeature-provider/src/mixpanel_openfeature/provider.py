@@ -31,7 +31,7 @@ class MixpanelProvider(AbstractProvider):
         default_value: bool,
         evaluation_context: typing.Optional[EvaluationContext] = None,
     ) -> FlagResolutionDetails[bool]:
-        return self._resolve(flag_key, default_value, bool)
+        return self._resolve(flag_key, default_value, bool, evaluation_context)
 
     def resolve_string_details(
         self,
@@ -39,7 +39,7 @@ class MixpanelProvider(AbstractProvider):
         default_value: str,
         evaluation_context: typing.Optional[EvaluationContext] = None,
     ) -> FlagResolutionDetails[str]:
-        return self._resolve(flag_key, default_value, str)
+        return self._resolve(flag_key, default_value, str, evaluation_context)
 
     def resolve_integer_details(
         self,
@@ -47,7 +47,7 @@ class MixpanelProvider(AbstractProvider):
         default_value: int,
         evaluation_context: typing.Optional[EvaluationContext] = None,
     ) -> FlagResolutionDetails[int]:
-        return self._resolve(flag_key, default_value, int)
+        return self._resolve(flag_key, default_value, int, evaluation_context)
 
     def resolve_float_details(
         self,
@@ -55,7 +55,7 @@ class MixpanelProvider(AbstractProvider):
         default_value: float,
         evaluation_context: typing.Optional[EvaluationContext] = None,
     ) -> FlagResolutionDetails[float]:
-        return self._resolve(flag_key, default_value, float)
+        return self._resolve(flag_key, default_value, float, evaluation_context)
 
     def resolve_object_details(
         self,
@@ -65,13 +65,28 @@ class MixpanelProvider(AbstractProvider):
     ) -> FlagResolutionDetails[
         Union[Sequence[FlagValueType], Mapping[str, FlagValueType]]
     ]:
-        return self._resolve(flag_key, default_value, None)
+        return self._resolve(flag_key, default_value, None, evaluation_context)
+
+    @staticmethod
+    def _build_user_context(
+        evaluation_context: typing.Optional[EvaluationContext],
+    ) -> dict:
+        user_context: dict = {}
+        if evaluation_context is not None:
+            if evaluation_context.targeting_key:
+                user_context["distinct_id"] = evaluation_context.targeting_key
+            if evaluation_context.attributes:
+                user_context["custom_properties"] = dict(
+                    evaluation_context.attributes
+                )
+        return user_context
 
     def _resolve(
         self,
         flag_key: str,
         default_value: typing.Any,
         expected_type: typing.Optional[type],
+        evaluation_context: typing.Optional[EvaluationContext] = None,
     ) -> FlagResolutionDetails:
         if not self._are_flags_ready():
             return FlagResolutionDetails(
@@ -81,7 +96,15 @@ class MixpanelProvider(AbstractProvider):
             )
 
         fallback = SelectedVariant(variant_value=default_value)
-        result = self._flags_provider.get_variant(flag_key, fallback, {})
+        user_context = self._build_user_context(evaluation_context)
+        try:
+            result = self._flags_provider.get_variant(flag_key, fallback, user_context)
+        except Exception:
+            return FlagResolutionDetails(
+                value=default_value,
+                error_code=ErrorCode.GENERAL,
+                reason=Reason.ERROR,
+            )
 
         if result is fallback:
             return FlagResolutionDetails(
@@ -91,14 +114,17 @@ class MixpanelProvider(AbstractProvider):
             )
 
         value = result.variant_value
+        variant_key = result.variant_key
 
         if expected_type is None:
-            return FlagResolutionDetails(value=value, reason=Reason.STATIC)
+            return FlagResolutionDetails(
+                value=value, variant=variant_key, reason=Reason.STATIC
+            )
 
         if expected_type is int and isinstance(value, float):
             if math.isfinite(value) and value == math.floor(value):
                 return FlagResolutionDetails(
-                    value=int(value), reason=Reason.STATIC
+                    value=int(value), variant=variant_key, reason=Reason.STATIC
                 )
             return FlagResolutionDetails(
                 value=default_value,
@@ -108,7 +134,7 @@ class MixpanelProvider(AbstractProvider):
 
         if expected_type is float and isinstance(value, (int, float)):
             return FlagResolutionDetails(
-                value=float(value), reason=Reason.STATIC
+                value=float(value), variant=variant_key, reason=Reason.STATIC
             )
 
         if not isinstance(value, expected_type):
@@ -118,7 +144,9 @@ class MixpanelProvider(AbstractProvider):
                 reason=Reason.ERROR,
             )
 
-        return FlagResolutionDetails(value=value, reason=Reason.STATIC)
+        return FlagResolutionDetails(
+            value=value, variant=variant_key, reason=Reason.STATIC
+        )
 
     def _are_flags_ready(self) -> bool:
         if hasattr(self._flags_provider, "are_flags_ready"):
