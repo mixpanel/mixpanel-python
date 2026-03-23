@@ -1,7 +1,7 @@
-import os
 import asyncio
-import mixpanel
 import logging
+
+import mixpanel
 
 logging.basicConfig(level=logging.INFO)
 

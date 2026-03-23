@@ -1,7 +1,7 @@
 import multiprocessing
 import random
 
-from mixpanel import Mixpanel, BufferedConsumer
+from mixpanel import BufferedConsumer, Mixpanel
 
 """
 As your application scales, it's likely you'll want to
@@ -23,7 +23,7 @@ endpoint and a json message.
 """
 
 
-class QueueWriteConsumer(object):
+class QueueWriteConsumer:
     def __init__(self, queue):
         self.queue = queue
 

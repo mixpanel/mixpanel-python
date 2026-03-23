@@ -1,10 +1,10 @@
+from __future__ import annotations
+
 import uuid
-import httpx
-from typing import Dict
 
 EXPOSURE_EVENT = "$experiment_started"
 
-REQUEST_HEADERS: Dict[str, str] = {
+REQUEST_HEADERS: dict[str, str] = {
     "X-Scheme": "https",
     "X-Forwarded-Proto": "https",
     "Content-Type": "application/json",
@@ -28,31 +28,30 @@ def _fnv1a64(data: bytes) -> int:
     :param data: Bytes to hash
     :return: 64-bit hash value
     """
-    FNV_prime = 0x100000001B3
+    fnv_prime = 0x100000001B3
     hash_value = 0xCBF29CE484222325
 
-    for byte in data:
-        hash_value ^= byte
-        hash_value *= FNV_prime
+    for _byte in data:
+        hash_value ^= _byte
+        hash_value *= fnv_prime
         hash_value &= 0xFFFFFFFFFFFFFFFF  # Keep it 64-bit
 
     return hash_value
 
 
-def prepare_common_query_params(token: str, sdk_version: str) -> Dict[str, str]:
+def prepare_common_query_params(token: str, sdk_version: str) -> dict[str, str]:
     """Prepare common query string parameters for feature flag evaluation.
 
     :param token: The project token
     :param sdk_version: The SDK version
     :return: Dictionary of common query parameters
     """
-    params = {"mp_lib": "python", "lib_version": sdk_version, "token": token}
-
-    return params
+    return {"mp_lib": "python", "lib_version": sdk_version, "token": token}
 
 
 def generate_traceparent() -> str:
-    """Generates a W3C traceparent header for easy interop with distributed tracing systems i.e Open Telemetry
+    """Generate a W3C traceparent header for distributed tracing interop.
+
     https://www.w3.org/TR/trace-context/#traceparent-header
     :return: A traceparent string
     """
@@ -62,5 +61,4 @@ def generate_traceparent() -> str:
     # Trace flags: '01' for sampled
     trace_flags = "01"
 
-    traceparent = f"00-{trace_id}-{span_id}-{trace_flags}"
-    return traceparent
+    return f"00-{trace_id}-{span_id}-{trace_flags}"
