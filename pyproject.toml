@@ -136,6 +136,9 @@ ignore = [
     "S311",    # suspicious-non-cryptographic-random-usage
     "D",       # docstrings
 ]
+"mixpanel/flags/types.py" = [
+    "A005",    # shadows stdlib `types` module (renaming would break imports)
+]
 "docs/conf.py" = [
     "INP001", "A001", "ERA001", "D",
 ]
