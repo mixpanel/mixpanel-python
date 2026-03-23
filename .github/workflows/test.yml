@@ -14,6 +14,8 @@ jobs:
       uses: astral-sh/setup-uv@v5
     - name: Check formatting
       run: uvx ruff format --check .
+    - name: Check linting
+      run: uvx ruff check .
 
   test:
     runs-on: ubuntu-24.04

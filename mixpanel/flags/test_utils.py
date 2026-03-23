@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import re
+
 import pytest
-import random
-import string
+
 from .utils import generate_traceparent, normalized_hash
 
 
@@ -18,7 +20,7 @@ class TestUtils:
         )
 
     @pytest.mark.parametrize(
-        "key,salt,expected_hash",
+        ("key", "salt", "expected_hash"),
         [
             ("abc", "variant", 0.72),
             ("def", "variant", 0.21),

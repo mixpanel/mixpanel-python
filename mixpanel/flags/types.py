@@ -1,4 +1,5 @@
-from typing import Optional, List, Dict, Any
+from typing import Any, Optional
+
 from pydantic import BaseModel, ConfigDict
 
 MIXPANEL_DEFAULT_API_ENDPOINT = "api.mixpanel.com"
@@ -28,7 +29,7 @@ class Variant(BaseModel):
 
 
 class FlagTestUsers(BaseModel):
-    users: Dict[str, str]
+    users: dict[str, str]
 
 
 class VariantOverride(BaseModel):
@@ -37,15 +38,15 @@ class VariantOverride(BaseModel):
 
 class Rollout(BaseModel):
     rollout_percentage: float
-    runtime_evaluation_definition: Optional[Dict[str, str]] = None
-    runtime_evaluation_rule: Optional[Dict[Any, Any]] = None
+    runtime_evaluation_definition: Optional[dict[str, str]] = None
+    runtime_evaluation_rule: Optional[dict[Any, Any]] = None
     variant_override: Optional[VariantOverride] = None
-    variant_splits: Optional[Dict[str, float]] = None
+    variant_splits: Optional[dict[str, float]] = None
 
 
 class RuleSet(BaseModel):
-    variants: List[Variant]
-    rollout: List[Rollout]
+    variants: list[Variant]
+    rollout: list[Rollout]
     test: Optional[FlagTestUsers] = None
 
 
@@ -72,9 +73,9 @@ class SelectedVariant(BaseModel):
 
 
 class ExperimentationFlags(BaseModel):
-    flags: List[ExperimentationFlag]
+    flags: list[ExperimentationFlag]
 
 
 class RemoteFlagsResponse(BaseModel):
     code: int
-    flags: Dict[str, SelectedVariant]
+    flags: dict[str, SelectedVariant]

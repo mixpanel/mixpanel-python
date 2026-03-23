@@ -47,6 +47,7 @@ dev = [
     "twine",
     "sphinx",
     "ghp-import",
+    "pre-commit",
 ]
 
 [tool.setuptools.dynamic]
@@ -66,3 +67,84 @@ commands = [
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+
+# --- Ruff configuration (strict guide: select ALL, exclude explicitly) ---
+
+[tool.ruff]
+target-version = "py39"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    # --- Rule conflicts ---
+    "D203",    # conflicts with D211 (no-blank-line-before-class)
+    "D213",    # conflicts with D212 (multi-line-summary-first-line)
+    "COM812",  # conflicts with ruff formatter
+    "ISC001",  # conflicts with ruff formatter
+
+    # --- Type annotations (separate effort for existing codebase) ---
+    "ANN",     # all annotation rules — 150+ violations, separate PR
+
+    # --- Docstrings (separate effort) ---
+    "D100",    # undocumented-public-module
+    "D101",    # undocumented-public-class
+    "D102",    # undocumented-public-method
+    "D103",    # undocumented-public-function
+    "D104",    # undocumented-public-package
+    "D105",    # undocumented-magic-method
+    "D107",    # undocumented-public-init
+
+    # --- Boolean arguments (public API, can't change) ---
+    "FBT",     # boolean-type-hint / boolean-default / boolean-positional
+
+    # --- TODO/FIXME enforcement (not needed) ---
+    "TD002",   # missing-todo-author
+    "TD003",   # missing-todo-link
+    "FIX001",  # line-contains-fixme
+    "FIX002",  # line-contains-todo
+
+    # --- Exception message style (too invasive) ---
+    "EM101",   # raw-string-in-exception
+    "EM103",   # dot-format-in-exception
+    "TRY003",  # raise-vanilla-args
+
+    # --- Other pragmatic exclusions ---
+    "PLR0913", # too-many-arguments (public API signatures)
+    "E501",    # line-too-long (formatter handles code; remaining are strings/comments)
+    "FA100",   # future-rewritable-type-annotation (interacts with Pydantic runtime, defer)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"test_mixpanel.py" = [
+    "S101",    # assert
+    "S105",    # hardcoded-password-string (test fixtures)
+    "S106",    # hardcoded-password-func-arg
+    "SLF001",  # private-member-access
+    "PLR2004", # magic-value-comparison
+    "D",       # all docstring rules
+    "PT018",   # pytest-composite-assertion
+]
+"mixpanel/flags/test_*.py" = [
+    "S101", "S105", "S106", "SLF001", "PLR2004",
+    "D", "PT018", "B006",
+]
+"demo/*.py" = [
+    "INP001",  # implicit-namespace-package
+    "T201",    # print
+    "S105",    # hardcoded tokens
+    "S311",    # suspicious-non-cryptographic-random-usage
+    "D",       # docstrings
+]
+"mixpanel/flags/types.py" = [
+    "A005",    # shadows stdlib `types` module (renaming would break imports)
+]
+"docs/conf.py" = [
+    "INP001", "A001", "ERA001", "D",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["mixpanel"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"

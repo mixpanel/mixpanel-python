@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """This is the official Mixpanel client library for Python.
 
 Mixpanel client libraries allow for tracking events and setting properties on
@@ -20,12 +19,11 @@ import json
 import logging
 import time
 import uuid
+from typing import Optional
 
 import requests
-from requests.auth import HTTPBasicAuth
 import urllib3
-
-from typing import Optional
+from requests.auth import HTTPBasicAuth
 
 from .flags.local_feature_flags import LocalFeatureFlagsProvider
 from .flags.remote_feature_flags import RemoteFeatureFlagsProvider
@@ -98,7 +96,7 @@ class Mixpanel:
 
     @property
     def local_flags(self) -> LocalFeatureFlagsProvider:
-        """Get the local flags provider if configured for it"""
+        """Get the local flags provider if configured for it."""
         if self._local_flags_provider is None:
             raise MixpanelException(
                 "No local flags provider initialized. Pass local_flags_config to constructor."
@@ -107,7 +105,7 @@ class Mixpanel:
 
     @property
     def remote_flags(self) -> RemoteFeatureFlagsProvider:
-        """Get the remote flags provider if configured for it"""
+        """Get the remote flags provider if configured for it."""
         if self._remote_flags_provider is None:
             raise MixpanelException(
                 "No remote_flags_config was passed to the consttructor"
@@ -182,7 +180,6 @@ class Mixpanel:
         for `more details
         <https://developer.mixpanel.com/reference/events#import-events>`__.
         """
-
         if api_secret is None:
             logger.warning(
                 "api_key will soon be removed from mixpanel-python; please use api_secret instead."
@@ -242,8 +239,7 @@ class Mixpanel:
         sync_consumer.send("events", json_dumps(event, cls=self._serializer))
 
     def merge(self, api_key, distinct_id1, distinct_id2, meta=None, api_secret=None):
-        """
-        Merges the two given distinct_ids.
+        """Merges the two given distinct_ids.
 
         :param str api_key: (DEPRECATED) Your Mixpanel project's API key.
         :param str distinct_id1: The first distinct_id to merge.
@@ -587,7 +583,7 @@ class Mixpanel:
         )
 
     def group_update(self, message, meta=None):
-        """Send a generic group profile update
+        """Send a generic group profile update.
 
         :param dict message: the message to send
 
@@ -626,20 +622,18 @@ class Mixpanel:
             await self._remote_flags_provider.__aexit__(exc_type, exc_val, exc_tb)
 
 
-class MixpanelException(Exception):
+class MixpanelException(Exception):  # noqa: N818
     """Raised by consumers when unable to send messages.
 
     This could be caused by a network outage or interruption, or by an invalid
     endpoint passed to :meth:`.Consumer.send`.
     """
 
-    pass
 
+class Consumer:
+    """A consumer that sends an HTTP request directly to the Mixpanel service.
 
-class Consumer(object):
-    """
-    A consumer that sends an HTTP request directly to the Mixpanel service, one
-    per call to :meth:`~.send`.
+    One per call to :meth:`~.send`.
 
     :param str events_url: override the default events API endpoint
     :param str people_url: override the default people API endpoint
@@ -674,10 +668,10 @@ class Consumer(object):
     ):
         # TODO: With next major version, make the above args kwarg-only, and reorder them.
         self._endpoints = {
-            "events": events_url or "https://{}/track".format(api_host),
-            "people": people_url or "https://{}/engage".format(api_host),
-            "groups": groups_url or "https://{}/groups".format(api_host),
-            "imports": import_url or "https://{}/import".format(api_host),
+            "events": events_url or f"https://{api_host}/track",
+            "people": people_url or f"https://{api_host}/engage",
+            "groups": groups_url or f"https://{api_host}/groups",
+            "imports": import_url or f"https://{api_host}/import",
         }
 
         self._verify_cert = verify_cert
@@ -717,11 +711,8 @@ class Consumer(object):
             The *api_secret* parameter.
         """
         if endpoint not in self._endpoints:
-            raise MixpanelException(
-                'No such endpoint "{0}". Valid endpoints are one of {1}'.format(
-                    endpoint, self._endpoints.keys()
-                )
-            )
+            msg = f'No such endpoint "{endpoint}". Valid endpoints are one of {self._endpoints.keys()}'
+            raise MixpanelException(msg)
 
         self._write_request(
             self._endpoints[endpoint], json_message, api_key, api_secret
@@ -759,22 +750,19 @@ class Consumer(object):
         try:
             response_dict = response.json()
         except ValueError:
-            raise MixpanelException(
-                "Cannot interpret Mixpanel server response: {0}".format(response.text)
-            )
+            msg = f"Cannot interpret Mixpanel server response: {response.text}"
+            raise MixpanelException(msg) from None
 
         if response_dict["status"] != 1:
-            raise MixpanelException(
-                "Mixpanel error: {0}".format(response_dict["error"])
-            )
+            raise MixpanelException("Mixpanel error: {}".format(response_dict["error"]))
 
         return True  # <- TODO: remove return val with major release.
 
 
-class BufferedConsumer(object):
-    """
-    A consumer that maintains per-endpoint buffers of messages and then sends
-    them in batches. This can save bandwidth and reduce the total amount of
+class BufferedConsumer:
+    """A consumer that maintains per-endpoint buffers of messages and then sends them in batches.
+
+    This can save bandwidth and reduce the total amount of
     time required to post your events to Mixpanel.
 
     :param int max_size: number of :meth:`~.send` calls for a given endpoint to
@@ -857,18 +845,15 @@ class BufferedConsumer(object):
             The *api_key* parameter.
         """
         if endpoint not in self._buffers:
-            raise MixpanelException(
-                'No such endpoint "{0}". Valid endpoints are one of {1}'.format(
-                    endpoint, self._buffers.keys()
-                )
-            )
+            msg = f'No such endpoint "{endpoint}". Valid endpoints are one of {self._buffers.keys()}'
+            raise MixpanelException(msg)
 
         if not isinstance(api_key, tuple):
             api_key = (api_key, api_secret)
 
         buf = self._buffers[endpoint]
         buf.append(json_message)
-        # Fixme: Don't stick these in the instance.
+        # TODO: Don't stick these in the instance.
         self._api_key = api_key
         self._api_secret = api_secret
         if len(buf) >= self._max_size:
@@ -880,7 +865,7 @@ class BufferedConsumer(object):
         :raises MixpanelException: if the server is unreachable or any buffered
             message cannot be processed
         """
-        for endpoint in self._buffers.keys():
+        for endpoint in self._buffers:
             self._flush_endpoint(endpoint)
 
     def _flush_endpoint(self, endpoint):
@@ -888,7 +873,7 @@ class BufferedConsumer(object):
 
         while buf:
             batch = buf[: self._max_size]
-            batch_json = "[{0}]".format(",".join(batch))
+            batch_json = "[{}]".format(",".join(batch))
             try:
                 self._consumer.send(endpoint, batch_json, api_key=self._api_key)
             except MixpanelException as orig_e:
