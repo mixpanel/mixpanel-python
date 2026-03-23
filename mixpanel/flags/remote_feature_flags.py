@@ -74,7 +74,7 @@ class RemoteFeatureFlagsProvider:
         return variant.variant_value
 
     async def aget_variant(
-        self, flag_key: str, fallback_value: SelectedVariant, context: Dict[str, Any], reportExposure: bool = True
+        self, flag_key: str, fallback_value: SelectedVariant, context: Dict[str, Any], report_exposure: bool = True
     ) -> SelectedVariant:
         """
         Asynchronously gets the selected variant  of a feature flag variant for the current user context from remote server.
@@ -82,7 +82,7 @@ class RemoteFeatureFlagsProvider:
         :param str flag_key: The key of the feature flag to evaluate
         :param SelectedVariant fallback_value: The default variant to return if evaluation fails
         :param Dict[str, Any] context: Context dictionary containing user attributes and rollout context
-        :param bool reportExposure: Whether to report an exposure event if a variant is successfully retrieved
+        :param bool report_exposure: Whether to report an exposure event if a variant is successfully retrieved
         """
         try:
             params = self._prepare_query_params(context, flag_key)
@@ -94,7 +94,7 @@ class RemoteFeatureFlagsProvider:
             flags = self._handle_response(response)
             selected_variant, is_fallback = self._lookup_flag_in_response(flag_key, flags, fallback_value)
 
-            if not is_fallback and reportExposure and (distinct_id := context.get("distinct_id")):
+            if not is_fallback and report_exposure and (distinct_id := context.get("distinct_id")):
                 properties = self._build_tracking_properties(
                     flag_key, selected_variant, start_time, end_time
                 )
@@ -180,7 +180,7 @@ class RemoteFeatureFlagsProvider:
         return variant.variant_value
 
     def get_variant(
-        self, flag_key: str, fallback_value: SelectedVariant, context: Dict[str, Any], reportExposure: bool = True
+        self, flag_key: str, fallback_value: SelectedVariant, context: Dict[str, Any], report_exposure: bool = True
     ) -> SelectedVariant:
         """
         Synchronously gets the selected variant for a feature flag from remote server.
@@ -188,7 +188,7 @@ class RemoteFeatureFlagsProvider:
         :param str flag_key: The key of the feature flag to evaluate
         :param SelectedVariant fallback_value: The default variant to return if evaluation fails
         :param Dict[str, Any] context: Context dictionary containing user attributes and rollout context
-        :param bool reportExposure: Whether to report an exposure event if a variant is successfully retrieved
+        :param bool report_exposure: Whether to report an exposure event if a variant is successfully retrieved
         """
         try:
             params = self._prepare_query_params(context, flag_key)
@@ -201,7 +201,7 @@ class RemoteFeatureFlagsProvider:
             flags = self._handle_response(response)
             selected_variant, is_fallback = self._lookup_flag_in_response(flag_key, flags, fallback_value)
 
-            if not is_fallback and reportExposure and (distinct_id := context.get("distinct_id")):
+            if not is_fallback and report_exposure and (distinct_id := context.get("distinct_id")):
                 properties = self._build_tracking_properties(
                     flag_key, selected_variant, start_time, end_time
                 )
@@ -303,6 +303,9 @@ class RemoteFeatureFlagsProvider:
             )
             return fallback_value, True
 
+
+    def shutdown(self):
+        self._sync_client.close()
 
     def __enter__(self):
         return self

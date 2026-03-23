@@ -23,7 +23,7 @@ class MixpanelProvider(AbstractProvider):
         return Metadata(name="mixpanel-provider")
 
     def shutdown(self) -> None:
-        pass
+        self._flags_provider.shutdown()
 
     def resolve_boolean_details(
         self,
@@ -68,13 +68,24 @@ class MixpanelProvider(AbstractProvider):
         return self._resolve(flag_key, default_value, None, evaluation_context)
 
     @staticmethod
+    def _unwrap_value(value: typing.Any) -> typing.Any:
+        if isinstance(value, dict):
+            return {k: MixpanelProvider._unwrap_value(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [MixpanelProvider._unwrap_value(item) for item in value]
+        if isinstance(value, float) and value.is_integer():
+            return int(value)
+        return value
+
+    @staticmethod
     def _build_user_context(
         evaluation_context: typing.Optional[EvaluationContext],
     ) -> dict:
         user_context: dict = {}
         if evaluation_context is not None:
             if evaluation_context.attributes:
-                user_context.update(evaluation_context.attributes)
+                for k, v in evaluation_context.attributes.items():
+                    user_context[k] = MixpanelProvider._unwrap_value(v)
             if evaluation_context.targeting_key:
                 user_context["targetingKey"] = evaluation_context.targeting_key
         return user_context
@@ -96,7 +107,7 @@ class MixpanelProvider(AbstractProvider):
         fallback = SelectedVariant(variant_value=default_value)
         user_context = self._build_user_context(evaluation_context)
         try:
-            result = self._flags_provider.get_variant(flag_key, fallback, user_context)
+            result = self._flags_provider.get_variant(flag_key, fallback, user_context, report_exposure=True)
         except Exception:
             return FlagResolutionDetails(
                 value=default_value,

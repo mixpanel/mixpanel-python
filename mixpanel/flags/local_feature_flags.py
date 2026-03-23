@@ -487,6 +487,10 @@ class LocalFeatureFlagsProvider:
     async def __aenter__(self):
         return self
 
+    def shutdown(self):
+        self.stop_polling_for_definitions()
+        self._sync_client.close()
+
     def __enter__(self):
         return self
 

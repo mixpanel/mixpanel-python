@@ -22,7 +22,7 @@ def provider(mock_flags):
 
 def setup_flag(mock_flags, flag_key, value, variant_key="variant-key"):
     """Configure mock to return a SelectedVariant with the given value."""
-    mock_flags.get_variant.side_effect = lambda key, fallback, ctx: (
+    mock_flags.get_variant.side_effect = lambda key, fallback, ctx, report_exposure=True: (
         SelectedVariant(variant_key=variant_key, variant_value=value)
         if key == flag_key
         else fallback
@@ -31,7 +31,7 @@ def setup_flag(mock_flags, flag_key, value, variant_key="variant-key"):
 
 def setup_flag_not_found(mock_flags, flag_key):
     """Configure mock to return the fallback (identity check triggers FLAG_NOT_FOUND)."""
-    mock_flags.get_variant.side_effect = lambda key, fallback, ctx: fallback
+    mock_flags.get_variant.side_effect = lambda key, fallback, ctx, report_exposure=True: fallback
 
 
 # --- Metadata ---
@@ -280,7 +280,7 @@ def test_provider_not_ready_object(mock_flags):
 def test_remote_provider_always_ready():
     remote_flags = MagicMock(spec=[])  # empty spec = no attributes
     remote_flags.get_variant = MagicMock(
-        side_effect=lambda key, fallback, ctx: SelectedVariant(
+        side_effect=lambda key, fallback, ctx, report_exposure=True: SelectedVariant(
             variant_key="v1", variant_value=True
         )
     )
