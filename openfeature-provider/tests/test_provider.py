@@ -300,20 +300,21 @@ def test_shutdown_is_noop(provider):
 # --- EvaluationContext forwarding ---
 
 
-def test_forwards_targeting_key_as_distinct_id(provider, mock_flags):
+def test_forwards_targeting_key(provider, mock_flags):
     setup_flag(mock_flags, "flag", "val")
     ctx = EvaluationContext(targeting_key="user-123")
     provider.resolve_string_details("flag", "default", ctx)
     _, _, user_context = mock_flags.get_variant.call_args[0]
-    assert user_context["distinct_id"] == "user-123"
+    assert user_context["targetingKey"] == "user-123"
 
 
-def test_forwards_attributes_as_custom_properties(provider, mock_flags):
+def test_forwards_attributes_flat(provider, mock_flags):
     setup_flag(mock_flags, "flag", "val")
     ctx = EvaluationContext(attributes={"plan": "pro", "beta": True})
     provider.resolve_string_details("flag", "default", ctx)
     _, _, user_context = mock_flags.get_variant.call_args[0]
-    assert user_context["custom_properties"] == {"plan": "pro", "beta": True}
+    assert user_context["plan"] == "pro"
+    assert user_context["beta"] is True
 
 
 def test_forwards_full_context(provider, mock_flags):
@@ -324,8 +325,8 @@ def test_forwards_full_context(provider, mock_flags):
     provider.resolve_string_details("flag", "default", ctx)
     _, _, user_context = mock_flags.get_variant.call_args[0]
     assert user_context == {
-        "distinct_id": "user-456",
-        "custom_properties": {"tier": "enterprise"},
+        "targetingKey": "user-456",
+        "tier": "enterprise",
     }
 
 

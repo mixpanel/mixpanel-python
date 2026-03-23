@@ -73,12 +73,10 @@ class MixpanelProvider(AbstractProvider):
     ) -> dict:
         user_context: dict = {}
         if evaluation_context is not None:
-            if evaluation_context.targeting_key:
-                user_context["distinct_id"] = evaluation_context.targeting_key
             if evaluation_context.attributes:
-                user_context["custom_properties"] = dict(
-                    evaluation_context.attributes
-                )
+                user_context.update(evaluation_context.attributes)
+            if evaluation_context.targeting_key:
+                user_context["targetingKey"] = evaluation_context.targeting_key
         return user_context
 
     def _resolve(
