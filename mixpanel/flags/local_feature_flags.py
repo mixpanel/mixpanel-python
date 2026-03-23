@@ -1,24 +1,28 @@
-import httpx
-import logging
+from __future__ import annotations
+
 import asyncio
-import time
+import logging
 import threading
-import json_logic
+import time
 from datetime import datetime, timedelta
-from typing import Dict, Any, Callable, Optional
+from typing import Any, Callable
+
+import httpx
+import json_logic
+
 from .types import (
     ExperimentationFlag,
     ExperimentationFlags,
-    SelectedVariant,
     LocalFlagsConfig,
     Rollout,
+    SelectedVariant,
 )
 from .utils import (
+    EXPOSURE_EVENT,
     REQUEST_HEADERS,
+    generate_traceparent,
     normalized_hash,
     prepare_common_query_params,
-    EXPOSURE_EVENT,
-    generate_traceparent,
 )
 
 logger = logging.getLogger(__name__)
@@ -31,8 +35,8 @@ class LocalFeatureFlagsProvider:
     def __init__(
         self, token: str, config: LocalFlagsConfig, version: str, tracker: Callable
     ) -> None:
-        """
-        Initializes the LocalFeatureFlagsProvider
+        """Initialize the LocalFeatureFlagsProvider.
+
         :param str token: your project's Mixpanel token
         :param LocalFlagsConfig config: configuration options for the local feature flags provider
         :param str version: the version of the Mixpanel library being used, just for tracking
@@ -43,7 +47,7 @@ class LocalFeatureFlagsProvider:
         self._version = version
         self._tracker: Callable = tracker
 
-        self._flag_definitions: Dict[str, ExperimentationFlag] = dict()
+        self._flag_definitions: dict[str, ExperimentationFlag] = {}
         self._are_flags_ready = False
 
         httpx_client_parameters = {
@@ -60,14 +64,14 @@ class LocalFeatureFlagsProvider:
         )
         self._sync_client: httpx.Client = httpx.Client(**httpx_client_parameters)
 
-        self._async_polling_task: Optional[asyncio.Task] = None
-        self._sync_polling_task: Optional[threading.Thread] = None
+        self._async_polling_task: asyncio.Task | None = None
+        self._sync_polling_task: threading.Thread | None = None
 
         self._sync_stop_event = threading.Event()
 
     def start_polling_for_definitions(self):
-        """
-        Fetches flag definitions for the current project.
+        """Fetch flag definitions for the current project.
+
         If configured by the caller, starts a background thread to poll for updates at regular intervals, if one does not already exist.
         """
         self._fetch_flag_definitions()
@@ -83,8 +87,8 @@ class LocalFeatureFlagsProvider:
                 logger.warning("A polling task is already running")
 
     def stop_polling_for_definitions(self):
-        """
-        If there exists a reference to a background thread polling for flag definition updates, signal it to stop and clear the reference.
+        """Signal background polling thread to stop and clear the reference.
+
         Once stopped, the polling thread cannot be restarted.
         """
         if self._sync_polling_task:
@@ -94,8 +98,8 @@ class LocalFeatureFlagsProvider:
             logger.info("There is no polling task to cancel.")
 
     async def astart_polling_for_definitions(self):
-        """
-        Fetches flag definitions for the current project.
+        """Fetch flag definitions for the current project.
+
         If configured by the caller, starts an async task on the event loop to poll for updates at regular intervals, if one does not already exist.
         """
         await self._afetch_flag_definitions()
@@ -109,9 +113,7 @@ class LocalFeatureFlagsProvider:
                 logger.error("A polling task is already running")
 
     async def astop_polling_for_definitions(self):
-        """
-        If there exists an async task  to poll for flag definition updates, cancel the task and clear the reference to it.
-        """
+        """If there exists an async task to poll for flag definition updates, cancel the task and clear the reference to it."""
         if self._async_polling_task:
             self._async_polling_task.cancel()
             self._async_polling_task = None
@@ -120,7 +122,8 @@ class LocalFeatureFlagsProvider:
 
     async def _astart_continuous_polling(self):
         logger.info(
-            f"Initialized async polling for flag definition updates every '{self._config.polling_interval_in_seconds}' seconds"
+            "Initialized async polling for flag definition updates every '%s' seconds",
+            self._config.polling_interval_in_seconds,
         )
         try:
             while True:
@@ -131,7 +134,8 @@ class LocalFeatureFlagsProvider:
 
     def _start_continuous_polling(self):
         logger.info(
-            f"Initialized sync polling for flag definition updates every '{self._config.polling_interval_in_seconds}' seconds"
+            "Initialized sync polling for flag definition updates every '%s' seconds",
+            self._config.polling_interval_in_seconds,
         )
         while not self._sync_stop_event.is_set():
             if self._sync_stop_event.wait(
@@ -142,21 +146,19 @@ class LocalFeatureFlagsProvider:
             self._fetch_flag_definitions()
 
     def are_flags_ready(self) -> bool:
-        """
-        Check if the call to fetch flag definitions has been made successfully.
-        """
+        """Check if the call to fetch flag definitions has been made successfully."""
         return self._are_flags_ready
 
-    def get_all_variants(self, context: Dict[str, Any]) -> Dict[str, SelectedVariant]:
-        """
-        Gets the selected variant for all feature flags that the current user context is in the rollout for.
+    def get_all_variants(self, context: dict[str, Any]) -> dict[str, SelectedVariant]:
+        """Get the selected variant for all feature flags that the current user context is in the rollout for.
+
         Exposure events are not automatically tracked when this method is used.
         :param Dict[str, Any] context: The user context to evaluate against the feature flags
         """
-        variants: Dict[str, SelectedVariant] = {}
+        variants: dict[str, SelectedVariant] = {}
         fallback = SelectedVariant(variant_key=None, variant_value=None)
 
-        for flag_key in self._flag_definitions.keys():
+        for flag_key in self._flag_definitions:
             variant = self.get_variant(
                 flag_key, fallback, context, report_exposure=False
             )
@@ -166,10 +168,9 @@ class LocalFeatureFlagsProvider:
         return variants
 
     def get_variant_value(
-        self, flag_key: str, fallback_value: Any, context: Dict[str, Any]
+        self, flag_key: str, fallback_value: Any, context: dict[str, Any]
     ) -> Any:
-        """
-        Get the value of a feature flag variant.
+        """Get the value of a feature flag variant.
 
         :param str flag_key: The key of the feature flag to evaluate
         :param Any fallback_value: The default value to return if the flag is not found or evaluation fails
@@ -180,25 +181,23 @@ class LocalFeatureFlagsProvider:
         )
         return variant.variant_value
 
-    def is_enabled(self, flag_key: str, context: Dict[str, Any]) -> bool:
-        """
-        Check if a feature flag is enabled for the given context.
+    def is_enabled(self, flag_key: str, context: dict[str, Any]) -> bool:
+        """Check if a feature flag is enabled for the given context.
 
         :param str flag_key: The key of the feature flag to check
         :param Dict[str, Any] context: Context dictionary containing user's distinct_id and any other attributes needed for rollout evaluation
         """
         variant_value = self.get_variant_value(flag_key, False, context)
-        return variant_value == True
+        return variant_value is True
 
     def get_variant(
         self,
         flag_key: str,
         fallback_value: SelectedVariant,
-        context: Dict[str, Any],
+        context: dict[str, Any],
         report_exposure: bool = True,
     ) -> SelectedVariant:
-        """
-        Gets the selected variant for a feature flag
+        """Get the selected variant for a feature flag.
 
         :param str flag_key: The key of the feature flag to evaluate
         :param SelectedVariant fallback_value: The default variant to return if evaluation fails
@@ -209,16 +208,18 @@ class LocalFeatureFlagsProvider:
         flag_definition = self._flag_definitions.get(flag_key)
 
         if not flag_definition:
-            logger.warning(f"Cannot find flag definition for key: '{flag_key}'")
+            logger.warning("Cannot find flag definition for key: '%s'", flag_key)
             return fallback_value
 
         if not (context_value := context.get(flag_definition.context)):
             logger.warning(
-                f"The rollout context, '{flag_definition.context}' for flag, '{flag_key}' is not present in the supplied context dictionary"
+                "The rollout context, '%s' for flag, '%s' is not present in the supplied context dictionary",
+                flag_definition.context,
+                flag_key,
             )
             return fallback_value
 
-        selected_variant: Optional[SelectedVariant] = None
+        selected_variant: SelectedVariant | None = None
 
         if test_user_variant := self._get_variant_override_for_test_user(
             flag_definition, context
@@ -240,16 +241,19 @@ class LocalFeatureFlagsProvider:
             return selected_variant
 
         logger.debug(
-            f"{flag_definition.context} context {context_value} not eligible for any rollout for flag: {flag_key}"
+            "%s context %s not eligible for any rollout for flag: %s",
+            flag_definition.context,
+            context_value,
+            flag_key,
         )
         return fallback_value
 
     def track_exposure_event(
-        self, flag_key: str, variant: SelectedVariant, context: Dict[str, Any]
+        self, flag_key: str, variant: SelectedVariant, context: dict[str, Any]
     ):
-        """
-        Manually tracks a feature flagging exposure event to Mixpanel.
-        This is intended to provide flexibility for when individual exposure events are reported when using `get_all_variants` for the user at once with exposure event reporting
+        """Manually track a feature flagging exposure event to Mixpanel.
+
+        This is intended to provide flexibility for when individual exposure events are reported when using `get_all_variants` for the user at once with exposure event reporting.
 
         :param str flag_key: The key of the feature flag
         :param SelectedVariant variant: The selected variant for the feature flag
@@ -258,9 +262,9 @@ class LocalFeatureFlagsProvider:
         self._track_exposure(flag_key, variant, context)
 
     def _get_variant_override_for_test_user(
-        self, flag_definition: ExperimentationFlag, context: Dict[str, Any]
-    ) -> Optional[SelectedVariant]:
-        """"""
+        self, flag_definition: ExperimentationFlag, context: dict[str, Any]
+    ) -> SelectedVariant | None:
+        """Check if user has a test variant override."""
         if not flag_definition.ruleset.test or not flag_definition.ruleset.test.users:
             return None
 
@@ -279,11 +283,12 @@ class LocalFeatureFlagsProvider:
         flag_name: str,
         rollout: Rollout,
     ) -> SelectedVariant:
-        if rollout.variant_override:
-            if variant := self._get_matching_variant(
+        if rollout.variant_override and (
+            variant := self._get_matching_variant(
                 rollout.variant_override.key, flag_definition
-            ):
-                return variant
+            )
+        ):
+            return variant
 
         stored_salt = (
             flag_definition.hash_salt if flag_definition.hash_salt is not None else ""
@@ -319,10 +324,9 @@ class LocalFeatureFlagsProvider:
         self,
         flag_definition: ExperimentationFlag,
         context_value: Any,
-        context: Dict[str, Any],
-    ) -> Optional[Rollout]:
+        context: dict[str, Any],
+    ) -> Rollout | None:
         for index, rollout in enumerate(flag_definition.ruleset.rollout):
-            salt = None
             if flag_definition.hash_salt is not None:
                 salt = flag_definition.key + flag_definition.hash_salt + str(index)
             else:
@@ -341,33 +345,29 @@ class LocalFeatureFlagsProvider:
     def lowercase_keys_and_values(self, val: Any) -> Any:
         if isinstance(val, str):
             return val.casefold()
-        elif isinstance(val, list):
+        if isinstance(val, list):
             return [self.lowercase_keys_and_values(item) for item in val]
-        elif isinstance(val, dict):
+        if isinstance(val, dict):
             return {
                 (
                     key.casefold() if isinstance(key, str) else key
                 ): self.lowercase_keys_and_values(value)
                 for key, value in val.items()
             }
-        else:
-            return val
+        return val
 
-    def lowercase_only_leaf_nodes(self, val: Any) -> Dict[str, Any]:
+    def lowercase_only_leaf_nodes(self, val: Any) -> dict[str, Any]:
         if isinstance(val, str):
             return val.casefold()
-        elif isinstance(val, list):
+        if isinstance(val, list):
             return [self.lowercase_only_leaf_nodes(item) for item in val]
-        elif isinstance(val, dict):
+        if isinstance(val, dict):
             return {
                 key: self.lowercase_only_leaf_nodes(value) for key, value in val.items()
             }
-        else:
-            return val
+        return val
 
-    def _get_runtime_parameters(
-        self, context: Dict[str, Any]
-    ) -> Optional[Dict[str, Any]]:
+    def _get_runtime_parameters(self, context: dict[str, Any]) -> dict[str, Any] | None:
         if not (custom_properties := context.get("custom_properties")):
             return None
         if not isinstance(custom_properties, dict):
@@ -375,7 +375,7 @@ class LocalFeatureFlagsProvider:
         return self.lowercase_keys_and_values(custom_properties)
 
     def _is_runtime_rules_engine_satisfied(
-        self, rollout: Rollout, context: Dict[str, Any]
+        self, rollout: Rollout, context: dict[str, Any]
     ) -> bool:
         if rollout.runtime_evaluation_rule:
             parameters_for_runtime_rule = self._get_runtime_parameters(context)
@@ -399,7 +399,7 @@ class LocalFeatureFlagsProvider:
             return True
 
     def _is_legacy_runtime_evaluation_rule_satisfied(
-        self, rollout: Rollout, context: Dict[str, Any]
+        self, rollout: Rollout, context: dict[str, Any]
     ) -> bool:
         if not rollout.runtime_evaluation_definition:
             return True
@@ -420,7 +420,7 @@ class LocalFeatureFlagsProvider:
 
     def _get_matching_variant(
         self, variant_key: str, flag: ExperimentationFlag
-    ) -> Optional[SelectedVariant]:
+    ) -> SelectedVariant | None:
         for variant in flag.ruleset.variants:
             if variant_key.casefold() == variant.key.casefold():
                 return SelectedVariant(
@@ -434,28 +434,28 @@ class LocalFeatureFlagsProvider:
 
     async def _afetch_flag_definitions(self) -> None:
         try:
-            start_time = datetime.now()
+            start_time = datetime.now()  # noqa: DTZ005
             headers = {"traceparent": generate_traceparent()}
             response = await self._async_client.get(
                 self.FLAGS_DEFINITIONS_URL_PATH,
                 params=self._request_params,
                 headers=headers,
             )
-            end_time = datetime.now()
+            end_time = datetime.now()  # noqa: DTZ005
             self._handle_response(response, start_time, end_time)
         except Exception:
             logger.exception("Failed to fetch feature flag definitions")
 
     def _fetch_flag_definitions(self) -> None:
         try:
-            start_time = datetime.now()
+            start_time = datetime.now()  # noqa: DTZ005
             headers = {"traceparent": generate_traceparent()}
             response = self._sync_client.get(
                 self.FLAGS_DEFINITIONS_URL_PATH,
                 params=self._request_params,
                 headers=headers,
             )
-            end_time = datetime.now()
+            end_time = datetime.now()  # noqa: DTZ005
             self._handle_response(response, start_time, end_time)
         except Exception:
             logger.exception("Failed to fetch feature flag definitions")
@@ -465,7 +465,10 @@ class LocalFeatureFlagsProvider:
     ) -> None:
         request_duration: timedelta = end_time - start_time
         logger.debug(
-            f"Request started at '{start_time.isoformat()}', completed at '{end_time.isoformat()}', duration: '{request_duration.total_seconds():.3f}s'"
+            "Request started at '%s', completed at '%s', duration: '%.3fs'",
+            start_time.isoformat(),
+            end_time.isoformat(),
+            request_duration.total_seconds(),
         )
 
         response.raise_for_status()
@@ -483,15 +486,16 @@ class LocalFeatureFlagsProvider:
         self._flag_definitions = flags
         self._are_flags_ready = True
         logger.debug(
-            f"Successfully fetched {len(self._flag_definitions)} flag definitions"
+            "Successfully fetched %s flag definitions",
+            len(self._flag_definitions),
         )
 
     def _track_exposure(
         self,
         flag_key: str,
         variant: SelectedVariant,
-        context: Dict[str, Any],
-        latency_in_seconds: Optional[float] = None,
+        context: dict[str, Any],
+        latency_in_seconds: float | None = None,
     ):
         if distinct_id := context.get("distinct_id"):
             properties = {

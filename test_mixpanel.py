@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import datetime
 import decimal
 import json
@@ -31,7 +33,7 @@ class LogConsumer:
 class TestMixpanelBase:
     TOKEN = "12345"
 
-    def setup_method(self, method):
+    def setup_method(self):
         self.consumer = LogConsumer()
         self.mp = mixpanel.Mixpanel(self.TOKEN, consumer=self.consumer)
         self.mp._now = lambda: 1000.1
@@ -336,7 +338,7 @@ class TestMixpanelPeople(TestMixpanelBase):
         ]
 
     def test_people_set_created_date_datetime(self):
-        created = datetime.datetime(2014, 2, 14, 1, 2, 3)
+        created = datetime.datetime(2014, 2, 14, 1, 2, 3)  # noqa: DTZ001
         self.mp.people_set("amq", {"$created": created, "favorite color": "purple"})
         assert self.consumer.log == [
             (
@@ -544,6 +546,7 @@ class TestMixpanelGroups(TestMixpanelBase):
             def default(self, obj):
                 if isinstance(obj, decimal.Decimal):
                     return obj.to_eng_string()
+                return super().default(obj)
 
         self.mp._serializer = CustomSerializer
         self.mp.track(
@@ -686,7 +689,7 @@ class TestConsumer:
                     )
                 ],
             )
-            with pytest.raises(mixpanel.MixpanelException) as exc:
+            with pytest.raises(mixpanel.MixpanelException):
                 self.consumer.send("events", '{"foo":"bar"}')
 
     def test_consumer_override_api_host(self):
@@ -743,7 +746,7 @@ class TestBufferedConsumer:
         assert self.log == [("events", ["Event"])]
 
     def test_buffer_fills_up(self):
-        for i in range(self.MAX_LENGTH - 1):
+        for _i in range(self.MAX_LENGTH - 1):
             self.consumer.send("events", '"Event"')
         assert len(self.log) == 0
 
@@ -787,7 +790,7 @@ class TestBufferedConsumer:
 
             with pytest.raises(mixpanel.MixpanelException) as excinfo:
                 consumer.flush()
-            assert excinfo.value.message == "[%s]" % broken_json
+            assert excinfo.value.message == f"[{broken_json}]"
             assert excinfo.value.endpoint == "events"
 
     def test_send_remembers_api_key(self):
@@ -830,7 +833,7 @@ class TestFunctional:
             data = json.loads(wrapper["data"])
             del wrapper["data"]
 
-            assert {"ip": "0", "verbose": "1"} == wrapper
+            assert wrapper == {"ip": "0", "verbose": "1"}
             expected_data = {
                 "event": "button_press",
                 "properties": {
@@ -863,7 +866,7 @@ class TestFunctional:
             data = json.loads(wrapper["data"])
             del wrapper["data"]
 
-            assert {"ip": "0", "verbose": "1"} == wrapper
+            assert wrapper == {"ip": "0", "verbose": "1"}
             expected_data = {
                 "$distinct_id": "amq",
                 "$set": {"birth month": "october", "favorite color": "purple"},

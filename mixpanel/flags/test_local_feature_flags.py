@@ -1,23 +1,27 @@
+from __future__ import annotations
+
 import asyncio
+import threading
+from itertools import chain, repeat
+from typing import Any
+from unittest.mock import Mock, patch
+
+import httpx
 import pytest
 import respx
-import httpx
-import threading
-from unittest.mock import Mock, patch
-from typing import Any, Dict, Optional, List
-from itertools import chain, repeat
-from .types import (
-    LocalFlagsConfig,
-    ExperimentationFlag,
-    RuleSet,
-    Variant,
-    Rollout,
-    FlagTestUsers,
-    ExperimentationFlags,
-    VariantOverride,
-    SelectedVariant,
-)
+
 from .local_feature_flags import LocalFeatureFlagsProvider
+from .types import (
+    ExperimentationFlag,
+    ExperimentationFlags,
+    FlagTestUsers,
+    LocalFlagsConfig,
+    Rollout,
+    RuleSet,
+    SelectedVariant,
+    Variant,
+    VariantOverride,
+)
 
 TEST_FLAG_KEY = "test_flag"
 DISTINCT_ID = "user123"
@@ -27,16 +31,16 @@ USER_CONTEXT = {"distinct_id": DISTINCT_ID}
 def create_test_flag(
     flag_key: str = TEST_FLAG_KEY,
     context: str = "distinct_id",
-    variants: Optional[list[Variant]] = None,
-    variant_override: Optional[VariantOverride] = None,
+    variants: list[Variant] | None = None,
+    variant_override: VariantOverride | None = None,
     rollout_percentage: float = 100.0,
-    runtime_evaluation_legacy_definition: Optional[Dict] = None,
-    runtime_evaluation_rule: Optional[Dict] = None,
-    test_users: Optional[Dict[str, str]] = None,
-    experiment_id: Optional[str] = None,
-    is_experiment_active: Optional[bool] = None,
-    variant_splits: Optional[Dict[str, float]] = None,
-    hash_salt: Optional[str] = None,
+    runtime_evaluation_legacy_definition: dict | None = None,
+    runtime_evaluation_rule: dict | None = None,
+    test_users: dict[str, str] | None = None,
+    experiment_id: str | None = None,
+    is_experiment_active: bool | None = None,
+    variant_splits: dict[str, float] | None = None,
+    hash_salt: str | None = None,
 ) -> ExperimentationFlag:
     if variants is None:
         variants = [
@@ -74,7 +78,7 @@ def create_test_flag(
     )
 
 
-def create_flags_response(flags: List[ExperimentationFlag]) -> httpx.Response:
+def create_flags_response(flags: list[ExperimentationFlag]) -> httpx.Response:
     if flags is None:
         flags = []
     response_data = ExperimentationFlags(flags=flags).model_dump()
@@ -104,14 +108,14 @@ class TestLocalFeatureFlagsProviderAsync:
         await self._flags.__aexit__(None, None, None)
         await self._flags_with_polling.__aexit__(None, None, None)
 
-    async def setup_flags(self, flags: List[ExperimentationFlag]):
+    async def setup_flags(self, flags: list[ExperimentationFlag]):
         respx.get("https://api.mixpanel.com/flags/definitions").mock(
             return_value=create_flags_response(flags)
         )
         await self._flags.astart_polling_for_definitions()
 
     async def setup_flags_with_polling(
-        self, flags_in_order: List[List[ExperimentationFlag]] = [[]]
+        self, flags_in_order: list[list[ExperimentationFlag]] = [[]]
     ):
         responses = [create_flags_response(flag) for flag in flags_in_order]
 
@@ -451,10 +455,9 @@ class TestLocalFeatureFlagsProviderAsync:
         assert result == "fallback"
 
     def user_context_with_properties(
-        self, properties: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        context = {"distinct_id": DISTINCT_ID, "custom_properties": properties}
-        return context
+        self, properties: dict[str, Any]
+    ) -> dict[str, Any]:
+        return {"distinct_id": DISTINCT_ID, "custom_properties": properties}
 
     @respx.mock
     async def test_get_variant_value_ignores_legacy_runtime_evaluation_definition_when_runtime_evaluation_rule_is_present__satisfied(
@@ -586,7 +589,7 @@ class TestLocalFeatureFlagsProviderAsync:
 
     @respx.mock
     @pytest.mark.parametrize(
-        "experiment_id,is_experiment_active,use_qa_user",
+        ("experiment_id", "is_experiment_active", "use_qa_user"),
         [
             ("exp-123", True, True),  # QA tester with active experiment
             ("exp-456", False, True),  # QA tester with inactive experiment
@@ -624,7 +627,7 @@ class TestLocalFeatureFlagsProviderAsync:
         assert properties["$is_experiment_active"] == is_experiment_active
 
         if use_qa_user:
-            assert properties["$is_qa_tester"] == True
+            assert properties["$is_qa_tester"] is True
         else:
             assert properties.get("$is_qa_tester") is None
 
@@ -697,19 +700,18 @@ class TestLocalFeatureFlagsProviderAsync:
     async def test_are_flags_ready_returns_true_when_flags_loaded(self):
         flag = create_test_flag()
         await self.setup_flags([flag])
-        assert self._flags.are_flags_ready() == True
+        assert self._flags.are_flags_ready() is True
 
     @respx.mock
     async def test_are_flags_ready_returns_true_when_empty_flags_loaded(self):
-        flag = create_test_flag()
         await self.setup_flags([])
-        assert self._flags.are_flags_ready() == True
+        assert self._flags.are_flags_ready() is True
 
     @respx.mock
     async def test_is_enabled_returns_false_for_nonexistent_flag(self):
         await self.setup_flags([])
         result = self._flags.is_enabled("nonexistent_flag", USER_CONTEXT)
-        assert result == False
+        assert result is False
 
     @respx.mock
     async def test_is_enabled_returns_true_for_true_variant_value(self):
@@ -717,7 +719,7 @@ class TestLocalFeatureFlagsProviderAsync:
         flag = create_test_flag(variants=variants, rollout_percentage=100.0)
         await self.setup_flags([flag])
         result = self._flags.is_enabled(TEST_FLAG_KEY, USER_CONTEXT)
-        assert result == True
+        assert result is True
 
     @respx.mock
     async def test_get_variant_value_uses_most_recent_polled_flag(self):
@@ -765,7 +767,7 @@ class TestLocalFeatureFlagsProviderSync:
         self._flags_with_polling.__exit__(None, None, None)
 
     def setup_flags_with_polling(
-        self, flags_in_order: List[List[ExperimentationFlag]] = [[]]
+        self, flags_in_order: list[list[ExperimentationFlag]] = [[]]
     ):
         responses = [create_flags_response(flag) for flag in flags_in_order]
 

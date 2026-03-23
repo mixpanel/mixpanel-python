@@ -1,17 +1,20 @@
-import pytest
-import httpx
-import respx
+from __future__ import annotations
+
 import asyncio
-from typing import Dict
 from unittest.mock import Mock
-from .types import RemoteFlagsConfig, RemoteFlagsResponse, SelectedVariant
+
+import httpx
+import pytest
+import respx
+
 from .remote_feature_flags import RemoteFeatureFlagsProvider
+from .types import RemoteFlagsConfig, RemoteFlagsResponse, SelectedVariant
 
 ENDPOINT = "https://api.mixpanel.com/flags"
 
 
 def create_success_response(
-    assigned_variants_per_flag: Dict[str, SelectedVariant],
+    assigned_variants_per_flag: dict[str, SelectedVariant],
 ) -> httpx.Response:
     serialized_response = RemoteFlagsResponse(
         code=200, flags=assigned_variants_per_flag
@@ -122,7 +125,7 @@ class TestRemoteFeatureFlagsProviderAsync:
         )
 
         result = await self._flags.ais_enabled("test_flag", {"distinct_id": "user123"})
-        assert result == True
+        assert result is True
 
     @respx.mock
     async def test_ais_enabled_returns_false_for_false_variant_value(self):
@@ -137,7 +140,7 @@ class TestRemoteFeatureFlagsProviderAsync:
         )
 
         result = await self._flags.ais_enabled("test_flag", {"distinct_id": "user123"})
-        assert result == False
+        assert result is False
 
     @respx.mock
     async def test_aget_all_variants_returns_all_variants_from_api(self):
@@ -291,7 +294,7 @@ class TestRemoteFeatureFlagsProviderSync:
         )
 
         result = self._flags.is_enabled("test_flag", {"distinct_id": "user123"})
-        assert result == True
+        assert result is True
 
     @respx.mock
     def test_is_enabled_returns_false_for_false_variant_value(self):
@@ -306,7 +309,7 @@ class TestRemoteFeatureFlagsProviderSync:
         )
 
         result = self._flags.is_enabled("test_flag", {"distinct_id": "user123"})
-        assert result == False
+        assert result is False
 
     @respx.mock
     def test_get_all_variants_returns_all_variants_from_api(self):
