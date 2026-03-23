@@ -18,11 +18,12 @@ from .utils import (
     normalized_hash,
     prepare_common_query_params,
     EXPOSURE_EVENT,
-    generate_traceparent
+    generate_traceparent,
 )
 
 logger = logging.getLogger(__name__)
 logging.getLogger("httpx").setLevel(logging.ERROR)
+
 
 class LocalFeatureFlagsProvider:
     FLAGS_DEFINITIONS_URL_PATH = "/flags/definitions"
@@ -156,7 +157,9 @@ class LocalFeatureFlagsProvider:
         fallback = SelectedVariant(variant_key=None, variant_value=None)
 
         for flag_key in self._flag_definitions.keys():
-            variant = self.get_variant(flag_key, fallback, context, report_exposure=False)
+            variant = self.get_variant(
+                flag_key, fallback, context, report_exposure=False
+            )
             if variant.variant_key is not None:
                 variants[flag_key] = variant
 
@@ -188,7 +191,11 @@ class LocalFeatureFlagsProvider:
         return variant_value == True
 
     def get_variant(
-        self, flag_key: str, fallback_value: SelectedVariant, context: Dict[str, Any], report_exposure: bool = True
+        self,
+        flag_key: str,
+        fallback_value: SelectedVariant,
+        context: Dict[str, Any],
+        report_exposure: bool = True,
     ) -> SelectedVariant:
         """
         Gets the selected variant for a feature flag
@@ -217,7 +224,9 @@ class LocalFeatureFlagsProvider:
             flag_definition, context
         ):
             selected_variant = test_user_variant
-        elif rollout := self._get_assigned_rollout(flag_definition, context_value, context):
+        elif rollout := self._get_assigned_rollout(
+            flag_definition, context_value, context
+        ):
             selected_variant = self._get_assigned_variant(
                 flag_definition, context_value, flag_key, rollout
             )
@@ -225,7 +234,9 @@ class LocalFeatureFlagsProvider:
         if selected_variant is not None:
             if report_exposure:
                 end_time = time.perf_counter()
-                self._track_exposure(flag_key, selected_variant, context, end_time - start_time)
+                self._track_exposure(
+                    flag_key, selected_variant, context, end_time - start_time
+                )
             return selected_variant
 
         logger.debug(
@@ -233,7 +244,9 @@ class LocalFeatureFlagsProvider:
         )
         return fallback_value
 
-    def track_exposure_event(self, flag_key: str, variant: SelectedVariant, context: Dict[str, Any]):
+    def track_exposure_event(
+        self, flag_key: str, variant: SelectedVariant, context: Dict[str, Any]
+    ):
         """
         Manually tracks a feature flagging exposure event to Mixpanel.
         This is intended to provide flexibility for when individual exposure events are reported when using `get_all_variants` for the user at once with exposure event reporting
@@ -272,11 +285,16 @@ class LocalFeatureFlagsProvider:
             ):
                 return variant
 
-        stored_salt = flag_definition.hash_salt if flag_definition.hash_salt is not None else ""
+        stored_salt = (
+            flag_definition.hash_salt if flag_definition.hash_salt is not None else ""
+        )
         salt = flag_name + stored_salt + "variant"
         variant_hash = normalized_hash(str(context_value), salt)
 
-        variants = [variant.model_copy(deep=True) for variant in flag_definition.ruleset.variants]
+        variants = [
+            variant.model_copy(deep=True)
+            for variant in flag_definition.ruleset.variants
+        ]
         if rollout.variant_splits:
             for variant in variants:
                 if variant.key in rollout.variant_splits:
@@ -294,7 +312,8 @@ class LocalFeatureFlagsProvider:
             variant_key=selected.key,
             variant_value=selected.value,
             experiment_id=flag_definition.experiment_id,
-            is_experiment_active=flag_definition.is_experiment_active)
+            is_experiment_active=flag_definition.is_experiment_active,
+        )
 
     def _get_assigned_rollout(
         self,
@@ -311,49 +330,53 @@ class LocalFeatureFlagsProvider:
 
             rollout_hash = normalized_hash(str(context_value), salt)
 
-            if (rollout_hash < rollout.rollout_percentage
+            if (
+                rollout_hash < rollout.rollout_percentage
                 and self._is_runtime_rules_engine_satisfied(rollout, context)
             ):
                 return rollout
 
         return None
-    
+
     def lowercase_keys_and_values(self, val: Any) -> Any:
-        if isinstance(val, str): 
+        if isinstance(val, str):
             return val.casefold()
         elif isinstance(val, list):
             return [self.lowercase_keys_and_values(item) for item in val]
         elif isinstance(val, dict):
             return {
-                (key.casefold() if isinstance(key, str) else key):
-                self.lowercase_keys_and_values(value)
+                (
+                    key.casefold() if isinstance(key, str) else key
+                ): self.lowercase_keys_and_values(value)
                 for key, value in val.items()
             }
         else:
             return val
-    
+
     def lowercase_only_leaf_nodes(self, val: Any) -> Dict[str, Any]:
-        if isinstance(val, str): 
+        if isinstance(val, str):
             return val.casefold()
         elif isinstance(val, list):
             return [self.lowercase_only_leaf_nodes(item) for item in val]
         elif isinstance(val, dict):
             return {
-                key:
-                self.lowercase_only_leaf_nodes(value)
-                for key, value in val.items()
+                key: self.lowercase_only_leaf_nodes(value) for key, value in val.items()
             }
         else:
             return val
-    
-    def _get_runtime_parameters(self, context: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+
+    def _get_runtime_parameters(
+        self, context: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
         if not (custom_properties := context.get("custom_properties")):
             return None
         if not isinstance(custom_properties, dict):
             return None
         return self.lowercase_keys_and_values(custom_properties)
 
-    def _is_runtime_rules_engine_satisfied(self, rollout: Rollout, context: Dict[str, Any]) -> bool:
+    def _is_runtime_rules_engine_satisfied(
+        self, rollout: Rollout, context: Dict[str, Any]
+    ) -> bool:
         if rollout.runtime_evaluation_rule:
             parameters_for_runtime_rule = self._get_runtime_parameters(context)
             if parameters_for_runtime_rule is None:
@@ -367,7 +390,9 @@ class LocalFeatureFlagsProvider:
                 logger.exception("Error evaluating runtime evaluation rule")
                 return False
 
-        elif rollout.runtime_evaluation_definition:  # legacy field supporting only exact match conditions
+        elif (
+            rollout.runtime_evaluation_definition
+        ):  # legacy field supporting only exact match conditions
             return self._is_legacy_runtime_evaluation_rule_satisfied(rollout, context)
 
         else:
@@ -412,7 +437,9 @@ class LocalFeatureFlagsProvider:
             start_time = datetime.now()
             headers = {"traceparent": generate_traceparent()}
             response = await self._async_client.get(
-                self.FLAGS_DEFINITIONS_URL_PATH, params=self._request_params, headers=headers
+                self.FLAGS_DEFINITIONS_URL_PATH,
+                params=self._request_params,
+                headers=headers,
             )
             end_time = datetime.now()
             self._handle_response(response, start_time, end_time)
@@ -424,7 +451,9 @@ class LocalFeatureFlagsProvider:
             start_time = datetime.now()
             headers = {"traceparent": generate_traceparent()}
             response = self._sync_client.get(
-                self.FLAGS_DEFINITIONS_URL_PATH, params=self._request_params, headers=headers
+                self.FLAGS_DEFINITIONS_URL_PATH,
+                params=self._request_params,
+                headers=headers,
             )
             end_time = datetime.now()
             self._handle_response(response, start_time, end_time)
@@ -462,7 +491,7 @@ class LocalFeatureFlagsProvider:
         flag_key: str,
         variant: SelectedVariant,
         context: Dict[str, Any],
-        latency_in_seconds: Optional[float]=None,
+        latency_in_seconds: Optional[float] = None,
     ):
         if distinct_id := context.get("distinct_id"):
             properties = {

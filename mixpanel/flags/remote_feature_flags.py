@@ -8,7 +8,12 @@ from typing import Dict, Any, Callable, Tuple, Optional
 from asgiref.sync import sync_to_async
 
 from .types import RemoteFlagsConfig, SelectedVariant, RemoteFlagsResponse
-from .utils import REQUEST_HEADERS, EXPOSURE_EVENT, prepare_common_query_params, generate_traceparent 
+from .utils import (
+    REQUEST_HEADERS,
+    EXPOSURE_EVENT,
+    prepare_common_query_params,
+    generate_traceparent,
+)
 
 logger = logging.getLogger(__name__)
 logging.getLogger("httpx").setLevel(logging.ERROR)
@@ -38,9 +43,11 @@ class RemoteFeatureFlagsProvider:
         self._sync_client: httpx.Client = httpx.Client(**httpx_client_parameters)
         self._request_params_base = prepare_common_query_params(self._token, version)
 
-    async def aget_all_variants(self, context: Dict[str, Any]) -> Optional[Dict[str, SelectedVariant]]:
+    async def aget_all_variants(
+        self, context: Dict[str, Any]
+    ) -> Optional[Dict[str, SelectedVariant]]:
         """
-        Asynchronously gets all feature flag variants for the current user context from remote server.  
+        Asynchronously gets all feature flag variants for the current user context from remote server.
         :param Dict[str, Any] context: Context dictionary containing user attributes and rollout context
         :return: A dictionary mapping flag keys to their selected variants, or None if the call fails
         """
@@ -49,7 +56,9 @@ class RemoteFeatureFlagsProvider:
             params = self._prepare_query_params(context)
             start_time = datetime.now()
             headers = {"traceparent": generate_traceparent()}
-            response = await self._async_client.get(self.FLAGS_URL_PATH, params=params, headers=headers)
+            response = await self._async_client.get(
+                self.FLAGS_URL_PATH, params=params, headers=headers
+            )
             end_time = datetime.now()
             self._instrument_call(start_time, end_time)
             flags = self._handle_response(response)
@@ -74,7 +83,11 @@ class RemoteFeatureFlagsProvider:
         return variant.variant_value
 
     async def aget_variant(
-        self, flag_key: str, fallback_value: SelectedVariant, context: Dict[str, Any], reportExposure: bool = True
+        self,
+        flag_key: str,
+        fallback_value: SelectedVariant,
+        context: Dict[str, Any],
+        reportExposure: bool = True,
     ) -> SelectedVariant:
         """
         Asynchronously gets the selected variant  of a feature flag variant for the current user context from remote server.
@@ -88,13 +101,21 @@ class RemoteFeatureFlagsProvider:
             params = self._prepare_query_params(context, flag_key)
             start_time = datetime.now()
             headers = {"traceparent": generate_traceparent()}
-            response = await self._async_client.get(self.FLAGS_URL_PATH, params=params, headers=headers)
+            response = await self._async_client.get(
+                self.FLAGS_URL_PATH, params=params, headers=headers
+            )
             end_time = datetime.now()
             self._instrument_call(start_time, end_time)
             flags = self._handle_response(response)
-            selected_variant, is_fallback = self._lookup_flag_in_response(flag_key, flags, fallback_value)
+            selected_variant, is_fallback = self._lookup_flag_in_response(
+                flag_key, flags, fallback_value
+            )
 
-            if not is_fallback and reportExposure and (distinct_id := context.get("distinct_id")):
+            if (
+                not is_fallback
+                and reportExposure
+                and (distinct_id := context.get("distinct_id"))
+            ):
                 properties = self._build_tracking_properties(
                     flag_key, selected_variant, start_time, end_time
                 )
@@ -120,10 +141,8 @@ class RemoteFeatureFlagsProvider:
         return variant_value == True
 
     async def atrack_exposure_event(
-        self,
-        flag_key: str,
-        variant: SelectedVariant,
-        context: Dict[str, Any]):
+        self, flag_key: str, variant: SelectedVariant, context: Dict[str, Any]
+    ):
         """
         Manually tracks a feature flagging exposure event asynchronously to Mixpanel.
         This is intended to provide flexibility for when individual exposure events are reported when using `get_all_variants` for the user at once with exposure event reporting
@@ -132,7 +151,7 @@ class RemoteFeatureFlagsProvider:
         :param SelectedVariant variant: The selected variant for the feature flag
         :param Dict[str, Any] context: The user context used to evaluate the feature flag
         """
-        if (distinct_id := context.get("distinct_id")):
+        if distinct_id := context.get("distinct_id"):
             properties = self._build_tracking_properties(flag_key, variant)
 
             await sync_to_async(self._tracker, thread_sensitive=False)(
@@ -143,10 +162,11 @@ class RemoteFeatureFlagsProvider:
                 "Cannot track exposure event without a distinct_id in the context"
             )
 
-
-    def get_all_variants(self, context: Dict[str, Any]) -> Optional[Dict[str, SelectedVariant]]:
+    def get_all_variants(
+        self, context: Dict[str, Any]
+    ) -> Optional[Dict[str, SelectedVariant]]:
         """
-        Synchronously gets all feature flag variants for the current user context from remote server.  
+        Synchronously gets all feature flag variants for the current user context from remote server.
         :param Dict[str, Any] context: Context dictionary containing user attributes and rollout context
         :return: A dictionary mapping flag keys to their selected variants, or None if the call fails
         """
@@ -155,7 +175,9 @@ class RemoteFeatureFlagsProvider:
             params = self._prepare_query_params(context)
             start_time = datetime.now()
             headers = {"traceparent": generate_traceparent()}
-            response = self._sync_client.get(self.FLAGS_URL_PATH, params=params, headers=headers)
+            response = self._sync_client.get(
+                self.FLAGS_URL_PATH, params=params, headers=headers
+            )
             end_time = datetime.now()
             self._instrument_call(start_time, end_time)
             flags = self._handle_response(response)
@@ -180,7 +202,11 @@ class RemoteFeatureFlagsProvider:
         return variant.variant_value
 
     def get_variant(
-        self, flag_key: str, fallback_value: SelectedVariant, context: Dict[str, Any], reportExposure: bool = True
+        self,
+        flag_key: str,
+        fallback_value: SelectedVariant,
+        context: Dict[str, Any],
+        reportExposure: bool = True,
     ) -> SelectedVariant:
         """
         Synchronously gets the selected variant for a feature flag from remote server.
@@ -194,14 +220,22 @@ class RemoteFeatureFlagsProvider:
             params = self._prepare_query_params(context, flag_key)
             start_time = datetime.now()
             headers = {"traceparent": generate_traceparent()}
-            response = self._sync_client.get(self.FLAGS_URL_PATH, params=params, headers=headers)
+            response = self._sync_client.get(
+                self.FLAGS_URL_PATH, params=params, headers=headers
+            )
             end_time = datetime.now()
             self._instrument_call(start_time, end_time)
 
             flags = self._handle_response(response)
-            selected_variant, is_fallback = self._lookup_flag_in_response(flag_key, flags, fallback_value)
+            selected_variant, is_fallback = self._lookup_flag_in_response(
+                flag_key, flags, fallback_value
+            )
 
-            if not is_fallback and reportExposure and (distinct_id := context.get("distinct_id")):
+            if (
+                not is_fallback
+                and reportExposure
+                and (distinct_id := context.get("distinct_id"))
+            ):
                 properties = self._build_tracking_properties(
                     flag_key, selected_variant, start_time, end_time
                 )
@@ -223,10 +257,8 @@ class RemoteFeatureFlagsProvider:
         return variant_value == True
 
     def track_exposure_event(
-        self,
-        flag_key: str,
-        variant: SelectedVariant,
-        context: Dict[str, Any]):
+        self, flag_key: str, variant: SelectedVariant, context: Dict[str, Any]
+    ):
         """
         Manually tracks a feature flagging exposure event synchronously to Mixpanel.
         This is intended to provide flexibility for when individual exposure events are reported when using `get_all_variants` for the user at once with exposure event reporting
@@ -235,7 +267,7 @@ class RemoteFeatureFlagsProvider:
         :param SelectedVariant variant: The selected variant for the feature flag
         :param Dict[str, Any] context: The user context used to evaluate the feature flag
         """
-        if (distinct_id := context.get("distinct_id")):
+        if distinct_id := context.get("distinct_id"):
             properties = self._build_tracking_properties(flag_key, variant)
             self._tracker(distinct_id, EXPOSURE_EVENT, properties)
         else:
@@ -281,11 +313,14 @@ class RemoteFeatureFlagsProvider:
             formatted_start_time = start_time.isoformat()
             formatted_end_time = end_time.isoformat()
 
-            tracking_properties.update({
-                "Variant fetch start time": formatted_start_time,
-                "Variant fetch complete time": formatted_end_time,
-                "Variant fetch latency (ms)": request_duration.total_seconds() * 1000,
-            })
+            tracking_properties.update(
+                {
+                    "Variant fetch start time": formatted_start_time,
+                    "Variant fetch complete time": formatted_end_time,
+                    "Variant fetch latency (ms)": request_duration.total_seconds()
+                    * 1000,
+                }
+            )
 
         return tracking_properties
 
@@ -294,7 +329,12 @@ class RemoteFeatureFlagsProvider:
         flags_response = RemoteFlagsResponse.model_validate(response.json())
         return flags_response.flags
 
-    def _lookup_flag_in_response(self, flag_key: str, flags: Dict[str, SelectedVariant], fallback_value: SelectedVariant) -> Tuple[SelectedVariant, bool]:
+    def _lookup_flag_in_response(
+        self,
+        flag_key: str,
+        flags: Dict[str, SelectedVariant],
+        fallback_value: SelectedVariant,
+    ) -> Tuple[SelectedVariant, bool]:
         if flag_key in flags:
             return flags[flag_key], False
         else:
@@ -302,7 +342,6 @@ class RemoteFeatureFlagsProvider:
                 f"Flag '{flag_key}' not found in remote response. Returning fallback, '{fallback_value}'"
             )
             return fallback_value, True
-
 
     def __enter__(self):
         return self
