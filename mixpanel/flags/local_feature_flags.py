@@ -318,29 +318,15 @@ class LocalFeatureFlagsProvider:
 
         return None
     
-    def lowercase_keys_and_values(self, val: Any) -> Any:
-        if isinstance(val, str): 
+    def _casefold_recursive(self, val: Any, include_keys: bool = False) -> Any:
+        if isinstance(val, str):
             return val.casefold()
         elif isinstance(val, list):
-            return [self.lowercase_keys_and_values(item) for item in val]
+            return [self._casefold_recursive(item, include_keys) for item in val]
         elif isinstance(val, dict):
             return {
-                (key.casefold() if isinstance(key, str) else key):
-                self.lowercase_keys_and_values(value)
-                for key, value in val.items()
-            }
-        else:
-            return val
-    
-    def lowercase_only_leaf_nodes(self, val: Any) -> Dict[str, Any]:
-        if isinstance(val, str): 
-            return val.casefold()
-        elif isinstance(val, list):
-            return [self.lowercase_only_leaf_nodes(item) for item in val]
-        elif isinstance(val, dict):
-            return {
-                key:
-                self.lowercase_only_leaf_nodes(value)
+                (key.casefold() if include_keys and isinstance(key, str) else key):
+                self._casefold_recursive(value, include_keys)
                 for key, value in val.items()
             }
         else:
@@ -351,7 +337,7 @@ class LocalFeatureFlagsProvider:
             return None
         if not isinstance(custom_properties, dict):
             return None
-        return self.lowercase_keys_and_values(custom_properties)
+        return self._casefold_recursive(custom_properties, include_keys=True)
 
     def _is_runtime_rules_engine_satisfied(self, rollout: Rollout, context: Dict[str, Any]) -> bool:
         if rollout.runtime_evaluation_rule:
@@ -360,7 +346,7 @@ class LocalFeatureFlagsProvider:
                 return False
 
             try:
-                rule = self.lowercase_only_leaf_nodes(rollout.runtime_evaluation_rule)
+                rule = self._casefold_recursive(rollout.runtime_evaluation_rule)
                 result = json_logic.jsonLogic(rule, parameters_for_runtime_rule)
                 return bool(result)
             except Exception:

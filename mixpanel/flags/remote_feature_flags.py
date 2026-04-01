@@ -54,7 +54,7 @@ class RemoteFeatureFlagsProvider:
             self._instrument_call(start_time, end_time)
             flags = self._handle_response(response)
         except Exception:
-            logger.exception(f"Failed to get remote variants")
+            logger.exception("Failed to get remote variants")
 
         return flags
 
@@ -132,7 +132,7 @@ class RemoteFeatureFlagsProvider:
         :param SelectedVariant variant: The selected variant for the feature flag
         :param Dict[str, Any] context: The user context used to evaluate the feature flag
         """
-        if (distinct_id := context.get("distinct_id")):
+        if distinct_id := context.get("distinct_id"):
             properties = self._build_tracking_properties(flag_key, variant)
 
             await sync_to_async(self._tracker, thread_sensitive=False)(
@@ -160,7 +160,7 @@ class RemoteFeatureFlagsProvider:
             self._instrument_call(start_time, end_time)
             flags = self._handle_response(response)
         except Exception:
-            logger.exception(f"Failed to get remote variants")
+            logger.exception("Failed to get remote variants")
 
         return flags
 
@@ -209,7 +209,7 @@ class RemoteFeatureFlagsProvider:
 
             return selected_variant
         except Exception:
-            logging.exception(f"Failed to get remote variant for flag '{flag_key}'")
+            logger.exception(f"Failed to get remote variant for flag '{flag_key}'")
             return fallback_value
 
     def is_enabled(self, flag_key: str, context: Dict[str, Any]) -> bool:
@@ -235,11 +235,11 @@ class RemoteFeatureFlagsProvider:
         :param SelectedVariant variant: The selected variant for the feature flag
         :param Dict[str, Any] context: The user context used to evaluate the feature flag
         """
-        if (distinct_id := context.get("distinct_id")):
+        if distinct_id := context.get("distinct_id"):
             properties = self._build_tracking_properties(flag_key, variant)
             self._tracker(distinct_id, EXPOSURE_EVENT, properties)
         else:
-            logging.error(
+            logger.error(
                 "Cannot track exposure event without a distinct_id in the context"
             )
 
@@ -258,7 +258,7 @@ class RemoteFeatureFlagsProvider:
         request_duration = end_time - start_time
         formatted_start_time = start_time.isoformat()
         formatted_end_time = end_time.isoformat()
-        logging.debug(
+        logger.debug(
             f"Request started at '{formatted_start_time}', completed at '{formatted_end_time}', duration: '{request_duration.total_seconds():.3f}s'"
         )
 
@@ -298,7 +298,7 @@ class RemoteFeatureFlagsProvider:
         if flag_key in flags:
             return flags[flag_key], False
         else:
-            logging.debug(
+            logger.debug(
                 f"Flag '{flag_key}' not found in remote response. Returning fallback, '{fallback_value}'"
             )
             return fallback_value, True
@@ -314,9 +314,9 @@ class RemoteFeatureFlagsProvider:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        logging.info("Exiting the RemoteFeatureFlagsProvider and cleaning up resources")
+        logger.info("Exiting the RemoteFeatureFlagsProvider and cleaning up resources")
         self._sync_client.close()
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        logging.info("Exiting the RemoteFeatureFlagsProvider and cleaning up resources")
+        logger.info("Exiting the RemoteFeatureFlagsProvider and cleaning up resources")
         await self._async_client.aclose()
