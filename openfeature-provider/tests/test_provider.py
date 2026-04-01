@@ -226,6 +226,22 @@ def test_type_mismatch_integer_gets_float_with_fraction(provider, mock_flags):
     assert result.reason == Reason.ERROR
 
 
+def test_type_mismatch_integer_gets_boolean(provider, mock_flags):
+    setup_flag(mock_flags, "bool-flag", True)
+    result = provider.resolve_integer_details("bool-flag", 0)
+    assert result.value == 0
+    assert result.error_code == ErrorCode.TYPE_MISMATCH
+    assert result.reason == Reason.ERROR
+
+
+def test_type_mismatch_float_gets_boolean(provider, mock_flags):
+    setup_flag(mock_flags, "bool-flag", True)
+    result = provider.resolve_float_details("bool-flag", 0.0)
+    assert result.value == 0.0
+    assert result.error_code == ErrorCode.TYPE_MISMATCH
+    assert result.reason == Reason.ERROR
+
+
 # --- Error: PROVIDER_NOT_READY ---
 
 

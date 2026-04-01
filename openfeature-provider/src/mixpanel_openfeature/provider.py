@@ -130,6 +130,15 @@ class MixpanelProvider(AbstractProvider):
                 value=value, variant=variant_key, reason=Reason.STATIC
             )
 
+        # In Python, bool is a subclass of int, so isinstance(True, int)
+        # returns True. Reject bools early when expecting numeric types.
+        if expected_type in (int, float) and isinstance(value, bool):
+            return FlagResolutionDetails(
+                value=default_value,
+                error_code=ErrorCode.TYPE_MISMATCH,
+                reason=Reason.ERROR,
+            )
+
         if expected_type is int and isinstance(value, float):
             if math.isfinite(value) and value == math.floor(value):
                 return FlagResolutionDetails(
