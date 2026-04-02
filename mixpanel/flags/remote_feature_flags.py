@@ -89,7 +89,7 @@ class RemoteFeatureFlagsProvider:
         flag_key: str,
         fallback_value: SelectedVariant,
         context: dict[str, Any],
-        report_exposure: bool = True,
+        reportExposure: bool = True,  # noqa: N803 - matches public API convention
     ) -> SelectedVariant:
         """Asynchronously get the selected variant of a feature flag variant for the current user context from remote server.
 
@@ -114,7 +114,7 @@ class RemoteFeatureFlagsProvider:
 
             if (
                 not is_fallback
-                and report_exposure
+                and reportExposure
                 and (distinct_id := context.get("distinct_id"))
             ):
                 properties = self._build_tracking_properties(
@@ -205,7 +205,7 @@ class RemoteFeatureFlagsProvider:
         flag_key: str,
         fallback_value: SelectedVariant,
         context: dict[str, Any],
-        report_exposure: bool = True,
+        reportExposure: bool = True,  # noqa: N803 - matches public API convention
     ) -> SelectedVariant:
         """Synchronously get the selected variant for a feature flag from remote server.
 
@@ -231,7 +231,7 @@ class RemoteFeatureFlagsProvider:
 
             if (
                 not is_fallback
-                and report_exposure
+                and reportExposure
                 and (distinct_id := context.get("distinct_id"))
             ):
                 properties = self._build_tracking_properties(
