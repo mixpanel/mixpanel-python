@@ -96,7 +96,7 @@ class RemoteFeatureFlagsProvider:
         :param str flag_key: The key of the feature flag to evaluate
         :param SelectedVariant fallback_value: The default variant to return if evaluation fails
         :param Dict[str, Any] context: Context dictionary containing user attributes and rollout context
-        :param bool report_exposure: Whether to report an exposure event if a variant is successfully retrieved
+        :param bool reportExposure: Whether to report an exposure event if a variant is successfully retrieved
         """
         try:
             params = self._prepare_query_params(context, flag_key)
@@ -212,7 +212,7 @@ class RemoteFeatureFlagsProvider:
         :param str flag_key: The key of the feature flag to evaluate
         :param SelectedVariant fallback_value: The default variant to return if evaluation fails
         :param Dict[str, Any] context: Context dictionary containing user attributes and rollout context
-        :param bool report_exposure: Whether to report an exposure event if a variant is successfully retrieved
+        :param bool reportExposure: Whether to report an exposure event if a variant is successfully retrieved
         """
         try:
             params = self._prepare_query_params(context, flag_key)
