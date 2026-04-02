@@ -22,16 +22,20 @@ def provider(mock_flags):
 
 def setup_flag(mock_flags, flag_key, value, variant_key="variant-key"):
     """Configure mock to return a SelectedVariant with the given value."""
-    mock_flags.get_variant.side_effect = lambda key, fallback, ctx, report_exposure=True: (
-        SelectedVariant(variant_key=variant_key, variant_value=value)
-        if key == flag_key
-        else fallback
+    mock_flags.get_variant.side_effect = (
+        lambda key, fallback, ctx, report_exposure=True: (
+            SelectedVariant(variant_key=variant_key, variant_value=value)
+            if key == flag_key
+            else fallback
+        )
     )
 
 
 def setup_flag_not_found(mock_flags, flag_key):
     """Configure mock to return the fallback (identity check triggers FLAG_NOT_FOUND)."""
-    mock_flags.get_variant.side_effect = lambda key, fallback, ctx, report_exposure=True: fallback
+    mock_flags.get_variant.side_effect = (
+        lambda key, fallback, ctx, report_exposure=True: fallback
+    )
 
 
 # --- Metadata ---
@@ -335,9 +339,7 @@ def test_forwards_attributes_flat(provider, mock_flags):
 
 def test_forwards_full_context(provider, mock_flags):
     setup_flag(mock_flags, "flag", "val")
-    ctx = EvaluationContext(
-        targeting_key="user-456", attributes={"tier": "enterprise"}
-    )
+    ctx = EvaluationContext(targeting_key="user-456", attributes={"tier": "enterprise"})
     provider.resolve_string_details("flag", "default", ctx)
     _, _, user_context = mock_flags.get_variant.call_args[0]
     assert user_context == {

@@ -67,12 +67,14 @@ commands = [
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+addopts = "--ignore=openfeature-provider"
 
 # --- Ruff configuration (strict guide: select ALL, exclude explicitly) ---
 
 [tool.ruff]
 target-version = "py39"
 line-length = 88
+extend-exclude = ["openfeature-provider"]
 
 [tool.ruff.lint]
 select = ["ALL"]

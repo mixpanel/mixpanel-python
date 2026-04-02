@@ -107,7 +107,9 @@ class MixpanelProvider(AbstractProvider):
         fallback = SelectedVariant(variant_value=default_value)
         user_context = self._build_user_context(evaluation_context)
         try:
-            result = self._flags_provider.get_variant(flag_key, fallback, user_context, report_exposure=True)
+            result = self._flags_provider.get_variant(
+                flag_key, fallback, user_context, report_exposure=True
+            )
         except Exception:
             return FlagResolutionDetails(
                 value=default_value,
