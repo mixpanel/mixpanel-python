@@ -61,4 +61,10 @@ jobs:
         pip install -e ./openfeature-provider[test]
     - name: Run OpenFeature provider tests
       run: |
-        pytest openfeature-provider/tests/
+        pytest --cov --cov-branch --cov-report=xml openfeature-provider/tests/
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@1af58845a975a7985b0beb0cbe6fbbb71a41dbad  # v5
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        slug: mixpanel/mixpanel-python
+        flags: openfeature-provider
