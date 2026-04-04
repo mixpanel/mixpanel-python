@@ -1,4 +1,5 @@
 from unittest.mock import MagicMock
+
 import pytest
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import ErrorCode
@@ -22,20 +23,16 @@ def provider(mock_flags):
 
 def setup_flag(mock_flags, flag_key, value, variant_key="variant-key"):
     """Configure mock to return a SelectedVariant with the given value."""
-    mock_flags.get_variant.side_effect = (
-        lambda key, fallback, ctx: (
-            SelectedVariant(variant_key=variant_key, variant_value=value)
-            if key == flag_key
-            else fallback
-        )
+    mock_flags.get_variant.side_effect = lambda key, fallback, ctx: (
+        SelectedVariant(variant_key=variant_key, variant_value=value)
+        if key == flag_key
+        else fallback
     )
 
 
 def setup_flag_not_found(mock_flags, flag_key):
     """Configure mock to return the fallback (identity check triggers FLAG_NOT_FOUND)."""
-    mock_flags.get_variant.side_effect = (
-        lambda key, fallback, ctx: fallback
-    )
+    mock_flags.get_variant.side_effect = lambda key, fallback, ctx: fallback
 
 
 # --- Metadata ---

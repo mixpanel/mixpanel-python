@@ -12,7 +12,7 @@ authors = [
 ]
 requires-python = ">=3.9"
 dependencies = [
-    "mixpanel",
+    "mixpanel>=2,<3",
     "openfeature-sdk>=0.7.0",
 ]
 
@@ -28,3 +28,71 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+
+# --- Ruff configuration (mirrors main project) ---
+
+[tool.ruff]
+target-version = "py39"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    # --- Rule conflicts ---
+    "D203",    # conflicts with D211 (no-blank-line-before-class)
+    "D213",    # conflicts with D212 (multi-line-summary-first-line)
+    "COM812",  # conflicts with ruff formatter
+    "ISC001",  # conflicts with ruff formatter
+
+    # --- Type annotations (separate effort) ---
+    "ANN",     # all annotation rules
+
+    # --- Docstrings (separate effort) ---
+    "D100",    # undocumented-public-module
+    "D101",    # undocumented-public-class
+    "D102",    # undocumented-public-method
+    "D103",    # undocumented-public-function
+    "D104",    # undocumented-public-package
+    "D105",    # undocumented-magic-method
+    "D107",    # undocumented-public-init
+
+    # --- Boolean arguments (public API) ---
+    "FBT",     # boolean-type-hint / boolean-default / boolean-positional
+
+    # --- TODO/FIXME enforcement ---
+    "TD002",   # missing-todo-author
+    "TD003",   # missing-todo-link
+    "FIX001",  # line-contains-fixme
+    "FIX002",  # line-contains-todo
+
+    # --- Exception message style ---
+    "EM101",   # raw-string-in-exception
+    "EM103",   # dot-format-in-exception
+    "TRY003",  # raise-vanilla-args
+
+    # --- Other pragmatic exclusions ---
+    "PLR0913", # too-many-arguments
+    "PLR0911", # too-many-return-statements (_resolve has many type-check branches)
+    "E501",    # line-too-long (formatter handles code)
+    "FA100",   # future-rewritable-type-annotation
+    "BLE001",  # blind-exception (catching Exception in flag resolution is intentional)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*.py" = [
+    "S101",    # assert
+    "S105",    # hardcoded-password-string (test fixtures)
+    "S106",    # hardcoded-password-func-arg
+    "SLF001",  # private-member-access
+    "PLR2004", # magic-value-comparison
+    "D",       # all docstring rules
+    "PT018",   # pytest-composite-assertion
+    "INP001",  # implicit-namespace-package (no __init__.py in tests)
+    "ARG",     # unused arguments (lambda stubs in mocks)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["mixpanel", "mixpanel_openfeature"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"

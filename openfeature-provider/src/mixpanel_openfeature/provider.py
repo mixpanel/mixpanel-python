@@ -1,6 +1,7 @@
 import math
 import typing
-from typing import Mapping, Sequence, Union
+from collections.abc import Mapping, Sequence
+from typing import Union
 
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import ErrorCode
@@ -107,9 +108,7 @@ class MixpanelProvider(AbstractProvider):
         fallback = SelectedVariant(variant_value=default_value)
         user_context = self._build_user_context(evaluation_context)
         try:
-            result = self._flags_provider.get_variant(
-                flag_key, fallback, user_context
-            )
+            result = self._flags_provider.get_variant(flag_key, fallback, user_context)
         except Exception:
             return FlagResolutionDetails(
                 value=default_value,
@@ -138,6 +137,7 @@ class MixpanelProvider(AbstractProvider):
             return FlagResolutionDetails(
                 value=default_value,
                 error_code=ErrorCode.TYPE_MISMATCH,
+                error_message=f"Expected {expected_type.__name__}, got {type(value).__name__}",
                 reason=Reason.ERROR,
             )
 
@@ -149,6 +149,7 @@ class MixpanelProvider(AbstractProvider):
             return FlagResolutionDetails(
                 value=default_value,
                 error_code=ErrorCode.TYPE_MISMATCH,
+                error_message=f"Expected int, got float (value={value} is not a whole number)",
                 reason=Reason.ERROR,
             )
 
@@ -161,6 +162,7 @@ class MixpanelProvider(AbstractProvider):
             return FlagResolutionDetails(
                 value=default_value,
                 error_code=ErrorCode.TYPE_MISMATCH,
+                error_message=f"Expected {expected_type.__name__}, got {type(value).__name__}",
                 reason=Reason.ERROR,
             )
 
