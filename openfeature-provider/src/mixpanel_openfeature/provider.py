@@ -1,14 +1,17 @@
+from __future__ import annotations
+
 import math
 import typing
 from collections.abc import Mapping, Sequence
-from typing import Union
+from typing import Optional, Union
 
 from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import ErrorCode
 from openfeature.flag_evaluation import FlagResolutionDetails, Reason
 from openfeature.provider import AbstractProvider, Metadata
 
-from mixpanel.flags.types import SelectedVariant
+from mixpanel import Mixpanel
+from mixpanel.flags.types import LocalFlagsConfig, RemoteFlagsConfig, SelectedVariant
 
 FlagValueType = Union[bool, str, int, float, list, dict, None]
 
@@ -16,9 +19,46 @@ FlagValueType = Union[bool, str, int, float, list, dict, None]
 class MixpanelProvider(AbstractProvider):
     """An OpenFeature provider backed by a Mixpanel feature flags provider."""
 
-    def __init__(self, flags_provider: typing.Any) -> None:
+    def __init__(
+        self,
+        flags_provider: typing.Any,
+        mixpanel_instance: Optional[Mixpanel] = None,
+    ) -> None:
         super().__init__()
         self._flags_provider = flags_provider
+        self._mixpanel = mixpanel_instance
+
+    @classmethod
+    def from_local_config(
+        cls, token: str, config: LocalFlagsConfig
+    ) -> MixpanelProvider:
+        """Create a MixpanelProvider backed by a local flags provider.
+
+        :param str token: your project's Mixpanel token
+        :param LocalFlagsConfig config: configuration for local feature flags
+        """
+        mp = Mixpanel(token, local_flags_config=config)
+        local_flags = mp.local_flags
+        local_flags.start_polling_for_definitions()
+        return cls(local_flags, mixpanel_instance=mp)
+
+    @classmethod
+    def from_remote_config(
+        cls, token: str, config: RemoteFlagsConfig
+    ) -> MixpanelProvider:
+        """Create a MixpanelProvider backed by a remote flags provider.
+
+        :param str token: your project's Mixpanel token
+        :param RemoteFlagsConfig config: configuration for remote feature flags
+        """
+        mp = Mixpanel(token, remote_flags_config=config)
+        remote_flags = mp.remote_flags
+        return cls(remote_flags, mixpanel_instance=mp)
+
+    @property
+    def mixpanel(self) -> Optional[Mixpanel]:
+        """The Mixpanel instance used by this provider, if created via a class method."""
+        return self._mixpanel
 
     def get_metadata(self) -> Metadata:
         return Metadata(name="mixpanel-provider")
