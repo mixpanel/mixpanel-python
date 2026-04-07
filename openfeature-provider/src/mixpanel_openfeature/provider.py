@@ -160,7 +160,7 @@ class MixpanelProvider(AbstractProvider):
             return FlagResolutionDetails(
                 value=default_value,
                 error_code=ErrorCode.FLAG_NOT_FOUND,
-                reason=Reason.ERROR,
+                reason=Reason.DEFAULT,
             )
 
         value = result.variant_value
@@ -168,7 +168,7 @@ class MixpanelProvider(AbstractProvider):
 
         if expected_type is None:
             return FlagResolutionDetails(
-                value=value, variant=variant_key, reason=Reason.STATIC
+                value=value, variant=variant_key, reason=Reason.TARGETING_MATCH
             )
 
         # In Python, bool is a subclass of int, so isinstance(True, int)
@@ -184,7 +184,7 @@ class MixpanelProvider(AbstractProvider):
         if expected_type is int and isinstance(value, float):
             if math.isfinite(value) and value == math.floor(value):
                 return FlagResolutionDetails(
-                    value=int(value), variant=variant_key, reason=Reason.STATIC
+                    value=int(value), variant=variant_key, reason=Reason.TARGETING_MATCH
                 )
             return FlagResolutionDetails(
                 value=default_value,
@@ -195,7 +195,7 @@ class MixpanelProvider(AbstractProvider):
 
         if expected_type is float and isinstance(value, (int, float)):
             return FlagResolutionDetails(
-                value=float(value), variant=variant_key, reason=Reason.STATIC
+                value=float(value), variant=variant_key, reason=Reason.TARGETING_MATCH
             )
 
         if not isinstance(value, expected_type):
@@ -207,7 +207,7 @@ class MixpanelProvider(AbstractProvider):
             )
 
         return FlagResolutionDetails(
-            value=value, variant=variant_key, reason=Reason.STATIC
+            value=value, variant=variant_key, reason=Reason.TARGETING_MATCH
         )
 
     def _are_flags_ready(self) -> bool:
