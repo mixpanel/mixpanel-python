@@ -343,6 +343,9 @@ class RemoteFeatureFlagsProvider:
         )
         return fallback_value, True
 
+    def shutdown(self):
+        self._sync_client.close()
+
     def __enter__(self):
         return self
 
