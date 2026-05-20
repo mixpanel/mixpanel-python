@@ -1,0 +1,18 @@
+{
+  "analytics": {
+    "tag_prefix": "v",
+    "pyproject_toml": "pyproject.toml",
+    "version_files": ["mixpanel/__init__.py"],
+    "changelog": "CHANGELOG.md",
+    "readme": "README.md",
+    "package_name": "mixpanel"
+  },
+  "openfeature": {
+    "tag_prefix": "openfeature/v",
+    "pyproject_toml": "openfeature-provider/pyproject.toml",
+    "version_files": [],
+    "changelog": "openfeature-provider/CHANGELOG.md",
+    "readme": "openfeature-provider/README.md",
+    "package_name": "mixpanel-openfeature"
+  }
+}
