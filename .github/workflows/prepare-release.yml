@@ -193,10 +193,18 @@ jobs:
           MODULE: ${{ inputs.module }}
           VERSION: ${{ inputs.version }}
           BRANCH: ${{ steps.config.outputs.branch }}
+          PYPROJECT_TOML: ${{ steps.config.outputs.pyproject_toml }}
+          VERSION_FILES: ${{ steps.config.outputs.version_files }}
+          CHANGELOG_FILE: ${{ steps.config.outputs.changelog }}
+          README: ${{ steps.config.outputs.readme }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -A
+          git add "$PYPROJECT_TOML" "$CHANGELOG_FILE" "$README"
+          while IFS= read -r FILE; do
+            [ -z "$FILE" ] && continue
+            git add "$FILE"
+          done <<< "$VERSION_FILES"
           git commit -m "release: prepare ${MODULE} ${VERSION}"
           git push origin "$BRANCH"
 
