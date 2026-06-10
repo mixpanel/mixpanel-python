@@ -898,10 +898,11 @@ class TestServiceAccountAuth:
             json={"status": 1, "error": None},
         )
 
-        consumer = mixpanel.Consumer(
-            service_account_username=self.SERVICE_ACCOUNT_USERNAME,
-            service_account_secret=self.SERVICE_ACCOUNT_SECRET,
+        credentials = mixpanel.ServiceAccountCredentials(
+            username=self.SERVICE_ACCOUNT_USERNAME,
+            secret=self.SERVICE_ACCOUNT_SECRET,
         )
+        consumer = mixpanel.Consumer(credentials=credentials)
 
         event = json.dumps({"event": "test_event", "properties": {"token": self.TOKEN}})
         consumer.send("events", event)
@@ -926,11 +927,11 @@ class TestServiceAccountAuth:
             json={"status": 1, "error": None},
         )
 
-        mp = mixpanel.Mixpanel(
-            self.TOKEN,
-            service_account_username=self.SERVICE_ACCOUNT_USERNAME,
-            service_account_secret=self.SERVICE_ACCOUNT_SECRET,
+        credentials = mixpanel.ServiceAccountCredentials(
+            username=self.SERVICE_ACCOUNT_USERNAME,
+            secret=self.SERVICE_ACCOUNT_SECRET,
         )
+        mp = mixpanel.Mixpanel(self.TOKEN, credentials=credentials)
 
         mp.track("test_user", "test_event")
 
@@ -954,11 +955,11 @@ class TestServiceAccountAuth:
             json={"status": 1, "error": None},
         )
 
-        mp = mixpanel.Mixpanel(
-            self.TOKEN,
-            service_account_username=self.SERVICE_ACCOUNT_USERNAME,
-            service_account_secret=self.SERVICE_ACCOUNT_SECRET,
+        credentials = mixpanel.ServiceAccountCredentials(
+            username=self.SERVICE_ACCOUNT_USERNAME,
+            secret=self.SERVICE_ACCOUNT_SECRET,
         )
+        mp = mixpanel.Mixpanel(self.TOKEN, credentials=credentials)
 
         # import_data provides api_secret, but service account should take precedence
         mp.import_data(
@@ -1017,11 +1018,11 @@ class TestServiceAccountAuth:
             json={"status": 1, "error": None},
         )
 
-        consumer = mixpanel.BufferedConsumer(
-            max_size=1,
-            service_account_username=self.SERVICE_ACCOUNT_USERNAME,
-            service_account_secret=self.SERVICE_ACCOUNT_SECRET,
+        credentials = mixpanel.ServiceAccountCredentials(
+            username=self.SERVICE_ACCOUNT_USERNAME,
+            secret=self.SERVICE_ACCOUNT_SECRET,
         )
+        consumer = mixpanel.BufferedConsumer(max_size=1, credentials=credentials)
 
         event = json.dumps({"event": "test_event", "properties": {"token": self.TOKEN}})
         consumer.send("events", event)
@@ -1055,3 +1056,24 @@ class TestServiceAccountAuth:
 
         # Verify no Authorization header
         assert "Authorization" not in request.headers
+
+    def test_credentials_require_both_username_and_secret(self):
+        """Test ServiceAccountCredentials validates both fields are provided."""
+        # Empty username
+        with pytest.raises(ValueError, match="username cannot be empty"):
+            mixpanel.ServiceAccountCredentials(username="", secret="secret")
+
+        # Empty secret
+        with pytest.raises(ValueError, match="secret cannot be empty"):
+            mixpanel.ServiceAccountCredentials(username="user", secret="")
+
+    def test_credentials_repr_hides_secret(self):
+        """Test ServiceAccountCredentials __repr__ doesn't expose the secret."""
+        credentials = mixpanel.ServiceAccountCredentials(
+            username="test-user", secret="test-secret"
+        )
+        repr_str = repr(credentials)
+
+        assert "test-user" in repr_str
+        assert "test-secret" not in repr_str
+        assert "***" in repr_str

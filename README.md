@@ -45,13 +45,15 @@ and people updates.
 For enhanced security in server-to-server integrations, you can use service account credentials instead of API tokens:
 
 ```python
-from mixpanel import Mixpanel
+from mixpanel import Mixpanel, ServiceAccountCredentials
 
-mp = Mixpanel(
-    YOUR_TOKEN,
-    service_account_username='YOUR_SERVICE_ACCOUNT_USERNAME',
-    service_account_secret='YOUR_SERVICE_ACCOUNT_SECRET'
+# Create credentials object
+credentials = ServiceAccountCredentials(
+    username='YOUR_SERVICE_ACCOUNT_USERNAME',
+    secret='YOUR_SERVICE_ACCOUNT_SECRET'
 )
+
+mp = Mixpanel(YOUR_TOKEN, credentials=credentials)
 
 # All API calls will use service account authentication
 mp.track(DISTINCT_ID, 'button clicked', {'color': 'blue'})
@@ -61,13 +63,14 @@ mp.people_set(DISTINCT_ID, {'$first_name': 'John'})
 Service account credentials can also be used with `Consumer` and `BufferedConsumer`:
 
 ```python
-from mixpanel import Mixpanel, BufferedConsumer
+from mixpanel import Mixpanel, BufferedConsumer, ServiceAccountCredentials
 
-consumer = BufferedConsumer(
-    service_account_username='YOUR_SERVICE_ACCOUNT_USERNAME',
-    service_account_secret='YOUR_SERVICE_ACCOUNT_SECRET'
+credentials = ServiceAccountCredentials(
+    username='YOUR_SERVICE_ACCOUNT_USERNAME',
+    secret='YOUR_SERVICE_ACCOUNT_SECRET'
 )
 
+consumer = BufferedConsumer(credentials=credentials)
 mp = Mixpanel(YOUR_TOKEN, consumer=consumer)
 ```
 
