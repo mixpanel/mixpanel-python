@@ -25,7 +25,11 @@ import requests
 import urllib3
 from requests.auth import HTTPBasicAuth
 
-from .credentials import MixpanelCredentials, ServiceAccountCredentials
+from .credentials import (
+    APISecretCredentials,
+    MixpanelCredentials,
+    ServiceAccountCredentials,
+)
 from .flags.local_feature_flags import LocalFeatureFlagsProvider
 from .flags.remote_feature_flags import RemoteFeatureFlagsProvider
 from .flags.types import LocalFlagsConfig, RemoteFlagsConfig
