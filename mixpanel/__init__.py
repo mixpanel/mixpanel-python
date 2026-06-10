@@ -25,11 +25,7 @@ import requests
 import urllib3
 from requests.auth import HTTPBasicAuth
 
-from .credentials import (
-    APISecretCredentials,
-    MixpanelCredentials,
-    ServiceAccountCredentials,
-)
+from .credentials import ServiceAccountCredentials
 from .flags.local_feature_flags import LocalFeatureFlagsProvider
 from .flags.remote_feature_flags import RemoteFeatureFlagsProvider
 from .flags.types import LocalFlagsConfig, RemoteFlagsConfig
@@ -61,13 +57,16 @@ class Mixpanel:
         :class:`~.Consumer`)
     :param json.JSONEncoder serializer: a JSONEncoder subclass used to handle
         JSON serialization (default :class:`~.DatetimeSerializer`)
-    :param MixpanelCredentials credentials: Optional credentials for authentication
-        (e.g., :class:`~.ServiceAccountCredentials`)
+    :param ServiceAccountCredentials credentials: Optional service account
+        credentials for authentication. Recommended for server-side integrations.
 
     See `Built-in consumers`_ for details about the consumer interface.
 
     .. versionadded:: 4.2.0
         The *serializer* parameter.
+
+    .. versionadded:: 5.2.0
+        The *credentials* parameter.
     """
 
     def __init__(
@@ -77,7 +76,7 @@ class Mixpanel:
         serializer=DatetimeSerializer,
         local_flags_config: Optional[LocalFlagsConfig] = None,
         remote_flags_config: Optional[RemoteFlagsConfig] = None,
-        credentials: Optional[MixpanelCredentials] = None,
+        credentials: Optional[ServiceAccountCredentials] = None,
     ):
         self._token = token
         self._credentials = credentials
@@ -171,14 +170,18 @@ class Mixpanel:
         :param dict properties: additional data to record; keys should be
             strings, and values should be strings, numbers, or booleans
         :param dict meta: overrides Mixpanel special properties
-        :param str api_secret: Your Mixpanel project's API secret.
+        :param str api_secret: (DEPRECATED) Your Mixpanel project's API secret.
+
+        .. deprecated:: 5.2.0
+            The *api_secret* parameter is deprecated. Use
+            :class:`~.ServiceAccountCredentials` with the *credentials* parameter
+            instead for enhanced security. API secrets will continue to work for
+            backward compatibility but may be removed in a future major version.
 
         .. Important::
-            Mixpanel's ``import`` HTTP endpoint requires the project API
-            secret found in your Mixpanel project's settings. The older API key is
-            no longer accessible in the Mixpanel UI, but will continue to work.
-            The api_key parameter will be removed in an upcoming release of
-            mixpanel-python.
+            Mixpanel's ``import`` HTTP endpoint requires authentication. The older
+            API key is no longer accessible in the Mixpanel UI, but will continue
+            to work. The api_key parameter will be removed in an upcoming release.
 
         .. versionadded:: 4.8.0
             The *api_secret* parameter.
@@ -254,14 +257,18 @@ class Mixpanel:
         :param str distinct_id1: The first distinct_id to merge.
         :param str distinct_id2: The second (other) distinct_id to merge.
         :param dict meta: overrides Mixpanel special properties
-        :param str api_secret: Your Mixpanel project's API secret.
+        :param str api_secret: (DEPRECATED) Your Mixpanel project's API secret.
+
+        .. deprecated:: 5.2.0
+            The *api_secret* parameter is deprecated. Use
+            :class:`~.ServiceAccountCredentials` with the *credentials* parameter
+            instead for enhanced security. API secrets will continue to work for
+            backward compatibility but may be removed in a future major version.
 
         .. Important::
-            Mixpanel's ``merge`` HTTP endpoint requires the project API
-            secret found in your Mixpanel project's settings. The older API key is
-            no longer accessible in the Mixpanel UI, but will continue to work.
-            The api_key parameter will be removed in an upcoming release of
-            mixpanel-python.
+            Mixpanel's ``merge`` HTTP endpoint requires authentication. The older
+            API key is no longer accessible in the Mixpanel UI, but will continue
+            to work. The api_key parameter will be removed in an upcoming release.
 
         .. versionadded:: 4.8.0
             The *api_secret* parameter.
@@ -656,8 +663,8 @@ class Consumer:
     :param int retry_backoff_factor: In case of retries, controls sleep time. e.g.,
         sleep_seconds = backoff_factor * (2 ^ (num_total_retries - 1)).
     :param bool verify_cert: whether to verify the server certificate.
-    :param MixpanelCredentials credentials: Optional credentials for authentication
-        (e.g., :class:`~.ServiceAccountCredentials`)
+    :param ServiceAccountCredentials credentials: Optional service account credentials for authentication. Recommended for server-side integrations.
+
 
     .. versionadded:: 4.6.0
         The *api_host* parameter.
@@ -676,7 +683,7 @@ class Consumer:
         retry_limit=4,
         retry_backoff_factor=0.25,
         verify_cert=True,
-        credentials: Optional[MixpanelCredentials] = None,
+        credentials: Optional[ServiceAccountCredentials] = None,
     ):
         # TODO: With next major version, make the above args kwarg-only, and reorder them.
         self._endpoints = {
@@ -795,8 +802,8 @@ class BufferedConsumer:
     :param int retry_backoff_factor: In case of retries, controls sleep time. e.g.,
         sleep_seconds = backoff_factor * (2 ^ (num_total_retries - 1)).
     :param bool verify_cert: whether to verify the server certificate.
-    :param MixpanelCredentials credentials: Optional credentials for authentication
-        (e.g., :class:`~.ServiceAccountCredentials`)
+    :param ServiceAccountCredentials credentials: Optional service account credentials for authentication. Recommended for server-side integrations.
+
 
     .. versionadded:: 4.6.0
         The *api_host* parameter.
@@ -822,7 +829,7 @@ class BufferedConsumer:
         retry_limit=4,
         retry_backoff_factor=0.25,
         verify_cert=True,
-        credentials: Optional[MixpanelCredentials] = None,
+        credentials: Optional[ServiceAccountCredentials] = None,
     ):
         self._consumer = Consumer(
             events_url,
