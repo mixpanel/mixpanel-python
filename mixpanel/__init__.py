@@ -19,12 +19,13 @@ import json
 import logging
 import time
 import uuid
-from typing import Optional, Union
+from typing import Optional
 
 import requests
 import urllib3
 from requests.auth import HTTPBasicAuth
 
+from .credentials import MixpanelCredentials, ServiceAccountCredentials
 from .flags.local_feature_flags import LocalFeatureFlagsProvider
 from .flags.remote_feature_flags import RemoteFeatureFlagsProvider
 from .flags.types import LocalFlagsConfig, RemoteFlagsConfig
@@ -32,47 +33,6 @@ from .flags.types import LocalFlagsConfig, RemoteFlagsConfig
 __version__ = "5.1.0"
 
 logger = logging.getLogger(__name__)
-
-
-class ServiceAccountCredentials:
-    """Service account credentials for server-to-server authentication.
-
-    :param str username: Service account username
-    :param str secret: Service account secret
-
-    Both username and secret are required. Use these credentials for enhanced
-    security in server-to-server integrations as an alternative to API secrets.
-
-    Example::
-
-        from mixpanel import Mixpanel, ServiceAccountCredentials
-
-        credentials = ServiceAccountCredentials(
-            username='your-service-account-username',
-            secret='your-service-account-secret'
-        )
-        mp = Mixpanel('YOUR_TOKEN', credentials=credentials)
-    """
-
-    def __init__(self, username: str, secret: str):
-        if not username:
-            raise ValueError("Service account username cannot be empty")
-        if not secret:
-            raise ValueError("Service account secret cannot be empty")
-
-        self.username = username
-        self.secret = secret
-
-    def to_http_basic_auth(self) -> HTTPBasicAuth:
-        """Convert credentials to HTTPBasicAuth for requests."""
-        return HTTPBasicAuth(self.username, self.secret)
-
-    def __repr__(self) -> str:
-        return f"ServiceAccountCredentials(username={self.username!r}, secret='***')"
-
-
-# Type alias for supported credential types
-MixpanelCredentials = Union[ServiceAccountCredentials]
 
 
 class DatetimeSerializer(json.JSONEncoder):
