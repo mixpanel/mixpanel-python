@@ -26,8 +26,6 @@ class ServiceAccountCredentials:
             secret='your-service-account-secret'
         )
         mp = Mixpanel('YOUR_TOKEN', credentials=credentials)
-
-    .. versionadded:: 5.2.0
     """
 
     def __init__(self, username: str, secret: str):

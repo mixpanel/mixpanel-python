@@ -64,9 +64,6 @@ class Mixpanel:
 
     .. versionadded:: 4.2.0
         The *serializer* parameter.
-
-    .. versionadded:: 5.2.0
-        The *credentials* parameter.
     """
 
     def __init__(
@@ -172,7 +169,7 @@ class Mixpanel:
         :param dict meta: overrides Mixpanel special properties
         :param str api_secret: (DEPRECATED) Your Mixpanel project's API secret.
 
-        .. deprecated:: 5.2.0
+        .. deprecated::
             The *api_secret* parameter is deprecated. Use
             :class:`~.ServiceAccountCredentials` with the *credentials* parameter
             instead for enhanced security. API secrets will continue to work for
@@ -259,7 +256,7 @@ class Mixpanel:
         :param dict meta: overrides Mixpanel special properties
         :param str api_secret: (DEPRECATED) Your Mixpanel project's API secret.
 
-        .. deprecated:: 5.2.0
+        .. deprecated::
             The *api_secret* parameter is deprecated. Use
             :class:`~.ServiceAccountCredentials` with the *credentials* parameter
             instead for enhanced security. API secrets will continue to work for
