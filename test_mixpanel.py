@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import datetime
 import decimal
 import json
@@ -874,3 +875,185 @@ class TestFunctional:
                 "$token": "12345",
             }
             assert expected_data == data
+
+
+class TestServiceAccountAuth:
+    """Test service account authentication."""
+
+    TOKEN = "test-token"
+    SERVICE_ACCOUNT_USERNAME = "test-user"
+    SERVICE_ACCOUNT_SECRET = "test-secret"
+
+    def _verify_basic_auth(self, username, secret):
+        """Helper to verify Basic Auth header."""
+        expected_auth = base64.b64encode(
+            f"{username}:{secret}".encode()
+        ).decode()
+        return f"Basic {expected_auth}"
+
+    @responses.activate
+    def test_consumer_with_service_account(self):
+        """Test Consumer uses service account for Basic Auth."""
+        responses.add(
+            responses.POST,
+            "https://api.mixpanel.com/track",
+            json={"status": 1, "error": None},
+        )
+
+        consumer = mixpanel.Consumer(
+            service_account_username=self.SERVICE_ACCOUNT_USERNAME,
+            service_account_secret=self.SERVICE_ACCOUNT_SECRET,
+        )
+
+        event = json.dumps({"event": "test_event", "properties": {"token": self.TOKEN}})
+        consumer.send("events", event)
+
+        assert len(responses.calls) == 1
+        request = responses.calls[0].request
+
+        # Verify Basic Auth header
+        auth_header = request.headers.get("Authorization")
+        expected_auth = self._verify_basic_auth(
+            self.SERVICE_ACCOUNT_USERNAME,
+            self.SERVICE_ACCOUNT_SECRET,
+        )
+        assert auth_header == expected_auth
+
+    @responses.activate
+    def test_mixpanel_with_service_account(self):
+        """Test Mixpanel class with service account credentials."""
+        responses.add(
+            responses.POST,
+            "https://api.mixpanel.com/track",
+            json={"status": 1, "error": None},
+        )
+
+        mp = mixpanel.Mixpanel(
+            self.TOKEN,
+            service_account_username=self.SERVICE_ACCOUNT_USERNAME,
+            service_account_secret=self.SERVICE_ACCOUNT_SECRET,
+        )
+
+        mp.track("test_user", "test_event")
+
+        assert len(responses.calls) == 1
+        request = responses.calls[0].request
+
+        # Verify Basic Auth header
+        auth_header = request.headers.get("Authorization")
+        expected_auth = self._verify_basic_auth(
+            self.SERVICE_ACCOUNT_USERNAME,
+            self.SERVICE_ACCOUNT_SECRET,
+        )
+        assert auth_header == expected_auth
+
+    @responses.activate
+    def test_service_account_takes_precedence_over_api_secret(self):
+        """Test service account credentials take precedence over api_secret."""
+        responses.add(
+            responses.POST,
+            "https://api.mixpanel.com/import",
+            json={"status": 1, "error": None},
+        )
+
+        mp = mixpanel.Mixpanel(
+            self.TOKEN,
+            service_account_username=self.SERVICE_ACCOUNT_USERNAME,
+            service_account_secret=self.SERVICE_ACCOUNT_SECRET,
+        )
+
+        # import_data provides api_secret, but service account should take precedence
+        mp.import_data(
+            api_key="old_api_key",
+            distinct_id="test_user",
+            event_name="test_event",
+            timestamp=1000,
+            api_secret="different_secret",
+        )
+
+        assert len(responses.calls) == 1
+        request = responses.calls[0].request
+
+        # Verify service account credentials are used, not api_secret
+        auth_header = request.headers.get("Authorization")
+        expected_auth = self._verify_basic_auth(
+            self.SERVICE_ACCOUNT_USERNAME,
+            self.SERVICE_ACCOUNT_SECRET,
+        )
+        assert auth_header == expected_auth
+
+    @responses.activate
+    def test_fallback_to_api_secret_when_no_service_account(self):
+        """Test fallback to api_secret when no service account is configured."""
+        responses.add(
+            responses.POST,
+            "https://api.mixpanel.com/import",
+            json={"status": 1, "error": None},
+        )
+
+        mp = mixpanel.Mixpanel(self.TOKEN)
+
+        api_secret = "test_api_secret"
+        mp.import_data(
+            api_key="old_api_key",
+            distinct_id="test_user",
+            event_name="test_event",
+            timestamp=1000,
+            api_secret=api_secret,
+        )
+
+        assert len(responses.calls) == 1
+        request = responses.calls[0].request
+
+        # Verify api_secret is used
+        auth_header = request.headers.get("Authorization")
+        expected_auth = self._verify_basic_auth(api_secret, "")
+        assert auth_header == expected_auth
+
+    @responses.activate
+    def test_buffered_consumer_with_service_account(self):
+        """Test BufferedConsumer passes service account credentials to Consumer."""
+        responses.add(
+            responses.POST,
+            "https://api.mixpanel.com/track",
+            json={"status": 1, "error": None},
+        )
+
+        consumer = mixpanel.BufferedConsumer(
+            max_size=1,
+            service_account_username=self.SERVICE_ACCOUNT_USERNAME,
+            service_account_secret=self.SERVICE_ACCOUNT_SECRET,
+        )
+
+        event = json.dumps({"event": "test_event", "properties": {"token": self.TOKEN}})
+        consumer.send("events", event)
+
+        assert len(responses.calls) == 1
+        request = responses.calls[0].request
+
+        # Verify Basic Auth header
+        auth_header = request.headers.get("Authorization")
+        expected_auth = self._verify_basic_auth(
+            self.SERVICE_ACCOUNT_USERNAME,
+            self.SERVICE_ACCOUNT_SECRET,
+        )
+        assert auth_header == expected_auth
+
+    @responses.activate
+    def test_no_auth_header_without_credentials(self):
+        """Test no auth header is sent when no credentials are provided."""
+        responses.add(
+            responses.POST,
+            "https://api.mixpanel.com/track",
+            json={"status": 1, "error": None},
+        )
+
+        consumer = mixpanel.Consumer()
+        event = json.dumps({"event": "test_event", "properties": {"token": self.TOKEN}})
+        consumer.send("events", event)
+
+        assert len(responses.calls) == 1
+        request = responses.calls[0].request
+
+        # Verify no Authorization header
+        assert "Authorization" not in request.headers

@@ -56,6 +56,8 @@ class Mixpanel:
         :class:`~.Consumer`)
     :param json.JSONEncoder serializer: a JSONEncoder subclass used to handle
         JSON serialization (default :class:`~.DatetimeSerializer`)
+    :param str service_account_username: Optional service account username for authentication
+    :param str service_account_secret: Optional service account secret for authentication
 
     See `Built-in consumers`_ for details about the consumer interface.
 
@@ -70,9 +72,16 @@ class Mixpanel:
         serializer=DatetimeSerializer,
         local_flags_config: Optional[LocalFlagsConfig] = None,
         remote_flags_config: Optional[RemoteFlagsConfig] = None,
+        service_account_username: Optional[str] = None,
+        service_account_secret: Optional[str] = None,
     ):
         self._token = token
-        self._consumer = consumer or Consumer()
+        self._service_account_username = service_account_username
+        self._service_account_secret = service_account_secret
+        self._consumer = consumer or Consumer(
+            service_account_username=service_account_username,
+            service_account_secret=service_account_secret,
+        )
         self._serializer = serializer
 
         self._local_flags_provider = None
@@ -647,6 +656,8 @@ class Consumer:
     :param int retry_backoff_factor: In case of retries, controls sleep time. e.g.,
         sleep_seconds = backoff_factor * (2 ^ (num_total_retries - 1)).
     :param bool verify_cert: whether to verify the server certificate.
+    :param str service_account_username: Optional service account username for authentication
+    :param str service_account_secret: Optional service account secret for authentication
 
     .. versionadded:: 4.6.0
         The *api_host* parameter.
@@ -665,6 +676,8 @@ class Consumer:
         retry_limit=4,
         retry_backoff_factor=0.25,
         verify_cert=True,
+        service_account_username=None,
+        service_account_secret=None,
     ):
         # TODO: With next major version, make the above args kwarg-only, and reorder them.
         self._endpoints = {
@@ -676,6 +689,8 @@ class Consumer:
 
         self._verify_cert = verify_cert
         self._request_timeout = request_timeout
+        self._service_account_username = service_account_username
+        self._service_account_secret = service_account_secret
 
         # Work around renamed argument in urllib3.
         if hasattr(urllib3.util.Retry.DEFAULT, "allowed_methods"):
@@ -733,7 +748,10 @@ class Consumer:
             params["api_key"] = api_key
 
         basic_auth = None
-        if api_secret is not None:
+        # Use service account credentials if available, otherwise fall back to api_secret
+        if self._service_account_username and self._service_account_secret:
+            basic_auth = HTTPBasicAuth(self._service_account_username, self._service_account_secret)
+        elif api_secret is not None:
             basic_auth = HTTPBasicAuth(api_secret, "")
 
         try:
@@ -779,6 +797,8 @@ class BufferedConsumer:
     :param int retry_backoff_factor: In case of retries, controls sleep time. e.g.,
         sleep_seconds = backoff_factor * (2 ^ (num_total_retries - 1)).
     :param bool verify_cert: whether to verify the server certificate.
+    :param str service_account_username: Optional service account username for authentication
+    :param str service_account_secret: Optional service account secret for authentication
 
     .. versionadded:: 4.6.0
         The *api_host* parameter.
@@ -804,6 +824,8 @@ class BufferedConsumer:
         retry_limit=4,
         retry_backoff_factor=0.25,
         verify_cert=True,
+        service_account_username=None,
+        service_account_secret=None,
     ):
         self._consumer = Consumer(
             events_url,
@@ -815,6 +837,8 @@ class BufferedConsumer:
             retry_limit,
             retry_backoff_factor,
             verify_cert,
+            service_account_username,
+            service_account_secret,
         )
         self._buffers = {
             "events": [],

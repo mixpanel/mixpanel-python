@@ -40,6 +40,39 @@ mp.people_set(DISTINCT_ID, {'$first_name' : 'Ilya', 'favorite pizza': 'margherit
 You can use an instance of the Mixpanel class for sending all of your events
 and people updates.
 
+## Service Account Authentication
+
+For enhanced security in server-to-server integrations, you can use service account credentials instead of API tokens:
+
+```python
+from mixpanel import Mixpanel
+
+mp = Mixpanel(
+    YOUR_TOKEN,
+    service_account_username='YOUR_SERVICE_ACCOUNT_USERNAME',
+    service_account_secret='YOUR_SERVICE_ACCOUNT_SECRET'
+)
+
+# All API calls will use service account authentication
+mp.track(DISTINCT_ID, 'button clicked', {'color': 'blue'})
+mp.people_set(DISTINCT_ID, {'$first_name': 'John'})
+```
+
+Service account credentials can also be used with `Consumer` and `BufferedConsumer`:
+
+```python
+from mixpanel import Mixpanel, BufferedConsumer
+
+consumer = BufferedConsumer(
+    service_account_username='YOUR_SERVICE_ACCOUNT_USERNAME',
+    service_account_secret='YOUR_SERVICE_ACCOUNT_SECRET'
+)
+
+mp = Mixpanel(YOUR_TOKEN, consumer=consumer)
+```
+
+When service account credentials are provided, they take precedence over API secrets for authentication.
+
 ## Additional Information
 
 * [Help Docs](https://www.mixpanel.com/help/reference/python)
