@@ -750,7 +750,9 @@ class Consumer:
         basic_auth = None
         # Use service account credentials if available, otherwise fall back to api_secret
         if self._service_account_username and self._service_account_secret:
-            basic_auth = HTTPBasicAuth(self._service_account_username, self._service_account_secret)
+            basic_auth = HTTPBasicAuth(
+                self._service_account_username, self._service_account_secret
+            )
         elif api_secret is not None:
             basic_auth = HTTPBasicAuth(api_secret, "")
 

@@ -886,9 +886,7 @@ class TestServiceAccountAuth:
 
     def _verify_basic_auth(self, username, secret):
         """Helper to verify Basic Auth header."""
-        expected_auth = base64.b64encode(
-            f"{username}:{secret}".encode()
-        ).decode()
+        expected_auth = base64.b64encode(f"{username}:{secret}".encode()).decode()
         return f"Basic {expected_auth}"
 
     @responses.activate
