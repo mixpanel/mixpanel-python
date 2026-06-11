@@ -8,10 +8,8 @@ For prior history, see [`CHANGES.txt`](./CHANGES.txt).
 ## [Unreleased]
 
 ### Added
-- Service account authentication support via `ServiceAccountCredentials` class. Pass credentials to `Mixpanel`, `Consumer`, and `BufferedConsumer` using the `credentials` parameter. Service account credentials are used for HTTP Basic Authentication and take precedence over API secrets when both are provided.
-- Feature flag providers now support service account credentials for enhanced security. Credentials are automatically passed to `LocalFeatureFlagsProvider` and `RemoteFeatureFlagsProvider` when configured on the `Mixpanel` instance.
-- When using `ServiceAccountCredentials`, the `token` parameter is now optional in the `Mixpanel` constructor. The `project_id` from credentials will be used as the token if not explicitly provided.
-
-### Changed
-- `ServiceAccountCredentials` now requires `project_id` as a mandatory parameter. This aligns with the service account authentication model where the project ID is essential.
+- Service account authentication support via `ServiceAccountCredentials` class for enhanced security in server-to-server integrations. Service accounts use HTTP Basic Authentication with username/secret/project_id instead of shared API secrets. All three parameters are required and validated (non-empty, non-whitespace).
+- `credentials` parameter added to `Mixpanel`, `Consumer`, and `BufferedConsumer` constructors to accept `ServiceAccountCredentials`.
+- When service account credentials are provided, they automatically apply to feature flag operations (`LocalFeatureFlagsProvider` and `RemoteFeatureFlagsProvider`).
+- The `token` parameter in `Mixpanel` constructor is now optional when `credentials` are provided - the `project_id` from credentials will be used as the token.
 - The `httpx_client_parameters` parameter is now optional in `LocalFeatureFlagsProvider` and `RemoteFeatureFlagsProvider` constructors. When not provided, defaults to basic authentication with the project token. This maintains backward compatibility with existing code that instantiates flag providers directly.
