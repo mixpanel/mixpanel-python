@@ -10,6 +10,7 @@ from typing import Any, Callable
 import httpx
 from asgiref.sync import sync_to_async
 
+from mixpanel.credentials import ServiceAccountCredentials
 from .types import RemoteFlagsConfig, RemoteFlagsResponse, SelectedVariant
 from .utils import (
     EXPOSURE_EVENT,
@@ -26,17 +27,29 @@ class RemoteFeatureFlagsProvider:
     FLAGS_URL_PATH = "/flags"
 
     def __init__(
-        self, token: str, config: RemoteFlagsConfig, version: str, tracker: Callable
+        self,
+        token: str,
+        config: RemoteFlagsConfig,
+        version: str,
+        tracker: Callable,
+        credentials: ServiceAccountCredentials | None = None,
     ) -> None:
         self._token: str = token
         self._config: RemoteFlagsConfig = config
         self._version: str = version
         self._tracker: Callable = tracker
+        self._credentials = credentials
+
+        # Use credentials if available, otherwise fall back to token
+        if credentials:
+            auth = credentials.to_http_basic_auth()
+        else:
+            auth = httpx.BasicAuth(token, "")
 
         httpx_client_parameters = {
             "base_url": f"https://{config.api_host}",
             "headers": REQUEST_HEADERS,
-            "auth": httpx.BasicAuth(token, ""),
+            "auth": auth,
             "timeout": httpx.Timeout(config.request_timeout_in_seconds),
         }
 

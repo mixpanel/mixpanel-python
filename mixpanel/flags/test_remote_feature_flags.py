@@ -360,3 +360,67 @@ class TestRemoteFeatureFlagsProviderSync:
         )
 
         self.mock_tracker.assert_called_once()
+
+
+def test_remote_flags_with_service_account_credentials():
+    """Test RemoteFeatureFlagsProvider uses service account credentials for auth."""
+    from unittest.mock import Mock
+    from mixpanel.credentials import ServiceAccountCredentials
+    from .remote_feature_flags import RemoteFeatureFlagsProvider
+    from .types import RemoteFlagsConfig
+
+    credentials = ServiceAccountCredentials(
+        username="test-service-account",
+        secret="test-service-secret"
+    )
+    
+    config = RemoteFlagsConfig(
+        api_host="api.mixpanel.com",
+        request_timeout_in_seconds=10
+    )
+    
+    tracker = Mock()
+    provider = RemoteFeatureFlagsProvider(
+        token="test-token",
+        config=config,
+        version="1.0.0",
+        tracker=tracker,
+        credentials=credentials
+    )
+    
+    # Verify credentials were stored
+    assert provider._credentials == credentials
+    # Verify the httpx clients were configured with auth
+    assert provider._sync_client.auth is not None
+    assert provider._async_client.auth is not None
+
+    provider.shutdown()
+
+
+def test_remote_flags_fallback_to_token_without_credentials():
+    """Test RemoteFeatureFlagsProvider falls back to token auth when no credentials."""
+    from unittest.mock import Mock
+    import httpx
+    from .remote_feature_flags import RemoteFeatureFlagsProvider
+    from .types import RemoteFlagsConfig
+    
+    config = RemoteFlagsConfig(
+        api_host="api.mixpanel.com",
+        request_timeout_in_seconds=10
+    )
+    
+    tracker = Mock()
+    provider = RemoteFeatureFlagsProvider(
+        token="test-token",
+        config=config,
+        version="1.0.0",
+        tracker=tracker,
+        credentials=None
+    )
+    
+    # Verify no credentials stored and auth still configured
+    assert provider._credentials is None
+    assert provider._sync_client.auth is not None
+    assert provider._async_client.auth is not None
+
+    provider.shutdown()

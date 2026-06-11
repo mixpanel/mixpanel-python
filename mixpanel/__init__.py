@@ -85,12 +85,12 @@ class Mixpanel:
 
         if local_flags_config:
             self._local_flags_provider = LocalFeatureFlagsProvider(
-                self._token, local_flags_config, __version__, self.track
+                self._token, local_flags_config, __version__, self.track, credentials
             )
 
         if remote_flags_config:
             self._remote_flags_provider = RemoteFeatureFlagsProvider(
-                self._token, remote_flags_config, __version__, self.track
+                self._token, remote_flags_config, __version__, self.track, credentials
             )
 
     def _now(self):

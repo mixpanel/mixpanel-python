@@ -808,3 +808,91 @@ class TestLocalFeatureFlagsProviderSync:
                 TEST_FLAG_KEY, "fallback", USER_CONTEXT
             )
             assert result2 != "fallback"
+
+
+def test_local_flags_with_service_account_credentials():
+    """Test LocalFeatureFlagsProvider uses service account credentials for auth."""
+    from mixpanel.credentials import ServiceAccountCredentials
+
+    credentials = ServiceAccountCredentials(
+        username="test-service-account",
+        secret="test-service-secret"
+    )
+    
+    config = LocalFlagsConfig(
+        api_host="api.mixpanel.com",
+        request_timeout_in_seconds=10
+    )
+    
+    tracker = Mock()
+    provider = LocalFeatureFlagsProvider(
+        token="test-token",
+        config=config,
+        version="1.0.0",
+        tracker=tracker,
+        credentials=credentials
+    )
+    
+    # Verify credentials were stored
+    assert provider._credentials == credentials
+    # Verify the httpx clients were configured with auth
+    assert provider._sync_client.auth is not None
+    assert provider._async_client.auth is not None
+
+    provider.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_local_flags_async_with_service_account_credentials():
+    """Test LocalFeatureFlagsProvider async client uses service account credentials."""
+    from mixpanel.credentials import ServiceAccountCredentials
+
+    credentials = ServiceAccountCredentials(
+        username="test-service-account",
+        secret="test-service-secret"
+    )
+    
+    config = LocalFlagsConfig(
+        api_host="api.mixpanel.com",
+        request_timeout_in_seconds=10
+    )
+    
+    tracker = Mock()
+    provider = LocalFeatureFlagsProvider(
+        token="test-token",
+        config=config,
+        version="1.0.0",
+        tracker=tracker,
+        credentials=credentials
+    )
+    
+    # Verify credentials were stored and auth configured
+    assert provider._credentials == credentials
+    assert provider._async_client.auth is not None
+
+    await provider._async_client.aclose()
+    provider.shutdown()
+
+
+def test_local_flags_fallback_to_token_without_credentials():
+    """Test LocalFeatureFlagsProvider falls back to token auth when no credentials."""
+    config = LocalFlagsConfig(
+        api_host="api.mixpanel.com",
+        request_timeout_in_seconds=10
+    )
+
+    tracker = Mock()
+    provider = LocalFeatureFlagsProvider(
+        token="test-token",
+        config=config,
+        version="1.0.0",
+        tracker=tracker,
+        credentials=None  # No credentials
+    )
+
+    # Verify no credentials stored and auth still configured
+    assert provider._credentials is None
+    assert provider._sync_client.auth is not None
+    assert provider._async_client.auth is not None
+
+    provider.shutdown()

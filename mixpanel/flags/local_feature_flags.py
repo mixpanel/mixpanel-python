@@ -10,6 +10,7 @@ from typing import Any, Callable
 import httpx
 import json_logic
 
+from mixpanel.credentials import ServiceAccountCredentials
 from .types import (
     ExperimentationFlag,
     ExperimentationFlags,
@@ -33,7 +34,12 @@ class LocalFeatureFlagsProvider:
     FLAGS_DEFINITIONS_URL_PATH = "/flags/definitions"
 
     def __init__(
-        self, token: str, config: LocalFlagsConfig, version: str, tracker: Callable
+        self,
+        token: str,
+        config: LocalFlagsConfig,
+        version: str,
+        tracker: Callable,
+        credentials: ServiceAccountCredentials | None = None,
     ) -> None:
         """Initialize the LocalFeatureFlagsProvider.
 
@@ -41,19 +47,27 @@ class LocalFeatureFlagsProvider:
         :param LocalFlagsConfig config: configuration options for the local feature flags provider
         :param str version: the version of the Mixpanel library being used, just for tracking
         :param Callable tracker: A function used to track flags exposure events to mixpanel
+        :param ServiceAccountCredentials credentials: Optional service account credentials for authentication
         """
         self._token: str = token
         self._config: LocalFlagsConfig = config
         self._version = version
         self._tracker: Callable = tracker
+        self._credentials = credentials
 
         self._flag_definitions: dict[str, ExperimentationFlag] = {}
         self._are_flags_ready = False
 
+        # Use credentials if available, otherwise fall back to token
+        if credentials:
+            auth = credentials.to_http_basic_auth()
+        else:
+            auth = httpx.BasicAuth(token, "")
+
         httpx_client_parameters = {
             "base_url": f"https://{config.api_host}",
             "headers": REQUEST_HEADERS,
-            "auth": httpx.BasicAuth(token, ""),
+            "auth": auth,
             "timeout": httpx.Timeout(config.request_timeout_in_seconds),
         }
 
