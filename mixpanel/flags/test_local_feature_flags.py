@@ -818,12 +818,12 @@ def test_local_flags_with_service_account_credentials():
         username="test-service-account",
         secret="test-service-secret"
     )
-    
+
     config = LocalFlagsConfig(
         api_host="api.mixpanel.com",
         request_timeout_in_seconds=10
     )
-    
+
     tracker = Mock()
     provider = LocalFeatureFlagsProvider(
         token="test-token",
@@ -832,12 +832,14 @@ def test_local_flags_with_service_account_credentials():
         tracker=tracker,
         credentials=credentials
     )
-    
+
     # Verify credentials were stored
     assert provider._credentials == credentials
-    # Verify the httpx clients were configured with auth
+    # Verify the httpx clients were configured with httpx.BasicAuth (not requests.auth.HTTPBasicAuth)
     assert provider._sync_client.auth is not None
+    assert isinstance(provider._sync_client.auth, httpx.BasicAuth)
     assert provider._async_client.auth is not None
+    assert isinstance(provider._async_client.auth, httpx.BasicAuth)
 
     provider.shutdown()
 
@@ -851,12 +853,12 @@ async def test_local_flags_async_with_service_account_credentials():
         username="test-service-account",
         secret="test-service-secret"
     )
-    
+
     config = LocalFlagsConfig(
         api_host="api.mixpanel.com",
         request_timeout_in_seconds=10
     )
-    
+
     tracker = Mock()
     provider = LocalFeatureFlagsProvider(
         token="test-token",
@@ -865,10 +867,11 @@ async def test_local_flags_async_with_service_account_credentials():
         tracker=tracker,
         credentials=credentials
     )
-    
-    # Verify credentials were stored and auth configured
+
+    # Verify credentials were stored and auth configured with httpx.BasicAuth
     assert provider._credentials == credentials
     assert provider._async_client.auth is not None
+    assert isinstance(provider._async_client.auth, httpx.BasicAuth)
 
     await provider._async_client.aclose()
     provider.shutdown()

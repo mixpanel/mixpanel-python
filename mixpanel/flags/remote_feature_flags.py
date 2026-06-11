@@ -42,7 +42,7 @@ class RemoteFeatureFlagsProvider:
 
         # Use credentials if available, otherwise fall back to token
         if credentials:
-            auth = credentials.to_http_basic_auth()
+            auth = httpx.BasicAuth(credentials.username, credentials.secret)
         else:
             auth = httpx.BasicAuth(token, "")
 

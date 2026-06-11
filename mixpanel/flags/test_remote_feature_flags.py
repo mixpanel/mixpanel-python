@@ -365,6 +365,7 @@ class TestRemoteFeatureFlagsProviderSync:
 def test_remote_flags_with_service_account_credentials():
     """Test RemoteFeatureFlagsProvider uses service account credentials for auth."""
     from unittest.mock import Mock
+    import httpx
     from mixpanel.credentials import ServiceAccountCredentials
     from .remote_feature_flags import RemoteFeatureFlagsProvider
     from .types import RemoteFlagsConfig
@@ -373,12 +374,12 @@ def test_remote_flags_with_service_account_credentials():
         username="test-service-account",
         secret="test-service-secret"
     )
-    
+
     config = RemoteFlagsConfig(
         api_host="api.mixpanel.com",
         request_timeout_in_seconds=10
     )
-    
+
     tracker = Mock()
     provider = RemoteFeatureFlagsProvider(
         token="test-token",
@@ -387,12 +388,14 @@ def test_remote_flags_with_service_account_credentials():
         tracker=tracker,
         credentials=credentials
     )
-    
+
     # Verify credentials were stored
     assert provider._credentials == credentials
-    # Verify the httpx clients were configured with auth
+    # Verify the httpx clients were configured with httpx.BasicAuth (not requests.auth.HTTPBasicAuth)
     assert provider._sync_client.auth is not None
+    assert isinstance(provider._sync_client.auth, httpx.BasicAuth)
     assert provider._async_client.auth is not None
+    assert isinstance(provider._async_client.auth, httpx.BasicAuth)
 
     provider.shutdown()
 
