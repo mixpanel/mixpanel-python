@@ -21,6 +21,7 @@ import time
 import uuid
 from typing import Optional
 
+import httpx
 import requests
 import urllib3
 from requests.auth import HTTPBasicAuth
@@ -29,6 +30,7 @@ from .credentials import ServiceAccountCredentials
 from .flags.local_feature_flags import LocalFeatureFlagsProvider
 from .flags.remote_feature_flags import RemoteFeatureFlagsProvider
 from .flags.types import LocalFlagsConfig, RemoteFlagsConfig
+from .flags.utils import REQUEST_HEADERS
 
 __version__ = "5.1.0"
 
@@ -84,13 +86,21 @@ class Mixpanel:
         self._remote_flags_provider = None
 
         if local_flags_config:
+            # Construct httpx client parameters for local flags
+            httpx_client_params = self._build_httpx_client_params(
+                local_flags_config, credentials
+            )
             self._local_flags_provider = LocalFeatureFlagsProvider(
-                self._token, local_flags_config, __version__, self.track, credentials
+                self._token, local_flags_config, __version__, self.track, httpx_client_params
             )
 
         if remote_flags_config:
+            # Construct httpx client parameters for remote flags
+            httpx_client_params = self._build_httpx_client_params(
+                remote_flags_config, credentials
+            )
             self._remote_flags_provider = RemoteFeatureFlagsProvider(
-                self._token, remote_flags_config, __version__, self.track, credentials
+                self._token, remote_flags_config, __version__, self.track, httpx_client_params
             )
 
     def _now(self):
@@ -98,6 +108,26 @@ class Mixpanel:
 
     def _make_insert_id(self):
         return uuid.uuid4().hex
+
+    def _build_httpx_client_params(self, config, credentials):
+        """Build httpx client parameters for flag providers.
+
+        :param config: FlagsConfig (LocalFlagsConfig or RemoteFlagsConfig)
+        :param credentials: ServiceAccountCredentials or None
+        :return: Dictionary of httpx client parameters
+        """
+        # Use credentials if available, otherwise fall back to token
+        if credentials:
+            auth = httpx.BasicAuth(credentials.username, credentials.secret)
+        else:
+            auth = httpx.BasicAuth(self._token, "")
+
+        return {
+            "base_url": f"https://{config.api_host}",
+            "headers": REQUEST_HEADERS,
+            "auth": auth,
+            "timeout": httpx.Timeout(config.request_timeout_in_seconds),
+        }
 
     @property
     def local_flags(self) -> LocalFeatureFlagsProvider:
@@ -753,6 +783,9 @@ class Consumer:
         # Use credentials if available, otherwise fall back to api_secret
         if self._credentials:
             basic_auth = self._credentials.to_http_basic_auth()
+            # Service account auth requires project_id query param for backend validation
+            if self._credentials.project_id:
+                params["project_id"] = self._credentials.project_id
         elif api_secret is not None:
             basic_auth = HTTPBasicAuth(api_secret, "")
 

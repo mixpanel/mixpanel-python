@@ -10,11 +10,9 @@ from typing import Any, Callable
 import httpx
 from asgiref.sync import sync_to_async
 
-from mixpanel.credentials import ServiceAccountCredentials
 from .types import RemoteFlagsConfig, RemoteFlagsResponse, SelectedVariant
 from .utils import (
     EXPOSURE_EVENT,
-    REQUEST_HEADERS,
     generate_traceparent,
     prepare_common_query_params,
 )
@@ -32,26 +30,20 @@ class RemoteFeatureFlagsProvider:
         config: RemoteFlagsConfig,
         version: str,
         tracker: Callable,
-        credentials: ServiceAccountCredentials | None = None,
+        httpx_client_parameters: dict,
     ) -> None:
+        """Initialize the RemoteFeatureFlagsProvider.
+
+        :param str token: your project's Mixpanel token
+        :param RemoteFlagsConfig config: configuration options for the remote feature flags provider
+        :param str version: the version of the Mixpanel library being used, just for tracking
+        :param Callable tracker: A function used to track flags exposure events to mixpanel
+        :param dict httpx_client_parameters: httpx client configuration (auth, base_url, headers, timeout)
+        """
         self._token: str = token
         self._config: RemoteFlagsConfig = config
         self._version: str = version
         self._tracker: Callable = tracker
-        self._credentials = credentials
-
-        # Use credentials if available, otherwise fall back to token
-        if credentials:
-            auth = httpx.BasicAuth(credentials.username, credentials.secret)
-        else:
-            auth = httpx.BasicAuth(token, "")
-
-        httpx_client_parameters = {
-            "base_url": f"https://{config.api_host}",
-            "headers": REQUEST_HEADERS,
-            "auth": auth,
-            "timeout": httpx.Timeout(config.request_timeout_in_seconds),
-        }
 
         self._async_client: httpx.AsyncClient = httpx.AsyncClient(
             **httpx_client_parameters
