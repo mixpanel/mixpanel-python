@@ -247,6 +247,8 @@ class Mixpanel:
         if meta:
             event.update(meta)
 
+        # Pass api_key and api_secret as separate parameters (not tuple) to support credentials parameter.
+        # Backward compatibility for tuple format is maintained in Consumer._write_request()
         self._consumer.send(
             "imports", json_dumps(event, cls=self._serializer), api_key, api_secret, self._credentials
         )
@@ -324,6 +326,8 @@ class Mixpanel:
         }
         if meta:
             event.update(meta)
+        # Pass api_key and api_secret as separate parameters (not tuple) to support credentials parameter.
+        # Backward compatibility for tuple format is maintained in Consumer._write_request()
         self._consumer.send(
             "imports", json_dumps(event, cls=self._serializer), api_key, api_secret, self._credentials
         )
@@ -770,8 +774,10 @@ class Consumer:
 
     def _write_request(self, request_url, json_message, api_key=None, api_secret=None, credentials=None):
         if isinstance(api_key, tuple):
-            # For compatibility with subclassers, allow the auth details to be
-            # packed into the existing api_key param.
+            # Backward compatibility: In older versions, api_key and api_secret were passed
+            # as a tuple (api_key, api_secret) in the api_key parameter position.
+            # We changed to separate parameters to add the credentials parameter,
+            # but maintain backward compatibility by unpacking tuples here.
             api_key, api_secret = api_key
 
         params = {
