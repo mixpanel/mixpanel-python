@@ -50,14 +50,19 @@ from mixpanel import Mixpanel, ServiceAccountCredentials
 # Create credentials object
 credentials = ServiceAccountCredentials(
     username='YOUR_SERVICE_ACCOUNT_USERNAME',
-    secret='YOUR_SERVICE_ACCOUNT_SECRET'
+    secret='YOUR_SERVICE_ACCOUNT_SECRET',
+    project_id='YOUR_PROJECT_ID'
 )
 
-mp = Mixpanel(YOUR_TOKEN, credentials=credentials)
+# When using credentials, token is optional (project_id is used as token)
+mp = Mixpanel(credentials=credentials)
 
 # All API calls will use service account authentication
 mp.track(DISTINCT_ID, 'button clicked', {'color': 'blue'})
 mp.people_set(DISTINCT_ID, {'$first_name': 'John'})
+
+# You can still provide token explicitly if needed
+mp = Mixpanel(YOUR_TOKEN, credentials=credentials)
 ```
 
 Service account credentials can also be used with `Consumer` and `BufferedConsumer`:
@@ -75,6 +80,31 @@ mp = Mixpanel(YOUR_TOKEN, consumer=consumer)
 ```
 
 When service account credentials are provided, they take precedence over API secrets for authentication.
+
+### Service Accounts with Feature Flags
+
+Service account credentials are automatically used for feature flag operations when configured:
+
+```python
+from mixpanel import Mixpanel, ServiceAccountCredentials
+from mixpanel.flags.types import LocalFlagsConfig
+
+credentials = ServiceAccountCredentials(
+    username='YOUR_SERVICE_ACCOUNT_USERNAME',
+    secret='YOUR_SERVICE_ACCOUNT_SECRET',
+    project_id='YOUR_PROJECT_ID'
+)
+
+# Token is optional when using credentials - project_id is used as token
+mp = Mixpanel(
+    credentials=credentials,
+    local_flags_config=LocalFlagsConfig()
+)
+
+# Feature flag requests will use service account authentication
+# and project_id as the token in query parameters
+variant = mp.local_flags.get_variant_value('my-flag', fallback_value=False, context={...})
+```
 
 ## Additional Information
 

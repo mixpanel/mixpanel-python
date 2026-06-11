@@ -1,7 +1,5 @@
 """Authentication credentials for Mixpanel API."""
 
-from typing import Optional
-
 from requests.auth import HTTPBasicAuth
 
 
@@ -32,15 +30,17 @@ class ServiceAccountCredentials:
         mp = Mixpanel('YOUR_TOKEN', credentials=credentials)
     """
 
-    def __init__(self, username: str, secret: str, project_id: Optional[str] = None):
-        if not username:
+    def __init__(self, username: str, secret: str, project_id: str):
+        if not username or not username.strip():
             raise ValueError("Service account username cannot be empty")
-        if not secret:
+        if not secret or not secret.strip():
             raise ValueError("Service account secret cannot be empty")
+        if not project_id or not project_id.strip():
+            raise ValueError("Service account project_id cannot be empty")
 
-        self.username = username
-        self.secret = secret
-        self.project_id = project_id
+        self.username = username.strip()
+        self.secret = secret.strip()
+        self.project_id = project_id.strip()
 
     def to_http_basic_auth(self) -> HTTPBasicAuth:
         """Convert credentials to HTTPBasicAuth for requests."""

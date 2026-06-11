@@ -38,7 +38,7 @@ class LocalFeatureFlagsProvider:
         config: LocalFlagsConfig,
         version: str,
         tracker: Callable,
-        httpx_client_parameters: dict,
+        httpx_client_parameters: dict = None,
     ) -> None:
         """Initialize the LocalFeatureFlagsProvider.
 
@@ -46,7 +46,8 @@ class LocalFeatureFlagsProvider:
         :param LocalFlagsConfig config: configuration options for the local feature flags provider
         :param str version: the version of the Mixpanel library being used, just for tracking
         :param Callable tracker: A function used to track flags exposure events to mixpanel
-        :param dict httpx_client_parameters: httpx client configuration (auth, base_url, headers, timeout)
+        :param dict httpx_client_parameters: Optional httpx client configuration (auth, base_url, headers, timeout).
+            If not provided, defaults to basic auth with token.
         """
         self._token: str = token
         self._config: LocalFlagsConfig = config
@@ -55,6 +56,15 @@ class LocalFeatureFlagsProvider:
 
         self._flag_definitions: dict[str, ExperimentationFlag] = {}
         self._are_flags_ready = False
+
+        # Build default httpx client parameters if not provided
+        if httpx_client_parameters is None:
+            httpx_client_parameters = {
+                "base_url": f"https://{config.api_host}",
+                "headers": REQUEST_HEADERS,
+                "auth": httpx.BasicAuth(token, ""),
+                "timeout": httpx.Timeout(config.request_timeout_in_seconds),
+            }
 
         self._request_params = prepare_common_query_params(self._token, self._version)
 

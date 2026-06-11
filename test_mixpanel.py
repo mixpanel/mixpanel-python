@@ -883,6 +883,7 @@ class TestServiceAccountAuth:
     TOKEN = "test-token"
     SERVICE_ACCOUNT_USERNAME = "test-user"
     SERVICE_ACCOUNT_SECRET = "test-secret"
+    PROJECT_ID = "123456"
     API_SECRET = "test-api-secret"
     DISTINCT_ID = "test-user-123"
 
@@ -903,6 +904,7 @@ class TestServiceAccountAuth:
         credentials = mixpanel.ServiceAccountCredentials(
             username=self.SERVICE_ACCOUNT_USERNAME,
             secret=self.SERVICE_ACCOUNT_SECRET,
+            project_id=self.PROJECT_ID,
         )
         consumer = mixpanel.Consumer(credentials=credentials)
 
@@ -932,6 +934,7 @@ class TestServiceAccountAuth:
         credentials = mixpanel.ServiceAccountCredentials(
             username=self.SERVICE_ACCOUNT_USERNAME,
             secret=self.SERVICE_ACCOUNT_SECRET,
+            project_id=self.PROJECT_ID,
         )
         mp = mixpanel.Mixpanel(self.TOKEN, credentials=credentials)
 
@@ -960,6 +963,7 @@ class TestServiceAccountAuth:
         credentials = mixpanel.ServiceAccountCredentials(
             username=self.SERVICE_ACCOUNT_USERNAME,
             secret=self.SERVICE_ACCOUNT_SECRET,
+            project_id=self.PROJECT_ID,
         )
         mp = mixpanel.Mixpanel(self.TOKEN, credentials=credentials)
 
@@ -1023,6 +1027,7 @@ class TestServiceAccountAuth:
         credentials = mixpanel.ServiceAccountCredentials(
             username=self.SERVICE_ACCOUNT_USERNAME,
             secret=self.SERVICE_ACCOUNT_SECRET,
+            project_id=self.PROJECT_ID,
         )
         consumer = mixpanel.BufferedConsumer(max_size=1, credentials=credentials)
 
@@ -1059,23 +1064,52 @@ class TestServiceAccountAuth:
         # Verify no Authorization header
         assert "Authorization" not in request.headers
 
-    def test_credentials_require_both_username_and_secret(self):
-        """Test ServiceAccountCredentials validates both fields are provided."""
+    def test_credentials_require_all_fields(self):
+        """Test ServiceAccountCredentials validates all required fields are provided."""
         # Empty username
         with pytest.raises(ValueError, match="username cannot be empty"):
-            mixpanel.ServiceAccountCredentials(username="", secret="secret")
+            mixpanel.ServiceAccountCredentials(username="", secret="secret", project_id="123")
 
         # Empty secret
         with pytest.raises(ValueError, match="secret cannot be empty"):
-            mixpanel.ServiceAccountCredentials(username="user", secret="")
+            mixpanel.ServiceAccountCredentials(username="user", secret="", project_id="123")
+
+        # Empty project_id
+        with pytest.raises(ValueError, match="project_id cannot be empty"):
+            mixpanel.ServiceAccountCredentials(username="user", secret="secret", project_id="")
+
+        # Whitespace-only username
+        with pytest.raises(ValueError, match="username cannot be empty"):
+            mixpanel.ServiceAccountCredentials(username="   ", secret="secret", project_id="123")
+
+        # Whitespace-only secret
+        with pytest.raises(ValueError, match="secret cannot be empty"):
+            mixpanel.ServiceAccountCredentials(username="user", secret="   ", project_id="123")
+
+        # Whitespace-only project_id
+        with pytest.raises(ValueError, match="project_id cannot be empty"):
+            mixpanel.ServiceAccountCredentials(username="user", secret="secret", project_id="   ")
+
+    def test_credentials_strips_whitespace(self):
+        """Test ServiceAccountCredentials strips leading/trailing whitespace."""
+        credentials = mixpanel.ServiceAccountCredentials(
+            username="  test-user  ",
+            secret="  test-secret  ",
+            project_id="  123456  "
+        )
+
+        assert credentials.username == "test-user"
+        assert credentials.secret == "test-secret"
+        assert credentials.project_id == "123456"
 
     def test_credentials_repr_hides_secret(self):
         """Test ServiceAccountCredentials __repr__ doesn't expose the secret."""
         credentials = mixpanel.ServiceAccountCredentials(
-            username="test-user", secret="test-secret"
+            username="test-user", secret="test-secret", project_id="123456"
         )
         repr_str = repr(credentials)
 
         assert "test-user" in repr_str
         assert "test-secret" not in repr_str
         assert "***" in repr_str
+        assert "123456" in repr_str
