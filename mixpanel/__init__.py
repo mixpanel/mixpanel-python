@@ -70,19 +70,13 @@ class Mixpanel:
 
     def __init__(
         self,
-        token=None,
+        token,
         consumer=None,
         serializer=DatetimeSerializer,
         local_flags_config: Optional[LocalFlagsConfig] = None,
         remote_flags_config: Optional[RemoteFlagsConfig] = None,
         credentials: Optional[ServiceAccountCredentials] = None,
     ):
-        # Use project_id from credentials if token not provided
-        if token is None and credentials is not None:
-            token = credentials.project_id
-        elif token is None:
-            raise ValueError("Either token or credentials with project_id must be provided")
-
         self._token = token
         self._credentials = credentials
         self._consumer = consumer or Consumer()

@@ -42,27 +42,25 @@ and people updates.
 
 ## Service Account Authentication
 
-For enhanced security in server-to-server integrations, you can use service account credentials instead of API tokens:
+For enhanced security in server-to-server integrations, you can use service account credentials for authentication instead of API secrets:
 
 ```python
 from mixpanel import Mixpanel, ServiceAccountCredentials
 
 # Create credentials object
+# Service accounts replace api_key/api_secret for authentication
 credentials = ServiceAccountCredentials(
     username='YOUR_SERVICE_ACCOUNT_USERNAME',
     secret='YOUR_SERVICE_ACCOUNT_SECRET',
     project_id='YOUR_PROJECT_ID'
 )
 
-# When using credentials, token is optional (project_id is used as token)
-mp = Mixpanel(credentials=credentials)
+# Token identifies the project, credentials handle authentication
+mp = Mixpanel(YOUR_TOKEN, credentials=credentials)
 
 # All API calls will use service account authentication
 mp.track(DISTINCT_ID, 'button clicked', {'color': 'blue'})
 mp.people_set(DISTINCT_ID, {'$first_name': 'John'})
-
-# You can still provide token explicitly if needed
-mp = Mixpanel(YOUR_TOKEN, credentials=credentials)
 ```
 
 Service account credentials can also be used with `Consumer` and `BufferedConsumer`:
@@ -72,14 +70,15 @@ from mixpanel import Mixpanel, BufferedConsumer, ServiceAccountCredentials
 
 credentials = ServiceAccountCredentials(
     username='YOUR_SERVICE_ACCOUNT_USERNAME',
-    secret='YOUR_SERVICE_ACCOUNT_SECRET'
+    secret='YOUR_SERVICE_ACCOUNT_SECRET',
+    project_id='YOUR_PROJECT_ID'
 )
 
 consumer = BufferedConsumer(credentials=credentials)
 mp = Mixpanel(YOUR_TOKEN, consumer=consumer)
 ```
 
-When service account credentials are provided, they take precedence over API secrets for authentication.
+When service account credentials are provided, they take precedence over API secrets (api_key/api_secret) for authentication.
 
 ### Service Accounts with Feature Flags
 
@@ -95,14 +94,14 @@ credentials = ServiceAccountCredentials(
     project_id='YOUR_PROJECT_ID'
 )
 
-# Token is optional when using credentials - project_id is used as token
+# Token identifies the project, credentials handle authentication
 mp = Mixpanel(
+    YOUR_TOKEN,
     credentials=credentials,
     local_flags_config=LocalFlagsConfig()
 )
 
 # Feature flag requests will use service account authentication
-# and project_id as the token in query parameters
 variant = mp.local_flags.get_variant_value('my-flag', fallback_value=False, context={...})
 ```
 
