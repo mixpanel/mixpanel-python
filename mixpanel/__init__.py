@@ -79,7 +79,7 @@ class Mixpanel:
     ):
         self._token = token
         self._credentials = credentials
-        self._consumer = consumer or Consumer(credentials=credentials)
+        self._consumer = consumer or Consumer()
         self._serializer = serializer
 
         self._local_flags_provider = None
@@ -242,7 +242,7 @@ class Mixpanel:
             event.update(meta)
 
         self._consumer.send(
-            "imports", json_dumps(event, cls=self._serializer), (api_key, api_secret)
+            "imports", json_dumps(event, cls=self._serializer), api_key, api_secret, self._credentials
         )
 
     def alias(self, alias_id, original, meta=None):
@@ -319,7 +319,7 @@ class Mixpanel:
         if meta:
             event.update(meta)
         self._consumer.send(
-            "imports", json_dumps(event, cls=self._serializer), (api_key, api_secret)
+            "imports", json_dumps(event, cls=self._serializer), api_key, api_secret, self._credentials
         )
 
     def people_set(self, distinct_id, properties, meta=None):
@@ -690,8 +690,6 @@ class Consumer:
     :param int retry_backoff_factor: In case of retries, controls sleep time. e.g.,
         sleep_seconds = backoff_factor * (2 ^ (num_total_retries - 1)).
     :param bool verify_cert: whether to verify the server certificate.
-    :param ServiceAccountCredentials credentials: Optional service account credentials for authentication. Recommended for server-side integrations.
-
 
     .. versionadded:: 4.6.0
         The *api_host* parameter.
@@ -710,7 +708,6 @@ class Consumer:
         retry_limit=4,
         retry_backoff_factor=0.25,
         verify_cert=True,
-        credentials: Optional[ServiceAccountCredentials] = None,
     ):
         # TODO: With next major version, make the above args kwarg-only, and reorder them.
         self._endpoints = {
@@ -722,7 +719,6 @@ class Consumer:
 
         self._verify_cert = verify_cert
         self._request_timeout = request_timeout
-        self._credentials = credentials
 
         # Work around renamed argument in urllib3.
         if hasattr(urllib3.util.Retry.DEFAULT, "allowed_methods"):
@@ -743,7 +739,7 @@ class Consumer:
         self._session = requests.Session()
         self._session.mount("https://", adapter)
 
-    def send(self, endpoint, json_message, api_key=None, api_secret=None):
+    def send(self, endpoint, json_message, api_key=None, api_secret=None, credentials=None):
         """Immediately record an event or a profile update.
 
         :param endpoint: the Mixpanel API endpoint appropriate for the message
@@ -751,6 +747,7 @@ class Consumer:
         :param str json_message: a JSON message formatted for the endpoint
         :param str api_key: your Mixpanel project's API key
         :param str api_secret: your Mixpanel project's API secret
+        :param ServiceAccountCredentials credentials: Optional service account credentials
         :raises MixpanelException: if the endpoint doesn't exist, the server is
             unreachable, or the message cannot be processed
 
@@ -762,10 +759,10 @@ class Consumer:
             raise MixpanelException(msg)
 
         self._write_request(
-            self._endpoints[endpoint], json_message, api_key, api_secret
+            self._endpoints[endpoint], json_message, api_key, api_secret, credentials
         )
 
-    def _write_request(self, request_url, json_message, api_key=None, api_secret=None):
+    def _write_request(self, request_url, json_message, api_key=None, api_secret=None, credentials=None):
         if isinstance(api_key, tuple):
             # For compatibility with subclassers, allow the auth details to be
             # packed into the existing api_key param.
@@ -781,11 +778,10 @@ class Consumer:
 
         basic_auth = None
         # Use credentials if available, otherwise fall back to api_secret
-        if self._credentials:
-            basic_auth = self._credentials.to_http_basic_auth()
+        if credentials:
+            basic_auth = credentials.to_http_basic_auth()
             # Service account auth requires project_id query param for backend validation
-            if self._credentials.project_id:
-                params["project_id"] = self._credentials.project_id
+            params["project_id"] = credentials.project_id
         elif api_secret is not None:
             basic_auth = HTTPBasicAuth(api_secret, "")
 
@@ -832,8 +828,6 @@ class BufferedConsumer:
     :param int retry_backoff_factor: In case of retries, controls sleep time. e.g.,
         sleep_seconds = backoff_factor * (2 ^ (num_total_retries - 1)).
     :param bool verify_cert: whether to verify the server certificate.
-    :param ServiceAccountCredentials credentials: Optional service account credentials for authentication. Recommended for server-side integrations.
-
 
     .. versionadded:: 4.6.0
         The *api_host* parameter.
@@ -859,7 +853,6 @@ class BufferedConsumer:
         retry_limit=4,
         retry_backoff_factor=0.25,
         verify_cert=True,
-        credentials: Optional[ServiceAccountCredentials] = None,
     ):
         self._consumer = Consumer(
             events_url,
@@ -871,7 +864,6 @@ class BufferedConsumer:
             retry_limit,
             retry_backoff_factor,
             verify_cert,
-            credentials,
         )
         self._buffers = {
             "events": [],
@@ -882,7 +874,7 @@ class BufferedConsumer:
         self._max_size = min(50, max_size)
         self._api_key = None
 
-    def send(self, endpoint, json_message, api_key=None, api_secret=None):
+    def send(self, endpoint, json_message, api_key=None, api_secret=None, credentials=None):
         """Record an event or profile update.
 
         Internally, adds the message to a buffer, and then flushes the buffer
@@ -895,6 +887,7 @@ class BufferedConsumer:
         :param str json_message: a JSON message formatted for the endpoint
         :param str api_key: your Mixpanel project's API key
         :param str api_secret: your Mixpanel project's API secret
+        :param ServiceAccountCredentials credentials: Optional service account credentials
         :raises MixpanelException: if the endpoint doesn't exist, the server is
             unreachable, or any buffered message cannot be processed
 
@@ -913,6 +906,7 @@ class BufferedConsumer:
         # TODO: Don't stick these in the instance.
         self._api_key = api_key
         self._api_secret = api_secret
+        self._credentials = credentials
         if len(buf) >= self._max_size:
             self._flush_endpoint(endpoint)
 
@@ -932,7 +926,12 @@ class BufferedConsumer:
             batch = buf[: self._max_size]
             batch_json = "[{}]".format(",".join(batch))
             try:
-                self._consumer.send(endpoint, batch_json, api_key=self._api_key)
+                # Unpack api_key tuple if it was packed
+                if isinstance(self._api_key, tuple):
+                    ak, secret = self._api_key
+                    self._consumer.send(endpoint, batch_json, ak, secret, self._credentials)
+                else:
+                    self._consumer.send(endpoint, batch_json, self._api_key, self._api_secret, self._credentials)
             except MixpanelException as orig_e:
                 mp_e = MixpanelException(orig_e)
                 mp_e.message = batch_json

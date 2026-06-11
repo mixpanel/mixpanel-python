@@ -27,7 +27,7 @@ class ServiceAccountCredentials:
         credentials = ServiceAccountCredentials(
             username='your-service-account-username',
             secret='your-service-account-secret',
-            project_id='your-project-id'
+            project_id='123456'
         )
         mp = Mixpanel('YOUR_TOKEN', credentials=credentials)
     """
