@@ -410,12 +410,20 @@ def test_remote_flags_with_service_account_credentials():
     # Verify project_id is stored
     assert provider._project_id == "12345"
 
+    # Verify query params use project_id instead of token
+    assert "project_id" in provider._request_params_base
+    assert provider._request_params_base["project_id"] == "12345"
+    assert "token" not in provider._request_params_base
+    assert provider._request_params_base["mp_lib"] == "python"
+    assert provider._request_params_base["lib_version"] == "1.0.0"
+
     provider.shutdown()
 
 
 def test_remote_flags_fallback_to_token_without_credentials():
     """Test RemoteFeatureFlagsProvider works with token auth (no credentials)."""
     from unittest.mock import Mock
+    import httpx
     from .remote_feature_flags import RemoteFeatureFlagsProvider
     from .types import RemoteFlagsConfig
 
@@ -435,8 +443,17 @@ def test_remote_flags_fallback_to_token_without_credentials():
 
     # Verify auth still configured (using token)
     assert provider._sync_client.auth is not None
+    assert isinstance(provider._sync_client.auth, httpx.BasicAuth)
     assert provider._async_client.auth is not None
+    assert isinstance(provider._async_client.auth, httpx.BasicAuth)
     # Verify no project_id when using token
     assert provider._project_id is None
+
+    # Verify query params use token instead of project_id
+    assert "token" in provider._request_params_base
+    assert provider._request_params_base["token"] == "test-token"
+    assert "project_id" not in provider._request_params_base
+    assert provider._request_params_base["mp_lib"] == "python"
+    assert provider._request_params_base["lib_version"] == "1.0.0"
 
     provider.shutdown()

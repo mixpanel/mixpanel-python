@@ -851,6 +851,13 @@ def test_local_flags_with_service_account_credentials():
     assert provider._async_client.auth is not None
     assert isinstance(provider._async_client.auth, httpx.BasicAuth)
 
+    # Verify query params use project_id instead of token
+    assert "project_id" in provider._request_params
+    assert provider._request_params["project_id"] == "12345"
+    assert "token" not in provider._request_params
+    assert provider._request_params["mp_lib"] == "python"
+    assert provider._request_params["lib_version"] == "1.0.0"
+
     provider.shutdown()
 
 
@@ -905,6 +912,15 @@ def test_local_flags_fallback_to_token_without_credentials():
 
     # Verify auth still configured (using token)
     assert provider._sync_client.auth is not None
+    assert isinstance(provider._sync_client.auth, httpx.BasicAuth)
     assert provider._async_client.auth is not None
+    assert isinstance(provider._async_client.auth, httpx.BasicAuth)
+
+    # Verify query params use token instead of project_id
+    assert "token" in provider._request_params
+    assert provider._request_params["token"] == "test-token"
+    assert "project_id" not in provider._request_params
+    assert provider._request_params["mp_lib"] == "python"
+    assert provider._request_params["lib_version"] == "1.0.0"
 
     provider.shutdown()
