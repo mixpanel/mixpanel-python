@@ -204,7 +204,7 @@ class Mixpanel:
                 "api_secret is deprecated and will be removed in a future version. "
                 "Please migrate to ServiceAccountCredentials for enhanced security."
             )
-        if api_secret is None:
+        if api_key is not None:
             logger.warning(
                 "api_key is deprecated and will be removed in a future version. "
                 "Please migrate to ServiceAccountCredentials for enhanced security."
@@ -306,7 +306,7 @@ class Mixpanel:
                 "api_secret is deprecated and will be removed in a future version. "
                 "Please migrate to ServiceAccountCredentials for enhanced security."
             )
-        if api_secret is None:
+        if api_key is not None:
             logger.warning(
                 "api_key is deprecated and will be removed in a future version. "
                 "Please migrate to ServiceAccountCredentials for enhanced security."
