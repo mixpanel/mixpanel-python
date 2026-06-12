@@ -924,7 +924,8 @@ class BufferedConsumer:
 
         buf = self._buffers[endpoint]
         buf.append(json_message)
-        # TODO: Don't stick these in the instance.
+        # TODO: Don't stick these in the instance. Works fine through Mixpanel class since
+        # import_data() and track() always pass credentials explicitly, but fragile for direct usage.
         self._api_key = api_key
         self._api_secret = api_secret
         self._credentials = credentials
