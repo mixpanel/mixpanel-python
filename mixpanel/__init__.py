@@ -21,7 +21,6 @@ import time
 import uuid
 from typing import Optional
 
-import httpx
 import requests
 import urllib3
 from requests.auth import HTTPBasicAuth
@@ -30,7 +29,6 @@ from .credentials import ServiceAccountCredentials
 from .flags.local_feature_flags import LocalFeatureFlagsProvider
 from .flags.remote_feature_flags import RemoteFeatureFlagsProvider
 from .flags.types import LocalFlagsConfig, RemoteFlagsConfig
-from .flags.utils import REQUEST_HEADERS
 
 __version__ = "5.1.0"
 
