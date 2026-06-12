@@ -176,7 +176,7 @@ class Mixpanel:
         }
         if meta:
             event.update(meta)
-        self._consumer.send("events", json_dumps(event, cls=self._serializer))
+        self._consumer.send("events", json_dumps(event, cls=self._serializer), credentials=self._credentials)
 
     def import_data(
         self,
@@ -514,7 +514,7 @@ class Mixpanel:
         record.update(message)
         if meta:
             record.update(meta)
-        self._consumer.send("people", json_dumps(record, cls=self._serializer))
+        self._consumer.send("people", json_dumps(record, cls=self._serializer), credentials=self._credentials)
 
     def group_set(self, group_key, group_id, properties, meta=None):
         """Set properties of a group profile.
@@ -648,7 +648,7 @@ class Mixpanel:
         record.update(message)
         if meta:
             record.update(meta)
-        self._consumer.send("groups", json_dumps(record, cls=self._serializer))
+        self._consumer.send("groups", json_dumps(record, cls=self._serializer), credentials=self._credentials)
 
     def __enter__(self):
         return self
@@ -783,7 +783,7 @@ class Consumer:
             params["api_key"] = api_key
 
         basic_auth = None
-        # Use credentials if available, otherwise fall back to api_secret
+        # Use credentials parameter if provided, otherwise fall back to api_secret
         if credentials:
             basic_auth = credentials.to_http_basic_auth()
             # Service account auth requires project_id query param for backend validation

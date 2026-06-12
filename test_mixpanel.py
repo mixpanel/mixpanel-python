@@ -894,7 +894,7 @@ class TestServiceAccountAuth:
 
     @responses.activate
     def test_consumer_with_service_account(self):
-        """Test Consumer uses service account for Basic Auth."""
+        """Test Consumer uses service account for Basic Auth when passed via send()."""
         responses.add(
             responses.POST,
             "https://api.mixpanel.com/track",
@@ -906,10 +906,10 @@ class TestServiceAccountAuth:
             secret=self.SERVICE_ACCOUNT_SECRET,
             project_id=self.PROJECT_ID,
         )
-        consumer = mixpanel.Consumer(credentials=credentials)
+        consumer = mixpanel.Consumer()
 
         event = json.dumps({"event": "test_event", "properties": {"token": self.TOKEN}})
-        consumer.send("events", event)
+        consumer.send("events", event, credentials=credentials)
 
         assert len(responses.calls) == 1
         request = responses.calls[0].request
@@ -1017,7 +1017,7 @@ class TestServiceAccountAuth:
 
     @responses.activate
     def test_buffered_consumer_with_service_account(self):
-        """Test BufferedConsumer passes service account credentials to Consumer."""
+        """Test BufferedConsumer with Mixpanel instance using service account credentials."""
         responses.add(
             responses.POST,
             "https://api.mixpanel.com/track",
@@ -1029,10 +1029,12 @@ class TestServiceAccountAuth:
             secret=self.SERVICE_ACCOUNT_SECRET,
             project_id=self.PROJECT_ID,
         )
-        consumer = mixpanel.BufferedConsumer(max_size=1, credentials=credentials)
 
-        event = json.dumps({"event": "test_event", "properties": {"token": self.TOKEN}})
-        consumer.send("events", event)
+        # BufferedConsumer doesn't take credentials - they come from Mixpanel instance
+        consumer = mixpanel.BufferedConsumer(max_size=1)
+        mp = mixpanel.Mixpanel(self.TOKEN, consumer=consumer, credentials=credentials)
+
+        mp.track(self.DISTINCT_ID, "test_event")
 
         assert len(responses.calls) == 1
         request = responses.calls[0].request
