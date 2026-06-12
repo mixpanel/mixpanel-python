@@ -55,10 +55,11 @@ credentials = ServiceAccountCredentials(
     project_id='YOUR_PROJECT_ID'
 )
 
-# Token identifies the project, credentials handle authentication
+# Token identifies the project and is used for event tracking
+# Credentials are used for endpoints that require authentication
 mp = Mixpanel(YOUR_TOKEN, credentials=credentials)
 
-# All API calls will use service account authentication
+# Event tracking operations use the token (sent in payload)
 mp.track(DISTINCT_ID, 'button clicked', {'color': 'blue'})
 mp.people_set(DISTINCT_ID, {'$first_name': 'John'})
 ```
@@ -78,11 +79,11 @@ credentials = ServiceAccountCredentials(
 consumer = BufferedConsumer(max_size=50)
 mp = Mixpanel(YOUR_TOKEN, consumer=consumer, credentials=credentials)
 
-# All calls through the consumer will use service account authentication
+# Event tracking uses the token (sent in payload)
 mp.track(DISTINCT_ID, 'event_name')
 ```
 
-When service account credentials are provided, they are automatically used for all API calls and take precedence over API secrets (api_key/api_secret) for authentication.
+Service account credentials are used for endpoints that require authentication (such as feature flags). Event tracking operations (`track`, `people_set`, etc.) use the token provided in the constructor, which is sent in the event payload.
 
 ### Service Accounts with Feature Flags
 

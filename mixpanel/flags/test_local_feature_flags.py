@@ -31,16 +31,6 @@ DISTINCT_ID = "user123"
 USER_CONTEXT = {"distinct_id": DISTINCT_ID}
 
 
-def build_httpx_client_params(config: LocalFlagsConfig, token: str = "test-token"):
-    """Helper to build httpx client parameters for tests."""
-    return {
-        "base_url": f"https://{config.api_host}",
-        "headers": REQUEST_HEADERS,
-        "auth": httpx.BasicAuth(token, ""),
-        "timeout": httpx.Timeout(config.request_timeout_in_seconds),
-    }
-
-
 def create_test_flag(
     flag_key: str = TEST_FLAG_KEY,
     context: str = "distinct_id",

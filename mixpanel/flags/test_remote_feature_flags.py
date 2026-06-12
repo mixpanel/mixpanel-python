@@ -16,16 +16,6 @@ from .utils import REQUEST_HEADERS
 ENDPOINT = "https://api.mixpanel.com/flags"
 
 
-def build_httpx_client_params(config: RemoteFlagsConfig, token: str = "test-token"):
-    """Helper to build httpx client parameters for tests."""
-    return {
-        "base_url": f"https://{config.api_host}",
-        "headers": REQUEST_HEADERS,
-        "auth": httpx.BasicAuth(token, ""),
-        "timeout": httpx.Timeout(config.request_timeout_in_seconds),
-    }
-
-
 def create_success_response(
     assigned_variants_per_flag: dict[str, SelectedVariant],
 ) -> httpx.Response:
