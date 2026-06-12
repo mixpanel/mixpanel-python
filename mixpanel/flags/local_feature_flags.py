@@ -36,7 +36,7 @@ class LocalFeatureFlagsProvider:
 
     def __init__(
         self,
-        token: str,
+        token: str | None,
         config: LocalFlagsConfig,
         version: str,
         tracker: Callable,
@@ -44,7 +44,7 @@ class LocalFeatureFlagsProvider:
     ) -> None:
         """Initialize the LocalFeatureFlagsProvider.
 
-        :param str token: your project's Mixpanel token
+        :param str | None token: your project's Mixpanel token (optional if credentials provided)
         :param LocalFlagsConfig config: configuration options for the local feature flags provider
         :param str version: the version of the Mixpanel library being used, just for tracking
         :param Callable tracker: A function used to track flags exposure events to mixpanel
@@ -54,7 +54,7 @@ class LocalFeatureFlagsProvider:
         if not token and not credentials:
             raise ValueError("Either token or credentials must be provided")
 
-        self._token: str = token
+        self._token: str | None = token
         self._config: LocalFlagsConfig = config
         self._version = version
         self._tracker: Callable = tracker

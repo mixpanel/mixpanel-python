@@ -10,4 +10,14 @@ For prior history, see [`CHANGES.txt`](./CHANGES.txt).
 ### Added
 - Service account authentication support via `ServiceAccountCredentials` class for enhanced security in server-to-server integrations. Service accounts use HTTP Basic Authentication with username/secret/project_id instead of shared API secrets (api_key/api_secret). All three parameters are required and validated (non-empty, non-whitespace).
 - `credentials` parameter added to `Mixpanel`, `LocalFeatureFlagsProvider`, and `RemoteFeatureFlagsProvider` constructors to accept `ServiceAccountCredentials`.
-- The `credentials` parameter is optional in `LocalFeatureFlagsProvider` and `RemoteFeatureFlagsProvider` constructors, but required if `token` is not provided.
+- When service account credentials are provided:
+  - Feature flag endpoints (`/flags`, `/flags/definitions`) authenticate with BasicAuth header and include `project_id` as a query parameter instead of `token`
+  - Import endpoint (`/import`) authenticates with BasicAuth header, includes `project_id` as a query parameter, and does NOT include `api_key` in the POST body
+  - Service account credentials take precedence over API secrets when both are provided
+
+### Changed
+- `Consumer._write_request()` now accepts service account credentials and conditionally includes `api_key` in POST body only when using legacy API secret authentication (not when using service account credentials)
+- `token` parameter is now optional in `LocalFeatureFlagsProvider` and `RemoteFeatureFlagsProvider` constructors when `credentials` are provided (since `project_id` from credentials is used instead of `token` for authentication)
+
+### Deprecated
+- `api_key` and `api_secret` parameters are deprecated in favor of `ServiceAccountCredentials`. Logger warnings now alert users when using legacy authentication methods. These parameters will be removed in a future major version.

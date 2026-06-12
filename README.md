@@ -98,7 +98,7 @@ credentials = ServiceAccountCredentials(
     project_id='YOUR_PROJECT_ID'
 )
 
-# Token identifies the project, credentials handle authentication
+# Token identifies the project for event tracking, credentials handle authentication
 mp = Mixpanel(
     YOUR_TOKEN,
     credentials=credentials,
@@ -108,6 +108,8 @@ mp = Mixpanel(
 # Feature flag requests will use service account authentication
 variant = mp.local_flags.get_variant_value('my-flag', fallback_value=False, context={...})
 ```
+
+**Note**: When using service account credentials, the `token` parameter in the `Mixpanel` constructor is still required for event tracking operations (`track`, `people_set`, etc.) since the token is included in the event data payload. However, feature flag operations use the `project_id` from credentials instead of the token for authentication.
 
 ## Additional Information
 

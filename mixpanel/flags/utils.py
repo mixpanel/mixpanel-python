@@ -40,11 +40,11 @@ def _fnv1a64(data: bytes) -> int:
 
 
 def prepare_common_query_params(
-    token: str, sdk_version: str, project_id: str | None = None
+    token: str | None, sdk_version: str, project_id: str | None = None
 ) -> dict[str, str]:
     """Prepare common query string parameters for feature flag evaluation.
 
-    :param token: The project token (ignored if project_id is provided for service account auth)
+    :param token: The project token (optional if project_id is provided for service account auth)
     :param sdk_version: The SDK version
     :param project_id: Optional project ID for service account authentication
     :return: Dictionary of common query parameters
@@ -54,9 +54,11 @@ def prepare_common_query_params(
     if project_id is not None:
         # Service account authentication - use project_id instead of token
         params["project_id"] = project_id
-    else:
+    elif token is not None:
         # Token authentication
         params["token"] = token
+    else:
+        raise ValueError("Either token or project_id must be provided")
 
     return params
 

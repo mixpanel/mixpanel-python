@@ -28,7 +28,7 @@ class RemoteFeatureFlagsProvider:
 
     def __init__(
         self,
-        token: str,
+        token: str | None,
         config: RemoteFlagsConfig,
         version: str,
         tracker: Callable,
@@ -36,7 +36,7 @@ class RemoteFeatureFlagsProvider:
     ) -> None:
         """Initialize the RemoteFeatureFlagsProvider.
 
-        :param str token: your project's Mixpanel token
+        :param str | None token: your project's Mixpanel token (optional if credentials provided)
         :param RemoteFlagsConfig config: configuration options for the remote feature flags provider
         :param str version: the version of the Mixpanel library being used, just for tracking
         :param Callable tracker: A function used to track flags exposure events to mixpanel
@@ -46,7 +46,7 @@ class RemoteFeatureFlagsProvider:
         if not token and not credentials:
             raise ValueError("Either token or credentials must be provided")
 
-        self._token: str = token
+        self._token: str | None = token
         self._config: RemoteFlagsConfig = config
         self._version: str = version
         self._tracker: Callable = tracker

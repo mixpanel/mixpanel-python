@@ -172,18 +172,26 @@ class Mixpanel:
         :param str api_secret: (DEPRECATED) Your Mixpanel project's API secret.
 
         .. deprecated::
-            The *api_secret* parameter is deprecated. Use
+            Both *api_key* and *api_secret* parameters are deprecated. Use
             :class:`~.ServiceAccountCredentials` with the *credentials* parameter
-            instead for enhanced security. API secrets will continue to work for
-            backward compatibility but may be removed in a future major version.
-
-        .. Important::
-            Mixpanel's ``import`` HTTP endpoint requires authentication. The older
-            API key is no longer accessible in the Mixpanel UI, but will continue
-            to work. The api_key parameter will be removed in an upcoming release.
+            instead for enhanced security. Legacy authentication will continue to work
+            for backward compatibility but will be removed in a future major version.
 
         .. versionadded:: 4.8.0
             The *api_secret* parameter.
+
+        .. note::
+            **Recommended**: Use ServiceAccountCredentials for authentication:
+
+            .. code-block:: python
+
+                credentials = ServiceAccountCredentials(
+                    username='YOUR_SERVICE_ACCOUNT_USERNAME',
+                    secret='YOUR_SERVICE_ACCOUNT_SECRET',
+                    project_id='YOUR_PROJECT_ID'
+                )
+                mp = Mixpanel(YOUR_TOKEN, credentials=credentials)
+                mp.import_data(distinct_id, event_name, timestamp, properties)
 
         To avoid accidentally recording invalid events, the Mixpanel API's
         ``track`` endpoint disallows events that occurred too long ago. This
@@ -191,9 +199,15 @@ class Mixpanel:
         for `more details
         <https://developer.mixpanel.com/reference/events#import-events>`__.
         """
+        if api_secret is not None:
+            logger.warning(
+                "api_secret is deprecated and will be removed in a future version. "
+                "Please migrate to ServiceAccountCredentials for enhanced security."
+            )
         if api_secret is None:
             logger.warning(
-                "api_key will soon be removed from mixpanel-python; please use api_secret instead."
+                "api_key is deprecated and will be removed in a future version. "
+                "Please migrate to ServiceAccountCredentials for enhanced security."
             )
 
         all_properties = {
@@ -261,26 +275,41 @@ class Mixpanel:
         :param str api_secret: (DEPRECATED) Your Mixpanel project's API secret.
 
         .. deprecated::
-            The *api_secret* parameter is deprecated. Use
+            Both *api_key* and *api_secret* parameters are deprecated. Use
             :class:`~.ServiceAccountCredentials` with the *credentials* parameter
-            instead for enhanced security. API secrets will continue to work for
-            backward compatibility but may be removed in a future major version.
-
-        .. Important::
-            Mixpanel's ``merge`` HTTP endpoint requires authentication. The older
-            API key is no longer accessible in the Mixpanel UI, but will continue
-            to work. The api_key parameter will be removed in an upcoming release.
+            instead for enhanced security. Legacy authentication will continue to work
+            for backward compatibility but will be removed in a future major version.
 
         .. versionadded:: 4.8.0
             The *api_secret* parameter.
+
+        .. note::
+            **Recommended**: Use ServiceAccountCredentials for authentication:
+
+            .. code-block:: python
+
+                credentials = ServiceAccountCredentials(
+                    username='YOUR_SERVICE_ACCOUNT_USERNAME',
+                    secret='YOUR_SERVICE_ACCOUNT_SECRET',
+                    project_id='YOUR_PROJECT_ID'
+                )
+                mp = Mixpanel(YOUR_TOKEN, credentials=credentials)
+                # api_key still required but credentials used for authentication
+                mp.merge(api_key, distinct_id1, distinct_id2)
 
         See our online documentation for `more
         details
         <https://developer.mixpanel.com/reference/identities#identity-merge>`__.
         """
+        if api_secret is not None:
+            logger.warning(
+                "api_secret is deprecated and will be removed in a future version. "
+                "Please migrate to ServiceAccountCredentials for enhanced security."
+            )
         if api_secret is None:
             logger.warning(
-                "api_key will soon be removed from mixpanel-python; please use api_secret instead."
+                "api_key is deprecated and will be removed in a future version. "
+                "Please migrate to ServiceAccountCredentials for enhanced security."
             )
 
         event = {
