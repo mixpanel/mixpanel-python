@@ -308,9 +308,7 @@ class RemoteFeatureFlagsProvider:
         params["context"] = context_json
         if flag_key is not None:
             params["flag_key"] = flag_key
-        # Add project_id for service account authentication
-        if self._project_id is not None:
-            params["project_id"] = self._project_id
+        # Note: project_id already set in _request_params_base by prepare_common_query_params
         return params
 
     def _instrument_call(self, start_time: datetime, end_time: datetime) -> None:

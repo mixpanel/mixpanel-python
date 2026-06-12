@@ -115,7 +115,7 @@ class Mixpanel:
         """Get the remote flags provider if configured for it."""
         if self._remote_flags_provider is None:
             raise MixpanelException(
-                "No remote_flags_config was passed to the consttructor"
+                "No remote_flags_config was passed to the constructor"
             )
         return self._remote_flags_provider
 
@@ -148,7 +148,7 @@ class Mixpanel:
         }
         if meta:
             event.update(meta)
-        self._consumer.send("events", json_dumps(event, cls=self._serializer), credentials=self._credentials)
+        self._consumer.send("events", json_dumps(event, cls=self._serializer))
 
     def import_data(
         self,
@@ -191,7 +191,13 @@ class Mixpanel:
                     project_id='YOUR_PROJECT_ID'
                 )
                 mp = Mixpanel(YOUR_TOKEN, credentials=credentials)
-                mp.import_data(distinct_id, event_name, timestamp, properties)
+                mp.import_data(
+                    api_key=None,
+                    distinct_id='user123',
+                    event_name='Signup',
+                    timestamp=1000000000,
+                    properties={'source': 'email'}
+                )
 
         To avoid accidentally recording invalid events, the Mixpanel API's
         ``track`` endpoint disallows events that occurred too long ago. This
@@ -263,7 +269,7 @@ class Mixpanel:
             event.update(meta)
 
         sync_consumer = Consumer()
-        sync_consumer.send("events", json_dumps(event, cls=self._serializer), credentials=self._credentials)
+        sync_consumer.send("events", json_dumps(event, cls=self._serializer))
 
     def merge(self, api_key, distinct_id1, distinct_id2, meta=None, api_secret=None):
         """Merges the two given distinct_ids.
@@ -294,8 +300,12 @@ class Mixpanel:
                     project_id='YOUR_PROJECT_ID'
                 )
                 mp = Mixpanel(YOUR_TOKEN, credentials=credentials)
-                # api_key still required but credentials used for authentication
-                mp.merge(api_key, distinct_id1, distinct_id2)
+                # api_key still required but not used when credentials are provided
+                mp.merge(
+                    api_key=None,
+                    distinct_id1='user123',
+                    distinct_id2='user456'
+                )
 
         See our online documentation for `more
         details
@@ -515,7 +525,7 @@ class Mixpanel:
         record.update(message)
         if meta:
             record.update(meta)
-        self._consumer.send("people", json_dumps(record, cls=self._serializer), credentials=self._credentials)
+        self._consumer.send("people", json_dumps(record, cls=self._serializer))
 
     def group_set(self, group_key, group_id, properties, meta=None):
         """Set properties of a group profile.
@@ -649,7 +659,7 @@ class Mixpanel:
         record.update(message)
         if meta:
             record.update(meta)
-        self._consumer.send("groups", json_dumps(record, cls=self._serializer), credentials=self._credentials)
+        self._consumer.send("groups", json_dumps(record, cls=self._serializer))
 
     def __enter__(self):
         return self
@@ -937,12 +947,15 @@ class BufferedConsumer:
             batch = buf[: self._max_size]
             batch_json = "[{}]".format(",".join(batch))
             try:
+                # Only pass credentials for import endpoint; other endpoints (events, people, groups) don't support service account auth
+                credentials_for_endpoint = self._credentials if endpoint == "imports" else None
+
                 # Unpack api_key tuple if it was packed
                 if isinstance(self._api_key, tuple):
                     ak, secret = self._api_key
-                    self._consumer.send(endpoint, batch_json, ak, secret, self._credentials)
+                    self._consumer.send(endpoint, batch_json, ak, secret, credentials_for_endpoint)
                 else:
-                    self._consumer.send(endpoint, batch_json, self._api_key, self._api_secret, self._credentials)
+                    self._consumer.send(endpoint, batch_json, self._api_key, self._api_secret, credentials_for_endpoint)
             except MixpanelException as orig_e:
                 mp_e = MixpanelException(orig_e)
                 mp_e.message = batch_json

@@ -22,5 +22,5 @@ For prior history, see [`CHANGES.txt`](./CHANGES.txt).
 - `api_key` and `api_secret` parameters are deprecated in favor of `ServiceAccountCredentials`. Logger warnings now alert users when using legacy authentication methods. These parameters will be removed in a future major version.
 
 ### Fixed
+- Service account credentials are now only applied to the `/import` endpoint (and feature flag endpoints). Previously, credentials were incorrectly passed to `/track`, `/engage`, and `/groups` endpoints, which could cause request rejection or silent event loss. The fix ensures `track()`, `alias()`, `people_update()`, and `group_update()` no longer include service account authentication headers, while `import_data()` and `merge()` continue to work correctly with credentials.
 - Remote feature flags no longer double-encode the `context` query parameter. Previously, the library manually URL-encoded the context JSON before passing it to `httpx`, which would then encode it again, resulting in double-encoded values being sent to the Mixpanel API. Now `httpx` handles all URL encoding automatically.
-- `alias()` now correctly uses service account credentials when configured on the `Mixpanel` instance. Previously, it would create a new consumer without passing credentials, causing authentication to fail.
