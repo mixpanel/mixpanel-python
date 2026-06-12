@@ -894,6 +894,8 @@ class BufferedConsumer:
         }
         self._max_size = min(50, max_size)
         self._api_key = None
+        self._api_secret = None
+        self._credentials = None
 
     def send(self, endpoint, json_message, api_key=None, api_secret=None, credentials=None):
         """Record an event or profile update.

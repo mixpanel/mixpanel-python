@@ -935,10 +935,10 @@ class TestServiceAccountAuth:
 
     @responses.activate
     def test_consumer_with_service_account(self):
-        """Test Consumer uses service account for Basic Auth when passed via send()."""
+        """Test Consumer uses service account for Basic Auth when passed to /import endpoint."""
         responses.add(
             responses.POST,
-            "https://api.mixpanel.com/track",
+            "https://api.mixpanel.com/import",
             json={"status": 1, "error": None},
         )
 
@@ -950,7 +950,7 @@ class TestServiceAccountAuth:
         consumer = mixpanel.Consumer()
 
         event = json.dumps({"event": "test_event", "properties": {"token": self.TOKEN}})
-        consumer.send("events", event, credentials=credentials)
+        consumer.send("imports", event, credentials=credentials)
 
         assert len(responses.calls) == 1
         request = responses.calls[0].request
@@ -962,6 +962,9 @@ class TestServiceAccountAuth:
             self.SERVICE_ACCOUNT_SECRET,
         )
         assert auth_header == expected_auth
+
+        # Verify project_id query parameter is present (required for service account auth)
+        assert "project_id=" + self.PROJECT_ID in request.url
 
     @responses.activate
     def test_mixpanel_with_service_account(self):
@@ -1138,6 +1141,30 @@ class TestServiceAccountAuth:
         # Whitespace-only project_id
         with pytest.raises(ValueError, match="project_id cannot be empty"):
             mixpanel.ServiceAccountCredentials(username="user", secret="secret", project_id="   ")
+
+    def test_credentials_rejects_non_string_types(self):
+        """Test ServiceAccountCredentials rejects non-string types with clear error messages."""
+        # Integer project_id (common mistake when copying from dashboard)
+        with pytest.raises(ValueError, match="project_id must be a string"):
+            mixpanel.ServiceAccountCredentials(username="user", secret="secret", project_id=123456)
+
+        # Integer username
+        with pytest.raises(ValueError, match="username must be a string"):
+            mixpanel.ServiceAccountCredentials(username=12345, secret="secret", project_id="123")
+
+        # Integer secret
+        with pytest.raises(ValueError, match="secret must be a string"):
+            mixpanel.ServiceAccountCredentials(username="user", secret=12345, project_id="123")
+
+        # None values
+        with pytest.raises(ValueError, match="username must be a string"):
+            mixpanel.ServiceAccountCredentials(username=None, secret="secret", project_id="123")
+
+        with pytest.raises(ValueError, match="secret must be a string"):
+            mixpanel.ServiceAccountCredentials(username="user", secret=None, project_id="123")
+
+        with pytest.raises(ValueError, match="project_id must be a string"):
+            mixpanel.ServiceAccountCredentials(username="user", secret="secret", project_id=None)
 
     def test_credentials_strips_whitespace(self):
         """Test ServiceAccountCredentials strips leading/trailing whitespace."""
