@@ -37,10 +37,9 @@ class TestRemoteFeatureFlagsProviderAsync:
     @pytest.fixture(autouse=True)
     async def setup_method(self):
         config = RemoteFlagsConfig()
-        httpx_params = build_httpx_client_params(config)
         self.mock_tracker = Mock()
         self._flags = RemoteFeatureFlagsProvider(
-            "test-token", config, "1.0.0", self.mock_tracker, httpx_params
+            "test-token", config, "1.0.0", self.mock_tracker
         )
         yield
         await self._flags.__aexit__(None, None, None)
@@ -216,10 +215,9 @@ class TestRemoteFeatureFlagsProviderAsync:
 class TestRemoteFeatureFlagsProviderSync:
     def setup_method(self):
         config = RemoteFlagsConfig()
-        httpx_params = build_httpx_client_params(config)
         self.mock_tracker = Mock()
         self._flags = RemoteFeatureFlagsProvider(
-            "test-token", config, "1.0.0", self.mock_tracker, httpx_params
+            "test-token", config, "1.0.0", self.mock_tracker
         )
 
     def teardown_method(self):
@@ -388,13 +386,12 @@ def test_remote_flags_with_service_account_credentials():
         request_timeout_in_seconds=10
     )
 
-    # Build httpx params with service account auth (like Mixpanel class does)
-    httpx_params = {
-        "base_url": f"https://{config.api_host}",
-        "headers": REQUEST_HEADERS,
-        "auth": httpx.BasicAuth("test-service-account", "test-service-secret"),
-        "timeout": httpx.Timeout(config.request_timeout_in_seconds),
-    }
+    # Create service account credentials
+    credentials = ServiceAccountCredentials(
+        username="test-service-account",
+        secret="test-service-secret",
+        project_id="12345"
+    )
 
     tracker = Mock()
     provider = RemoteFeatureFlagsProvider(
@@ -402,7 +399,7 @@ def test_remote_flags_with_service_account_credentials():
         config=config,
         version="1.0.0",
         tracker=tracker,
-        httpx_client_parameters=httpx_params
+        credentials=credentials
     )
 
     # Verify the httpx clients were configured with httpx.BasicAuth
@@ -410,6 +407,8 @@ def test_remote_flags_with_service_account_credentials():
     assert isinstance(provider._sync_client.auth, httpx.BasicAuth)
     assert provider._async_client.auth is not None
     assert isinstance(provider._async_client.auth, httpx.BasicAuth)
+    # Verify project_id is stored
+    assert provider._project_id == "12345"
 
     provider.shutdown()
 
@@ -417,7 +416,6 @@ def test_remote_flags_with_service_account_credentials():
 def test_remote_flags_fallback_to_token_without_credentials():
     """Test RemoteFeatureFlagsProvider works with token auth (no credentials)."""
     from unittest.mock import Mock
-    import httpx
     from .remote_feature_flags import RemoteFeatureFlagsProvider
     from .types import RemoteFlagsConfig
 
@@ -426,20 +424,19 @@ def test_remote_flags_fallback_to_token_without_credentials():
         request_timeout_in_seconds=10
     )
 
-    # Build httpx params with token auth (no credentials)
-    httpx_params = build_httpx_client_params(config, token="test-token")
-
     tracker = Mock()
     provider = RemoteFeatureFlagsProvider(
         token="test-token",
         config=config,
         version="1.0.0",
         tracker=tracker,
-        httpx_client_parameters=httpx_params
+        credentials=None
     )
 
     # Verify auth still configured (using token)
     assert provider._sync_client.auth is not None
     assert provider._async_client.auth is not None
+    # Verify no project_id when using token
+    assert provider._project_id is None
 
     provider.shutdown()

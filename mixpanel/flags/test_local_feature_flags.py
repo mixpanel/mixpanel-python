@@ -103,17 +103,15 @@ class TestLocalFeatureFlagsProviderAsync:
         self._mock_tracker = Mock()
 
         config_no_polling = LocalFlagsConfig(enable_polling=False)
-        httpx_params = build_httpx_client_params(config_no_polling)
         self._flags = LocalFeatureFlagsProvider(
-            "test-token", config_no_polling, "1.0.0", self._mock_tracker, httpx_params
+            "test-token", config_no_polling, "1.0.0", self._mock_tracker
         )
 
         config_with_polling = LocalFlagsConfig(
             enable_polling=True, polling_interval_in_seconds=0
         )
-        httpx_params_polling = build_httpx_client_params(config_with_polling)
         self._flags_with_polling = LocalFeatureFlagsProvider(
-            "test-token", config_with_polling, "1.0.0", self._mock_tracker, httpx_params_polling
+            "test-token", config_with_polling, "1.0.0", self._mock_tracker
         )
 
         yield
@@ -772,9 +770,8 @@ class TestLocalFeatureFlagsProviderSync:
         config_with_polling = LocalFlagsConfig(
             enable_polling=True, polling_interval_in_seconds=0
         )
-        httpx_params = build_httpx_client_params(config_with_polling)
         self._flags_with_polling = LocalFeatureFlagsProvider(
-            "test-token", config_with_polling, "1.0.0", self.mock_tracker, httpx_params
+            "test-token", config_with_polling, "1.0.0", self.mock_tracker
         )
 
     def teardown_method(self):
@@ -831,13 +828,13 @@ def test_local_flags_with_service_account_credentials():
         request_timeout_in_seconds=10
     )
 
-    # Build httpx params with service account auth (like Mixpanel class does)
-    httpx_params = {
-        "base_url": f"https://{config.api_host}",
-        "headers": REQUEST_HEADERS,
-        "auth": httpx.BasicAuth("test-service-account", "test-service-secret"),
-        "timeout": httpx.Timeout(config.request_timeout_in_seconds),
-    }
+    # Create service account credentials
+    from mixpanel.credentials import ServiceAccountCredentials
+    credentials = ServiceAccountCredentials(
+        username="test-service-account",
+        secret="test-service-secret",
+        project_id="12345"
+    )
 
     tracker = Mock()
     provider = LocalFeatureFlagsProvider(
@@ -845,7 +842,7 @@ def test_local_flags_with_service_account_credentials():
         config=config,
         version="1.0.0",
         tracker=tracker,
-        httpx_client_parameters=httpx_params
+        credentials=credentials
     )
 
     # Verify the httpx clients were configured with httpx.BasicAuth
@@ -865,13 +862,13 @@ async def test_local_flags_async_with_service_account_credentials():
         request_timeout_in_seconds=10
     )
 
-    # Build httpx params with service account auth
-    httpx_params = {
-        "base_url": f"https://{config.api_host}",
-        "headers": REQUEST_HEADERS,
-        "auth": httpx.BasicAuth("test-service-account", "test-service-secret"),
-        "timeout": httpx.Timeout(config.request_timeout_in_seconds),
-    }
+    # Create service account credentials
+    from mixpanel.credentials import ServiceAccountCredentials
+    credentials = ServiceAccountCredentials(
+        username="test-service-account",
+        secret="test-service-secret",
+        project_id="12345"
+    )
 
     tracker = Mock()
     provider = LocalFeatureFlagsProvider(
@@ -879,7 +876,7 @@ async def test_local_flags_async_with_service_account_credentials():
         config=config,
         version="1.0.0",
         tracker=tracker,
-        httpx_client_parameters=httpx_params
+        credentials=credentials
     )
 
     # Verify auth configured with httpx.BasicAuth
@@ -897,20 +894,16 @@ def test_local_flags_fallback_to_token_without_credentials():
         request_timeout_in_seconds=10
     )
 
-    # Build httpx params with token auth (no credentials)
-    httpx_params = build_httpx_client_params(config, token="test-token")
-
     tracker = Mock()
     provider = LocalFeatureFlagsProvider(
         token="test-token",
         config=config,
         version="1.0.0",
         tracker=tracker,
-        httpx_client_parameters=httpx_params
+        credentials=None
     )
 
     # Verify auth still configured (using token)
-    assert provider._sync_client.auth is not None
     assert provider._sync_client.auth is not None
     assert provider._async_client.auth is not None
 

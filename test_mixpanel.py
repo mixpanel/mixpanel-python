@@ -18,13 +18,10 @@ class LogConsumer:
     def __init__(self):
         self.log = []
 
-    def send(self, endpoint, event, api_key=None, api_secret=None):
+    def send(self, endpoint, event, api_key=None, api_secret=None, credentials=None):
         entry = [endpoint, json.loads(event)]
-        if api_key != (None, None):
-            if api_key:
-                entry.append(api_key)
-            if api_secret:
-                entry.append(api_secret)
+        if api_key is not None or api_secret is not None:
+            entry.append((api_key, api_secret))
         self.log.append(tuple(entry))
 
     def clear(self):

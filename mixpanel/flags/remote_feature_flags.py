@@ -3,12 +3,13 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import urllib.parse
 from datetime import datetime
 from typing import Any, Callable
 
 import httpx
 from asgiref.sync import sync_to_async
+
+from mixpanel.credentials import ServiceAccountCredentials
 
 from .types import RemoteFlagsConfig, RemoteFlagsResponse, SelectedVariant
 from .utils import (
@@ -31,7 +32,7 @@ class RemoteFeatureFlagsProvider:
         config: RemoteFlagsConfig,
         version: str,
         tracker: Callable,
-        httpx_client_parameters: dict = None,
+        credentials: ServiceAccountCredentials | None = None,
     ) -> None:
         """Initialize the RemoteFeatureFlagsProvider.
 
@@ -39,22 +40,32 @@ class RemoteFeatureFlagsProvider:
         :param RemoteFlagsConfig config: configuration options for the remote feature flags provider
         :param str version: the version of the Mixpanel library being used, just for tracking
         :param Callable tracker: A function used to track flags exposure events to mixpanel
-        :param dict httpx_client_parameters: Optional httpx client configuration (auth, base_url, headers, timeout).
-            If not provided, defaults to basic auth with token.
+        :param ServiceAccountCredentials credentials: Optional service account credentials for authentication.
+        :raises ValueError: if neither token nor credentials is provided
         """
+        if not token and not credentials:
+            raise ValueError("Either token or credentials must be provided")
+
         self._token: str = token
         self._config: RemoteFlagsConfig = config
         self._version: str = version
         self._tracker: Callable = tracker
+        self._project_id: str | None = credentials.project_id if credentials else None
 
-        # Build default httpx client parameters if not provided
-        if httpx_client_parameters is None:
-            httpx_client_parameters = {
-                "base_url": f"https://{config.api_host}",
-                "headers": REQUEST_HEADERS,
-                "auth": httpx.BasicAuth(token, ""),
-                "timeout": httpx.Timeout(config.request_timeout_in_seconds),
-            }
+        # Build httpx client parameters
+        if credentials:
+            auth = httpx.BasicAuth(credentials.username, credentials.secret)
+        elif token:
+            auth = httpx.BasicAuth(token, "")
+        else:
+            raise ValueError("Either token or credentials must be provided")
+
+        httpx_client_parameters = {
+            "base_url": f"https://{config.api_host}",
+            "headers": REQUEST_HEADERS,
+            "auth": auth,
+            "timeout": httpx.Timeout(config.request_timeout_in_seconds),
+        }
 
         self._async_client: httpx.AsyncClient = httpx.AsyncClient(
             **httpx_client_parameters
@@ -293,11 +304,14 @@ class RemoteFeatureFlagsProvider:
         self, context: dict[str, Any], flag_key: str | None = None
     ) -> dict[str, str]:
         params = self._request_params_base.copy()
-        context_json = json.dumps(context).encode("utf-8")
-        url_encoded_context = urllib.parse.quote(context_json)
-        params["context"] = url_encoded_context
+        # Let httpx handle URL encoding - don't double-encode
+        context_json = json.dumps(context)
+        params["context"] = context_json
         if flag_key is not None:
             params["flag_key"] = flag_key
+        # Add project_id for service account authentication
+        if self._project_id is not None:
+            params["project_id"] = self._project_id
         return params
 
     def _instrument_call(self, start_time: datetime, end_time: datetime) -> None:
