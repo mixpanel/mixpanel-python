@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import urllib.parse
 from datetime import datetime
 from typing import Any, Callable
 
@@ -277,9 +276,7 @@ class RemoteFeatureFlagsProvider:
         self, context: dict[str, Any], flag_key: str | None = None
     ) -> dict[str, str]:
         params = self._request_params_base.copy()
-        context_json = json.dumps(context).encode("utf-8")
-        url_encoded_context = urllib.parse.quote(context_json)
-        params["context"] = url_encoded_context
+        params["context"] = json.dumps(context)
         if flag_key is not None:
             params["flag_key"] = flag_key
         return params
