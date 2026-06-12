@@ -751,18 +751,20 @@ class Consumer:
             "verbose": 1,
             "ip": 0,
         }
-        if api_key:
-            params["api_key"] = api_key
 
         basic_auth = None
         query_params = {}
         # Use credentials parameter if provided, otherwise fall back to api_secret
         if credentials:
+            # Service account auth - do NOT include api_key in POST body
             basic_auth = credentials.to_http_basic_auth()
             # Service account auth requires project_id as URL query param for backend validation
             query_params["project_id"] = credentials.project_id
         elif api_secret is not None:
             basic_auth = HTTPBasicAuth(api_secret, "")
+            # Add api_key to POST body for legacy api_secret authentication
+            if api_key:
+                params["api_key"] = api_key
 
         try:
             response = self._session.post(
