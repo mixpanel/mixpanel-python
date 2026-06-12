@@ -17,7 +17,10 @@ For prior history, see [`CHANGES.txt`](./CHANGES.txt).
 
 ### Changed
 - `Consumer._write_request()` now accepts service account credentials and conditionally includes `api_key` in POST body only when using legacy API secret authentication (not when using service account credentials)
-- `token` parameter is now optional in `LocalFeatureFlagsProvider` and `RemoteFeatureFlagsProvider` constructors when `credentials` are provided (since `project_id` from credentials is used instead of `token` for authentication)
 
 ### Deprecated
 - `api_key` and `api_secret` parameters are deprecated in favor of `ServiceAccountCredentials`. Logger warnings now alert users when using legacy authentication methods. These parameters will be removed in a future major version.
+
+### Fixed
+- Remote feature flags no longer double-encode the `context` query parameter. Previously, the library manually URL-encoded the context JSON before passing it to `httpx`, which would then encode it again, resulting in double-encoded values being sent to the Mixpanel API. Now `httpx` handles all URL encoding automatically.
+- `alias()` now correctly uses service account credentials when configured on the `Mixpanel` instance. Previously, it would create a new consumer without passing credentials, causing authentication to fail.

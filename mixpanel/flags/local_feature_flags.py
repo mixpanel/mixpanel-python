@@ -36,7 +36,7 @@ class LocalFeatureFlagsProvider:
 
     def __init__(
         self,
-        token: str | None,
+        token: str,
         config: LocalFlagsConfig,
         version: str,
         tracker: Callable,
@@ -44,17 +44,13 @@ class LocalFeatureFlagsProvider:
     ) -> None:
         """Initialize the LocalFeatureFlagsProvider.
 
-        :param str | None token: your project's Mixpanel token (optional if credentials provided)
+        :param str token: your project's Mixpanel token
         :param LocalFlagsConfig config: configuration options for the local feature flags provider
         :param str version: the version of the Mixpanel library being used, just for tracking
         :param Callable tracker: A function used to track flags exposure events to mixpanel
         :param ServiceAccountCredentials credentials: Optional service account credentials for authentication.
-        :raises ValueError: if neither token nor credentials is provided
         """
-        if not token and not credentials:
-            raise ValueError("Either token or credentials must be provided")
-
-        self._token: str | None = token
+        self._token: str = token
         self._config: LocalFlagsConfig = config
         self._version = version
         self._tracker: Callable = tracker
@@ -66,10 +62,8 @@ class LocalFeatureFlagsProvider:
         # Build httpx client parameters
         if credentials:
             auth = httpx.BasicAuth(credentials.username, credentials.secret)
-        elif token:
-            auth = httpx.BasicAuth(token, "")
         else:
-            raise ValueError("Either token or credentials must be provided")
+            auth = httpx.BasicAuth(token, "")
 
         httpx_client_parameters = {
             "base_url": f"https://{config.api_host}",

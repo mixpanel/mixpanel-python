@@ -7,6 +7,8 @@ import httpx
 import pytest
 import respx
 
+from mixpanel.credentials import ServiceAccountCredentials
+
 from .remote_feature_flags import RemoteFeatureFlagsProvider
 from .types import RemoteFlagsConfig, RemoteFlagsResponse, SelectedVariant
 from .utils import REQUEST_HEADERS
@@ -375,12 +377,6 @@ class TestRemoteFeatureFlagsProviderSync:
 
 def test_remote_flags_with_service_account_credentials():
     """Test RemoteFeatureFlagsProvider uses service account credentials for auth."""
-    from unittest.mock import Mock
-    import httpx
-    from mixpanel.credentials import ServiceAccountCredentials
-    from .remote_feature_flags import RemoteFeatureFlagsProvider
-    from .types import RemoteFlagsConfig
-
     config = RemoteFlagsConfig(
         api_host="api.mixpanel.com",
         request_timeout_in_seconds=10
@@ -422,11 +418,6 @@ def test_remote_flags_with_service_account_credentials():
 
 def test_remote_flags_fallback_to_token_without_credentials():
     """Test RemoteFeatureFlagsProvider works with token auth (no credentials)."""
-    from unittest.mock import Mock
-    import httpx
-    from .remote_feature_flags import RemoteFeatureFlagsProvider
-    from .types import RemoteFlagsConfig
-
     config = RemoteFlagsConfig(
         api_host="api.mixpanel.com",
         request_timeout_in_seconds=10

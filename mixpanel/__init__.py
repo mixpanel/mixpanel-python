@@ -263,7 +263,7 @@ class Mixpanel:
             event.update(meta)
 
         sync_consumer = Consumer()
-        sync_consumer.send("events", json_dumps(event, cls=self._serializer))
+        sync_consumer.send("events", json_dumps(event, cls=self._serializer), credentials=self._credentials)
 
     def merge(self, api_key, distinct_id1, distinct_id2, meta=None, api_secret=None):
         """Merges the two given distinct_ids.

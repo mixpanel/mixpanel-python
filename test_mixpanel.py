@@ -410,6 +410,47 @@ class TestMixpanelIdentity(TestMixpanelBase):
                 },
             }
 
+    def test_alias_with_service_account(self):
+        """Test that alias() uses service account credentials when configured."""
+        credentials = mixpanel.ServiceAccountCredentials(
+            username="test_user", secret="test_secret", project_id="test_project_id"
+        )
+        mp = mixpanel.Mixpanel("12345", credentials=credentials)
+
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.POST,
+                "https://api.mixpanel.com/track",
+                json={"status": 1, "error": None},
+                status=200,
+            )
+
+            mp.alias("ALIAS", "ORIGINAL ID")
+
+            call = rsps.calls[0]
+            assert call.request.method == "POST"
+            # Should have project_id query parameter
+            assert "project_id=test_project_id" in call.request.url
+            # Should have basic auth header
+            auth_header = call.request.headers.get("Authorization")
+            assert auth_header is not None
+            assert auth_header.startswith("Basic ")
+            # Verify the payload
+            body = (
+                call.request.body
+                if isinstance(call.request.body, str)
+                else call.request.body.decode("utf-8")
+            )
+            posted_data = dict(urllib_parse.parse_qsl(body))
+            assert json.loads(posted_data["data"]) == {
+                "event": "$create_alias",
+                "properties": {
+                    "alias": "ALIAS",
+                    "token": "12345",
+                    "distinct_id": "ORIGINAL ID",
+                },
+            }
+
     def test_merge(self):
         self.mp.merge("my_good_api_key", "d1", "d2")
         assert self.consumer.log == [

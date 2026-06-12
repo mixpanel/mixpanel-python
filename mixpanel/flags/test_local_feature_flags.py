@@ -10,6 +10,8 @@ import httpx
 import pytest
 import respx
 
+from mixpanel.credentials import ServiceAccountCredentials
+
 from .local_feature_flags import LocalFeatureFlagsProvider
 from .types import (
     ExperimentationFlag,
@@ -829,7 +831,6 @@ def test_local_flags_with_service_account_credentials():
     )
 
     # Create service account credentials
-    from mixpanel.credentials import ServiceAccountCredentials
     credentials = ServiceAccountCredentials(
         username="test-service-account",
         secret="test-service-secret",
@@ -870,7 +871,6 @@ async def test_local_flags_async_with_service_account_credentials():
     )
 
     # Create service account credentials
-    from mixpanel.credentials import ServiceAccountCredentials
     credentials = ServiceAccountCredentials(
         username="test-service-account",
         secret="test-service-secret",
