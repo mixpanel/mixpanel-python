@@ -63,7 +63,7 @@ mp.track(DISTINCT_ID, 'button clicked', {'color': 'blue'})
 mp.people_set(DISTINCT_ID, {'$first_name': 'John'})
 ```
 
-Service account credentials can also be used with `Consumer` and `BufferedConsumer`:
+Service account credentials can also be used with custom consumers like `BufferedConsumer`:
 
 ```python
 from mixpanel import Mixpanel, BufferedConsumer, ServiceAccountCredentials
@@ -74,11 +74,15 @@ credentials = ServiceAccountCredentials(
     project_id='YOUR_PROJECT_ID'
 )
 
-consumer = BufferedConsumer(credentials=credentials)
-mp = Mixpanel(YOUR_TOKEN, consumer=consumer)
+# Pass credentials to Mixpanel, not to BufferedConsumer
+consumer = BufferedConsumer(max_size=50)
+mp = Mixpanel(YOUR_TOKEN, consumer=consumer, credentials=credentials)
+
+# All calls through the consumer will use service account authentication
+mp.track(DISTINCT_ID, 'event_name')
 ```
 
-When service account credentials are provided, they take precedence over API secrets (api_key/api_secret) for authentication.
+When service account credentials are provided, they are automatically used for all API calls and take precedence over API secrets (api_key/api_secret) for authentication.
 
 ### Service Accounts with Feature Flags
 
