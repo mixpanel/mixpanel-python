@@ -58,6 +58,7 @@ class LocalFeatureFlagsProvider:
         self._config: LocalFlagsConfig = config
         self._version = version
         self._tracker: Callable = tracker
+        self._credentials = credentials
 
         self._flag_definitions: dict[str, ExperimentationFlag] = {}
         self._are_flags_ready = False
@@ -77,7 +78,11 @@ class LocalFeatureFlagsProvider:
             "timeout": httpx.Timeout(config.request_timeout_in_seconds),
         }
 
-        self._request_params = prepare_common_query_params(self._token, self._version)
+        # Build request params - use service account (no token) or token auth
+        project_id = credentials.project_id if credentials else None
+        self._request_params = prepare_common_query_params(
+            self._token, self._version, project_id
+        )
 
         self._async_client: httpx.AsyncClient = httpx.AsyncClient(
             **httpx_client_parameters

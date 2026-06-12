@@ -50,6 +50,7 @@ class RemoteFeatureFlagsProvider:
         self._config: RemoteFlagsConfig = config
         self._version: str = version
         self._tracker: Callable = tracker
+        self._credentials = credentials
         self._project_id: str | None = credentials.project_id if credentials else None
 
         # Build httpx client parameters
@@ -71,7 +72,11 @@ class RemoteFeatureFlagsProvider:
             **httpx_client_parameters
         )
         self._sync_client: httpx.Client = httpx.Client(**httpx_client_parameters)
-        self._request_params_base = prepare_common_query_params(self._token, version)
+
+        # Build request params - use service account (no token) or token auth
+        self._request_params_base = prepare_common_query_params(
+            self._token, version, self._project_id
+        )
 
     async def aget_all_variants(
         self, context: dict[str, Any]
