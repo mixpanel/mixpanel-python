@@ -131,6 +131,12 @@ ignore = [
     "S101", "S105", "S106", "SLF001", "PLR2004",
     "D", "PT018", "B006",
 ]
+"mixpanel/flags/local_feature_flags.py" = [
+    "TC001",  # ServiceAccountCredentials used at runtime (credentials.username, etc), not just type hints
+]
+"mixpanel/flags/remote_feature_flags.py" = [
+    "TC001",  # ServiceAccountCredentials used at runtime (credentials.username, etc), not just type hints
+]
 "demo/*.py" = [
     "INP001",  # implicit-namespace-package
     "T201",    # print

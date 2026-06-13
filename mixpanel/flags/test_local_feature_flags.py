@@ -24,7 +24,6 @@ from .types import (
     Variant,
     VariantOverride,
 )
-from .utils import REQUEST_HEADERS
 
 TEST_FLAG_KEY = "test_flag"
 DISTINCT_ID = "user123"

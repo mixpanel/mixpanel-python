@@ -32,11 +32,11 @@ class ServiceAccountCredentials:
 
     def __init__(self, username: str, secret: str, project_id: str):
         if not isinstance(username, str):
-            raise ValueError("Service account username must be a string")
+            raise TypeError("Service account username must be a string")
         if not isinstance(secret, str):
-            raise ValueError("Service account secret must be a string")
+            raise TypeError("Service account secret must be a string")
         if not isinstance(project_id, str):
-            raise ValueError("Service account project_id must be a string")
+            raise TypeError("Service account project_id must be a string")
 
         if not username or not username.strip():
             raise ValueError("Service account username cannot be empty")

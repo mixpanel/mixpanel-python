@@ -11,7 +11,6 @@ from mixpanel.credentials import ServiceAccountCredentials
 
 from .remote_feature_flags import RemoteFeatureFlagsProvider
 from .types import RemoteFlagsConfig, RemoteFlagsResponse, SelectedVariant
-from .utils import REQUEST_HEADERS
 
 ENDPOINT = "https://api.mixpanel.com/flags"
 

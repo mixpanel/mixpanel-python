@@ -1165,35 +1165,35 @@ class TestServiceAccountAuth:
     def test_credentials_rejects_non_string_types(self):
         """Test ServiceAccountCredentials rejects non-string types with clear error messages."""
         # Integer project_id (common mistake when copying from dashboard)
-        with pytest.raises(ValueError, match="project_id must be a string"):
+        with pytest.raises(TypeError, match="project_id must be a string"):
             mixpanel.ServiceAccountCredentials(
                 username="user", secret="secret", project_id=123456
             )
 
         # Integer username
-        with pytest.raises(ValueError, match="username must be a string"):
+        with pytest.raises(TypeError, match="username must be a string"):
             mixpanel.ServiceAccountCredentials(
                 username=12345, secret="secret", project_id="123"
             )
 
         # Integer secret
-        with pytest.raises(ValueError, match="secret must be a string"):
+        with pytest.raises(TypeError, match="secret must be a string"):
             mixpanel.ServiceAccountCredentials(
                 username="user", secret=12345, project_id="123"
             )
 
         # None values
-        with pytest.raises(ValueError, match="username must be a string"):
+        with pytest.raises(TypeError, match="username must be a string"):
             mixpanel.ServiceAccountCredentials(
                 username=None, secret="secret", project_id="123"
             )
 
-        with pytest.raises(ValueError, match="secret must be a string"):
+        with pytest.raises(TypeError, match="secret must be a string"):
             mixpanel.ServiceAccountCredentials(
                 username="user", secret=None, project_id="123"
             )
 
-        with pytest.raises(ValueError, match="project_id must be a string"):
+        with pytest.raises(TypeError, match="project_id must be a string"):
             mixpanel.ServiceAccountCredentials(
                 username="user", secret="secret", project_id=None
             )
