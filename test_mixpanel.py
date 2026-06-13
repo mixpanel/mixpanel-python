@@ -5,6 +5,7 @@ import datetime
 import decimal
 import json
 import time
+from unittest.mock import patch
 from urllib import parse as urllib_parse
 
 import pytest
@@ -1242,9 +1243,6 @@ class TestServiceAccountAuth:
 
     def test_warns_when_credentials_ignored(self):
         """Test that a warning is logged when credentials are passed to Mixpanel with a custom consumer."""
-        import logging
-        from unittest.mock import patch
-
         credentials = mixpanel.ServiceAccountCredentials(
             username=self.SERVICE_ACCOUNT_USERNAME,
             secret=self.SERVICE_ACCOUNT_SECRET,
@@ -1254,17 +1252,17 @@ class TestServiceAccountAuth:
         consumer = mixpanel.BufferedConsumer(max_size=1)
 
         # Should warn when both consumer and credentials are provided
-        with patch('mixpanel.logger.warning') as mock_warning:
-            mp = mixpanel.Mixpanel(self.TOKEN, consumer=consumer, credentials=credentials)
+        with patch("mixpanel.logger.warning") as mock_warning:
+            mixpanel.Mixpanel(self.TOKEN, consumer=consumer, credentials=credentials)
             mock_warning.assert_called_once()
             assert "ignored when a custom consumer is provided" in mock_warning.call_args[0][0]
 
         # Should NOT warn when only credentials are provided (consumer is auto-created)
-        with patch('mixpanel.logger.warning') as mock_warning:
-            mp = mixpanel.Mixpanel(self.TOKEN, credentials=credentials)
+        with patch("mixpanel.logger.warning") as mock_warning:
+            mixpanel.Mixpanel(self.TOKEN, credentials=credentials)
             mock_warning.assert_not_called()
 
         # Should NOT warn when only consumer is provided (no credentials)
-        with patch('mixpanel.logger.warning') as mock_warning:
-            mp = mixpanel.Mixpanel(self.TOKEN, consumer=consumer)
+        with patch("mixpanel.logger.warning") as mock_warning:
+            mixpanel.Mixpanel(self.TOKEN, consumer=consumer)
             mock_warning.assert_not_called()
