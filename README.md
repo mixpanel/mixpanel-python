@@ -75,15 +75,18 @@ credentials = ServiceAccountCredentials(
     project_id='YOUR_PROJECT_ID'
 )
 
-# Pass credentials to Mixpanel, not to BufferedConsumer
-consumer = BufferedConsumer(max_size=50)
-mp = Mixpanel(YOUR_TOKEN, consumer=consumer, credentials=credentials)
+# Option 1: Pass credentials to the consumer constructor
+consumer = BufferedConsumer(max_size=50, credentials=credentials)
+mp = Mixpanel(YOUR_TOKEN, consumer=consumer)
+
+# Option 2: Let Mixpanel create the default consumer with credentials
+mp = Mixpanel(YOUR_TOKEN, credentials=credentials)
 
 # Event tracking uses the token (sent in payload)
 mp.track(DISTINCT_ID, 'event_name')
 ```
 
-Service account credentials are used for endpoints that require authentication (such as feature flags). Event tracking operations (`track`, `people_set`, etc.) use the token provided in the constructor, which is sent in the event payload.
+Service account credentials are only used for the `/import` endpoint and feature flags. Regular event tracking operations (`track`, `people_set`, `group_set`) use the token provided in the constructor, which is sent in the event payload.
 
 ### Service Accounts with Feature Flags
 

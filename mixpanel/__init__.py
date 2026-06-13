@@ -707,6 +707,8 @@ class Consumer:
     :param int retry_backoff_factor: In case of retries, controls sleep time. e.g.,
         sleep_seconds = backoff_factor * (2 ^ (num_total_retries - 1)).
     :param bool verify_cert: whether to verify the server certificate.
+    :param ServiceAccountCredentials credentials: optional service account
+        credentials for authentication. Only used for /import endpoint.
 
     .. versionadded:: 4.6.0
         The *api_host* parameter.
@@ -782,10 +784,8 @@ class Consumer:
 
     def _write_request(self, request_url, json_message, api_key=None, api_secret=None, endpoint=None):
         if isinstance(api_key, tuple):
-            # Backward compatibility: In older versions, api_key and api_secret were passed
-            # as a tuple (api_key, api_secret) in the api_key parameter position.
-            # We changed to separate parameters to add the credentials parameter,
-            # but maintain backward compatibility by unpacking tuples here.
+            # Backward compatibility: api_key can be a single value or a tuple (api_key, api_secret).
+            # BufferedConsumer packs them into a tuple internally for storage, so unpack here.
             api_key, api_secret = api_key
 
         params = {
@@ -856,6 +856,8 @@ class BufferedConsumer:
     :param int retry_backoff_factor: In case of retries, controls sleep time. e.g.,
         sleep_seconds = backoff_factor * (2 ^ (num_total_retries - 1)).
     :param bool verify_cert: whether to verify the server certificate.
+    :param ServiceAccountCredentials credentials: optional service account
+        credentials for authentication. Only used for /import endpoint.
 
     .. versionadded:: 4.6.0
         The *api_host* parameter.
