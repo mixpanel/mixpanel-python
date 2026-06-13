@@ -1088,9 +1088,9 @@ class TestServiceAccountAuth:
             project_id=self.PROJECT_ID,
         )
 
-        # BufferedConsumer doesn't take credentials - they come from Mixpanel instance
-        consumer = mixpanel.BufferedConsumer(max_size=1)
-        mp = mixpanel.Mixpanel(self.TOKEN, consumer=consumer, credentials=credentials)
+        # Pass credentials to BufferedConsumer - they should NOT be used for /track
+        consumer = mixpanel.BufferedConsumer(max_size=1, credentials=credentials)
+        mp = mixpanel.Mixpanel(self.TOKEN, consumer=consumer)
 
         mp.track(self.DISTINCT_ID, "test_event")
 
