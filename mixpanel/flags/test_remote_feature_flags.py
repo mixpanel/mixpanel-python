@@ -203,6 +203,48 @@ class TestRemoteFeatureFlagsProviderAsync:
         self.mock_tracker.assert_called_once()
 
 
+class TestPrepareQueryParams:
+    def setup_method(self):
+        config = RemoteFlagsConfig()
+        self.mock_tracker = Mock()
+        self._flags = RemoteFeatureFlagsProvider(
+            "test-token", config, "1.0.0", self.mock_tracker
+        )
+
+    def teardown_method(self):
+        self._flags.__exit__(None, None, None)
+
+    def test_context_is_json_string_not_url_encoded(self):
+        context = {"distinct_id": "user123", "plan": "premium"}
+        params = self._flags._prepare_query_params(context)
+        assert params["context"] == '{"distinct_id": "user123", "plan": "premium"}'
+
+    def test_context_is_not_bytes(self):
+        context = {"distinct_id": "user123"}
+        params = self._flags._prepare_query_params(context)
+        assert isinstance(params["context"], str)
+
+    def test_flag_key_included_when_provided(self):
+        context = {"distinct_id": "user123"}
+        params = self._flags._prepare_query_params(context, flag_key="my_flag")
+        assert params["flag_key"] == "my_flag"
+
+    def test_flag_key_absent_when_not_provided(self):
+        context = {"distinct_id": "user123"}
+        params = self._flags._prepare_query_params(context)
+        assert "flag_key" not in params
+
+    @respx.mock
+    def test_request_url_has_properly_encoded_context(self):
+        respx.get(ENDPOINT).mock(return_value=create_success_response({}))
+        self._flags.get_all_variants({"distinct_id": "user123"})
+
+        request = respx.calls.last.request
+        url_str = str(request.url)
+        assert "%257B" not in url_str, "context param is double-encoded"
+        assert "b%27" not in url_str, "context param contains bytes literal"
+
+
 class TestRemoteFeatureFlagsProviderSync:
     def setup_method(self):
         config = RemoteFlagsConfig()
