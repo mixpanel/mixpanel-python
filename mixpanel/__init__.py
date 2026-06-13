@@ -77,7 +77,7 @@ class Mixpanel:
     ):
         self._token = token
         self._credentials = credentials
-        self._consumer = consumer or Consumer()
+        self._consumer = consumer or Consumer(credentials=credentials)
         self._serializer = serializer
 
         self._local_flags_provider = None
@@ -231,10 +231,12 @@ class Mixpanel:
         if meta:
             event.update(meta)
 
-        # Pass api_key and api_secret as separate parameters (not tuple) to support credentials parameter.
-        # Backward compatibility for tuple format is maintained in Consumer._write_request()
+        # Pass api_key and api_secret as tuple.
+        # Credentials are passed via Consumer constructor, not send().
         self._consumer.send(
-            "imports", json_dumps(event, cls=self._serializer), api_key, api_secret, self._credentials
+            "imports",
+            json_dumps(event, cls=self._serializer),
+            (api_key, api_secret)
         )
 
     def alias(self, alias_id, original, meta=None):
@@ -329,10 +331,12 @@ class Mixpanel:
         }
         if meta:
             event.update(meta)
-        # Pass api_key and api_secret as separate parameters (not tuple) to support credentials parameter.
-        # Backward compatibility for tuple format is maintained in Consumer._write_request()
+        # Pass api_key and api_secret as tuple.
+        # Credentials are passed via Consumer constructor, not send().
         self._consumer.send(
-            "imports", json_dumps(event, cls=self._serializer), api_key, api_secret, self._credentials
+            "imports",
+            json_dumps(event, cls=self._serializer),
+            (api_key, api_secret)
         )
 
     def people_set(self, distinct_id, properties, meta=None):
@@ -721,6 +725,7 @@ class Consumer:
         retry_limit=4,
         retry_backoff_factor=0.25,
         verify_cert=True,
+        credentials=None,
     ):
         # TODO: With next major version, make the above args kwarg-only, and reorder them.
         self._endpoints = {
@@ -732,6 +737,7 @@ class Consumer:
 
         self._verify_cert = verify_cert
         self._request_timeout = request_timeout
+        self._credentials = credentials
 
         # Work around renamed argument in urllib3.
         if hasattr(urllib3.util.Retry.DEFAULT, "allowed_methods"):
@@ -752,7 +758,7 @@ class Consumer:
         self._session = requests.Session()
         self._session.mount("https://", adapter)
 
-    def send(self, endpoint, json_message, api_key=None, api_secret=None, credentials=None):
+    def send(self, endpoint, json_message, api_key=None, api_secret=None):
         """Immediately record an event or a profile update.
 
         :param endpoint: the Mixpanel API endpoint appropriate for the message
@@ -760,7 +766,6 @@ class Consumer:
         :param str json_message: a JSON message formatted for the endpoint
         :param str api_key: your Mixpanel project's API key
         :param str api_secret: your Mixpanel project's API secret
-        :param ServiceAccountCredentials credentials: Optional service account credentials
         :raises MixpanelException: if the endpoint doesn't exist, the server is
             unreachable, or the message cannot be processed
 
@@ -772,10 +777,10 @@ class Consumer:
             raise MixpanelException(msg)
 
         self._write_request(
-            self._endpoints[endpoint], json_message, api_key, api_secret, credentials
+            self._endpoints[endpoint], json_message, api_key, api_secret, endpoint
         )
 
-    def _write_request(self, request_url, json_message, api_key=None, api_secret=None, credentials=None):
+    def _write_request(self, request_url, json_message, api_key=None, api_secret=None, endpoint=None):
         if isinstance(api_key, tuple):
             # Backward compatibility: In older versions, api_key and api_secret were passed
             # as a tuple (api_key, api_secret) in the api_key parameter position.
@@ -791,12 +796,16 @@ class Consumer:
 
         basic_auth = None
         query_params = {}
-        # Use credentials parameter if provided, otherwise fall back to api_secret
-        if credentials:
+
+        # Service account credentials are only supported for /import endpoint
+        # For other endpoints (events, people, groups), do not use credentials
+        use_credentials = self._credentials and endpoint == "imports"
+
+        if use_credentials:
             # Service account auth - do NOT include api_key in POST body
-            basic_auth = credentials.to_http_basic_auth()
+            basic_auth = self._credentials.to_http_basic_auth()
             # Service account auth requires project_id as URL query param for backend validation
-            query_params["project_id"] = credentials.project_id
+            query_params["project_id"] = self._credentials.project_id
         elif api_secret is not None:
             basic_auth = HTTPBasicAuth(api_secret, "")
             # Add api_key to POST body for legacy api_secret authentication
@@ -872,6 +881,7 @@ class BufferedConsumer:
         retry_limit=4,
         retry_backoff_factor=0.25,
         verify_cert=True,
+        credentials=None,
     ):
         self._consumer = Consumer(
             events_url,
@@ -883,6 +893,7 @@ class BufferedConsumer:
             retry_limit,
             retry_backoff_factor,
             verify_cert,
+            credentials,
         )
         self._buffers = {
             "events": [],
@@ -893,9 +904,9 @@ class BufferedConsumer:
         self._max_size = min(50, max_size)
         self._api_key = None
         self._api_secret = None
-        self._credentials = None
+        self._credentials = credentials
 
-    def send(self, endpoint, json_message, api_key=None, api_secret=None, credentials=None):
+    def send(self, endpoint, json_message, api_key=None, api_secret=None):
         """Record an event or profile update.
 
         Internally, adds the message to a buffer, and then flushes the buffer
@@ -908,7 +919,6 @@ class BufferedConsumer:
         :param str json_message: a JSON message formatted for the endpoint
         :param str api_key: your Mixpanel project's API key
         :param str api_secret: your Mixpanel project's API secret
-        :param ServiceAccountCredentials credentials: Optional service account credentials
         :raises MixpanelException: if the endpoint doesn't exist, the server is
             unreachable, or any buffered message cannot be processed
 
@@ -924,11 +934,9 @@ class BufferedConsumer:
 
         buf = self._buffers[endpoint]
         buf.append(json_message)
-        # TODO: Don't stick these in the instance. Works fine through Mixpanel class since
-        # import_data() and track() always pass credentials explicitly, but fragile for direct usage.
+        # TODO: Don't stick these in the instance.
         self._api_key = api_key
         self._api_secret = api_secret
-        self._credentials = credentials
         if len(buf) >= self._max_size:
             self._flush_endpoint(endpoint)
 
@@ -948,15 +956,8 @@ class BufferedConsumer:
             batch = buf[: self._max_size]
             batch_json = "[{}]".format(",".join(batch))
             try:
-                # Only pass credentials for import endpoint; other endpoints (events, people, groups) don't support service account auth
-                credentials_for_endpoint = self._credentials if endpoint == "imports" else None
-
-                # Unpack api_key tuple if it was packed
-                if isinstance(self._api_key, tuple):
-                    ak, secret = self._api_key
-                    self._consumer.send(endpoint, batch_json, ak, secret, credentials_for_endpoint)
-                else:
-                    self._consumer.send(endpoint, batch_json, self._api_key, self._api_secret, credentials_for_endpoint)
+                # Credentials are passed via Consumer constructor, not send()
+                self._consumer.send(endpoint, batch_json, api_key=self._api_key)
             except MixpanelException as orig_e:
                 mp_e = MixpanelException(orig_e)
                 mp_e.message = batch_json

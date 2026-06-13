@@ -18,10 +18,17 @@ class LogConsumer:
     def __init__(self):
         self.log = []
 
-    def send(self, endpoint, event, api_key=None, api_secret=None, credentials=None):
+    def send(self, endpoint, event, api_key=None):
         entry = [endpoint, json.loads(event)]
-        if api_key is not None or api_secret is not None:
-            entry.append((api_key, api_secret))
+        # Only append api_key if it's not (None, None)
+        if api_key is not None:
+            # api_key might be a single value or (api_key, api_secret) tuple
+            if isinstance(api_key, tuple):
+                # Don't append if it's (None, None)
+                if api_key != (None, None):
+                    entry.append(api_key)
+            else:
+                entry.append(api_key)
         self.log.append(tuple(entry))
 
     def clear(self):
@@ -842,7 +849,7 @@ class TestBufferedConsumer:
         assert self.log == [("imports", ["Event"], ("MY_API_KEY", None))]
 
     def test_send_remembers_api_secret(self):
-        self.consumer.send("imports", '"Event"', api_secret="ZZZZZZ")
+        self.consumer.send("imports", '"Event"', (None, "ZZZZZZ"))
         assert len(self.log) == 0
         self.consumer.flush()
         assert self.log == [("imports", ["Event"], (None, "ZZZZZZ"))]
@@ -947,10 +954,10 @@ class TestServiceAccountAuth:
             secret=self.SERVICE_ACCOUNT_SECRET,
             project_id=self.PROJECT_ID,
         )
-        consumer = mixpanel.Consumer()
+        consumer = mixpanel.Consumer(credentials=credentials)
 
         event = json.dumps({"event": "test_event", "properties": {"token": self.TOKEN}})
-        consumer.send("imports", event, credentials=credentials)
+        consumer.send("imports", event)
 
         assert len(responses.calls) == 1
         request = responses.calls[0].request
@@ -1209,8 +1216,8 @@ class TestServiceAccountAuth:
             project_id=self.PROJECT_ID,
         )
 
-        consumer = mixpanel.BufferedConsumer(max_size=1)
-        mp = mixpanel.Mixpanel(self.TOKEN, consumer=consumer, credentials=credentials)
+        consumer = mixpanel.BufferedConsumer(max_size=1, credentials=credentials)
+        mp = mixpanel.Mixpanel(self.TOKEN, consumer=consumer)
 
         mp.import_data(
             api_key=None,
