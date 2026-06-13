@@ -816,15 +816,14 @@ class TestLocalFeatureFlagsProviderSync:
 def test_local_flags_with_service_account_credentials():
     """Test LocalFeatureFlagsProvider accepts httpx client params with service account auth."""
     config = LocalFlagsConfig(
-        api_host="api.mixpanel.com",
-        request_timeout_in_seconds=10
+        api_host="api.mixpanel.com", request_timeout_in_seconds=10
     )
 
     # Create service account credentials
     credentials = ServiceAccountCredentials(
         username="test-service-account",
         secret="test-service-secret",
-        project_id="12345"
+        project_id="12345",
     )
 
     tracker = Mock()
@@ -833,7 +832,7 @@ def test_local_flags_with_service_account_credentials():
         config=config,
         version="1.0.0",
         tracker=tracker,
-        credentials=credentials
+        credentials=credentials,
     )
 
     # Verify the httpx clients were configured with httpx.BasicAuth
@@ -856,15 +855,14 @@ def test_local_flags_with_service_account_credentials():
 async def test_local_flags_async_with_service_account_credentials():
     """Test LocalFeatureFlagsProvider async client works with service account auth."""
     config = LocalFlagsConfig(
-        api_host="api.mixpanel.com",
-        request_timeout_in_seconds=10
+        api_host="api.mixpanel.com", request_timeout_in_seconds=10
     )
 
     # Create service account credentials
     credentials = ServiceAccountCredentials(
         username="test-service-account",
         secret="test-service-secret",
-        project_id="12345"
+        project_id="12345",
     )
 
     tracker = Mock()
@@ -873,7 +871,7 @@ async def test_local_flags_async_with_service_account_credentials():
         config=config,
         version="1.0.0",
         tracker=tracker,
-        credentials=credentials
+        credentials=credentials,
     )
 
     # Verify auth configured with httpx.BasicAuth
@@ -887,8 +885,7 @@ async def test_local_flags_async_with_service_account_credentials():
 def test_local_flags_fallback_to_token_without_credentials():
     """Test LocalFeatureFlagsProvider works with token auth (no credentials)."""
     config = LocalFlagsConfig(
-        api_host="api.mixpanel.com",
-        request_timeout_in_seconds=10
+        api_host="api.mixpanel.com", request_timeout_in_seconds=10
     )
 
     tracker = Mock()
@@ -897,7 +894,7 @@ def test_local_flags_fallback_to_token_without_credentials():
         config=config,
         version="1.0.0",
         tracker=tracker,
-        credentials=None
+        credentials=None,
     )
 
     # Verify auth still configured (using token)

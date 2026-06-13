@@ -368,15 +368,14 @@ class TestRemoteFeatureFlagsProviderSync:
 def test_remote_flags_with_service_account_credentials():
     """Test RemoteFeatureFlagsProvider uses service account credentials for auth."""
     config = RemoteFlagsConfig(
-        api_host="api.mixpanel.com",
-        request_timeout_in_seconds=10
+        api_host="api.mixpanel.com", request_timeout_in_seconds=10
     )
 
     # Create service account credentials
     credentials = ServiceAccountCredentials(
         username="test-service-account",
         secret="test-service-secret",
-        project_id="12345"
+        project_id="12345",
     )
 
     tracker = Mock()
@@ -385,7 +384,7 @@ def test_remote_flags_with_service_account_credentials():
         config=config,
         version="1.0.0",
         tracker=tracker,
-        credentials=credentials
+        credentials=credentials,
     )
 
     # Verify the httpx clients were configured with httpx.BasicAuth
@@ -409,8 +408,7 @@ def test_remote_flags_with_service_account_credentials():
 def test_remote_flags_fallback_to_token_without_credentials():
     """Test RemoteFeatureFlagsProvider works with token auth (no credentials)."""
     config = RemoteFlagsConfig(
-        api_host="api.mixpanel.com",
-        request_timeout_in_seconds=10
+        api_host="api.mixpanel.com", request_timeout_in_seconds=10
     )
 
     tracker = Mock()
@@ -419,7 +417,7 @@ def test_remote_flags_fallback_to_token_without_credentials():
         config=config,
         version="1.0.0",
         tracker=tracker,
-        credentials=None
+        credentials=None,
     )
 
     # Verify auth still configured (using token)

@@ -241,9 +241,7 @@ class Mixpanel:
             event.update(meta)
 
         self._consumer.send(
-            "imports",
-            json_dumps(event, cls=self._serializer),
-            (api_key, api_secret)
+            "imports", json_dumps(event, cls=self._serializer), (api_key, api_secret)
         )
 
     def alias(self, alias_id, original, meta=None):
@@ -340,9 +338,7 @@ class Mixpanel:
             event.update(meta)
 
         self._consumer.send(
-            "imports",
-            json_dumps(event, cls=self._serializer),
-            (api_key, api_secret)
+            "imports", json_dumps(event, cls=self._serializer), (api_key, api_secret)
         )
 
     def people_set(self, distinct_id, properties, meta=None):
@@ -788,7 +784,9 @@ class Consumer:
             self._endpoints[endpoint], json_message, api_key, api_secret, endpoint
         )
 
-    def _write_request(self, request_url, json_message, api_key=None, api_secret=None, endpoint=None):
+    def _write_request(
+        self, request_url, json_message, api_key=None, api_secret=None, endpoint=None
+    ):
         if isinstance(api_key, tuple):
             # Backward compatibility: api_key can be a single value or a tuple (api_key, api_secret).
             # BufferedConsumer packs them into a tuple internally for storage, so unpack here.
@@ -822,7 +820,7 @@ class Consumer:
             response = self._session.post(
                 request_url,
                 params=query_params,  # URL query parameters (includes project_id for service accounts)
-                data=params,           # POST body data
+                data=params,  # POST body data
                 auth=basic_auth,
                 timeout=self._request_timeout,
                 verify=self._verify_cert,

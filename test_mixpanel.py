@@ -1128,58 +1128,80 @@ class TestServiceAccountAuth:
         """Test ServiceAccountCredentials validates all required fields are provided."""
         # Empty username
         with pytest.raises(ValueError, match="username cannot be empty"):
-            mixpanel.ServiceAccountCredentials(username="", secret="secret", project_id="123")
+            mixpanel.ServiceAccountCredentials(
+                username="", secret="secret", project_id="123"
+            )
 
         # Empty secret
         with pytest.raises(ValueError, match="secret cannot be empty"):
-            mixpanel.ServiceAccountCredentials(username="user", secret="", project_id="123")
+            mixpanel.ServiceAccountCredentials(
+                username="user", secret="", project_id="123"
+            )
 
         # Empty project_id
         with pytest.raises(ValueError, match="project_id cannot be empty"):
-            mixpanel.ServiceAccountCredentials(username="user", secret="secret", project_id="")
+            mixpanel.ServiceAccountCredentials(
+                username="user", secret="secret", project_id=""
+            )
 
         # Whitespace-only username
         with pytest.raises(ValueError, match="username cannot be empty"):
-            mixpanel.ServiceAccountCredentials(username="   ", secret="secret", project_id="123")
+            mixpanel.ServiceAccountCredentials(
+                username="   ", secret="secret", project_id="123"
+            )
 
         # Whitespace-only secret
         with pytest.raises(ValueError, match="secret cannot be empty"):
-            mixpanel.ServiceAccountCredentials(username="user", secret="   ", project_id="123")
+            mixpanel.ServiceAccountCredentials(
+                username="user", secret="   ", project_id="123"
+            )
 
         # Whitespace-only project_id
         with pytest.raises(ValueError, match="project_id cannot be empty"):
-            mixpanel.ServiceAccountCredentials(username="user", secret="secret", project_id="   ")
+            mixpanel.ServiceAccountCredentials(
+                username="user", secret="secret", project_id="   "
+            )
 
     def test_credentials_rejects_non_string_types(self):
         """Test ServiceAccountCredentials rejects non-string types with clear error messages."""
         # Integer project_id (common mistake when copying from dashboard)
         with pytest.raises(ValueError, match="project_id must be a string"):
-            mixpanel.ServiceAccountCredentials(username="user", secret="secret", project_id=123456)
+            mixpanel.ServiceAccountCredentials(
+                username="user", secret="secret", project_id=123456
+            )
 
         # Integer username
         with pytest.raises(ValueError, match="username must be a string"):
-            mixpanel.ServiceAccountCredentials(username=12345, secret="secret", project_id="123")
+            mixpanel.ServiceAccountCredentials(
+                username=12345, secret="secret", project_id="123"
+            )
 
         # Integer secret
         with pytest.raises(ValueError, match="secret must be a string"):
-            mixpanel.ServiceAccountCredentials(username="user", secret=12345, project_id="123")
+            mixpanel.ServiceAccountCredentials(
+                username="user", secret=12345, project_id="123"
+            )
 
         # None values
         with pytest.raises(ValueError, match="username must be a string"):
-            mixpanel.ServiceAccountCredentials(username=None, secret="secret", project_id="123")
+            mixpanel.ServiceAccountCredentials(
+                username=None, secret="secret", project_id="123"
+            )
 
         with pytest.raises(ValueError, match="secret must be a string"):
-            mixpanel.ServiceAccountCredentials(username="user", secret=None, project_id="123")
+            mixpanel.ServiceAccountCredentials(
+                username="user", secret=None, project_id="123"
+            )
 
         with pytest.raises(ValueError, match="project_id must be a string"):
-            mixpanel.ServiceAccountCredentials(username="user", secret="secret", project_id=None)
+            mixpanel.ServiceAccountCredentials(
+                username="user", secret="secret", project_id=None
+            )
 
     def test_credentials_strips_whitespace(self):
         """Test ServiceAccountCredentials strips leading/trailing whitespace."""
         credentials = mixpanel.ServiceAccountCredentials(
-            username="  test-user  ",
-            secret="  test-secret  ",
-            project_id="  123456  "
+            username="  test-user  ", secret="  test-secret  ", project_id="  123456  "
         )
 
         assert credentials.username == "test-user"
@@ -1255,7 +1277,10 @@ class TestServiceAccountAuth:
         with patch("mixpanel.logger.warning") as mock_warning:
             mixpanel.Mixpanel(self.TOKEN, consumer=consumer, credentials=credentials)
             mock_warning.assert_called_once()
-            assert "ignored when a custom consumer is provided" in mock_warning.call_args[0][0]
+            assert (
+                "ignored when a custom consumer is provided"
+                in mock_warning.call_args[0][0]
+            )
 
         # Should NOT warn when only credentials are provided (consumer is auto-created)
         with patch("mixpanel.logger.warning") as mock_warning:
