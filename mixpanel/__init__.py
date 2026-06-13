@@ -80,13 +80,10 @@ class Mixpanel:
 
         # Warn if credentials are provided but won't be used due to custom consumer
         if consumer is not None and credentials is not None:
-            import warnings
-            warnings.warn(
+            logger.warning(
                 "Credentials passed to Mixpanel() are ignored when a custom consumer is provided. "
                 "Pass credentials to your consumer's constructor instead: "
-                "Consumer(credentials=...) or BufferedConsumer(credentials=...)",
-                UserWarning,
-                stacklevel=2
+                "Consumer(credentials=...)"
             )
 
         self._consumer = consumer or Consumer(credentials=credentials)
@@ -243,8 +240,6 @@ class Mixpanel:
         if meta:
             event.update(meta)
 
-        # Pass api_key and api_secret as tuple.
-        # Credentials are passed via Consumer constructor, not send().
         self._consumer.send(
             "imports",
             json_dumps(event, cls=self._serializer),
@@ -343,8 +338,7 @@ class Mixpanel:
         }
         if meta:
             event.update(meta)
-        # Pass api_key and api_secret as tuple.
-        # Credentials are passed via Consumer constructor, not send().
+
         self._consumer.send(
             "imports",
             json_dumps(event, cls=self._serializer),

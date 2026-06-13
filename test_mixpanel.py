@@ -1241,8 +1241,9 @@ class TestServiceAccountAuth:
         assert f"project_id={self.PROJECT_ID}" in request.url
 
     def test_warns_when_credentials_ignored(self):
-        """Test that a warning is raised when credentials are passed to Mixpanel with a custom consumer."""
-        import warnings
+        """Test that a warning is logged when credentials are passed to Mixpanel with a custom consumer."""
+        import logging
+        from unittest.mock import patch
 
         credentials = mixpanel.ServiceAccountCredentials(
             username=self.SERVICE_ACCOUNT_USERNAME,
@@ -1253,22 +1254,17 @@ class TestServiceAccountAuth:
         consumer = mixpanel.BufferedConsumer(max_size=1)
 
         # Should warn when both consumer and credentials are provided
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
+        with patch('mixpanel.logger.warning') as mock_warning:
             mp = mixpanel.Mixpanel(self.TOKEN, consumer=consumer, credentials=credentials)
-
-            assert len(w) == 1
-            assert issubclass(w[0].category, UserWarning)
-            assert "ignored when a custom consumer is provided" in str(w[0].message)
+            mock_warning.assert_called_once()
+            assert "ignored when a custom consumer is provided" in mock_warning.call_args[0][0]
 
         # Should NOT warn when only credentials are provided (consumer is auto-created)
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
+        with patch('mixpanel.logger.warning') as mock_warning:
             mp = mixpanel.Mixpanel(self.TOKEN, credentials=credentials)
-            assert len(w) == 0
+            mock_warning.assert_not_called()
 
         # Should NOT warn when only consumer is provided (no credentials)
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
+        with patch('mixpanel.logger.warning') as mock_warning:
             mp = mixpanel.Mixpanel(self.TOKEN, consumer=consumer)
-            assert len(w) == 0
+            mock_warning.assert_not_called()
