@@ -18,6 +18,7 @@ For prior history, see [`CHANGES.txt`](./CHANGES.txt).
 ### Changed
 - `Consumer` and `BufferedConsumer` now accept service account credentials in their constructors. Credentials are configured once at construction time rather than being passed on every `send()` call, providing cleaner architecture and better encapsulation.
 - `Consumer._write_request()` internally checks `self._credentials` and the endpoint to determine whether to use service account authentication, conditionally including `api_key` in POST body only when using legacy API secret authentication (not when using service account credentials)
+- `Mixpanel()` constructor now emits a `UserWarning` when both `consumer` and `credentials` parameters are provided. When a custom consumer is supplied, credentials passed to `Mixpanel()` are ignored - they must be passed to the consumer's constructor instead to take effect. This warning helps prevent silent authentication failures.
 
 ### Deprecated
 - `api_key` and `api_secret` parameters are deprecated in favor of `ServiceAccountCredentials`. Logger warnings now alert users when using legacy authentication methods. These parameters will be removed in a future major version.

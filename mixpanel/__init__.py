@@ -77,6 +77,18 @@ class Mixpanel:
     ):
         self._token = token
         self._credentials = credentials
+
+        # Warn if credentials are provided but won't be used due to custom consumer
+        if consumer is not None and credentials is not None:
+            import warnings
+            warnings.warn(
+                "Credentials passed to Mixpanel() are ignored when a custom consumer is provided. "
+                "Pass credentials to your consumer's constructor instead: "
+                "Consumer(credentials=...) or BufferedConsumer(credentials=...)",
+                UserWarning,
+                stacklevel=2
+            )
+
         self._consumer = consumer or Consumer(credentials=credentials)
         self._serializer = serializer
 

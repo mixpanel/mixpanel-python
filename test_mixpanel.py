@@ -1239,3 +1239,36 @@ class TestServiceAccountAuth:
 
         # Verify project_id query param IS present for /import
         assert f"project_id={self.PROJECT_ID}" in request.url
+
+    def test_warns_when_credentials_ignored(self):
+        """Test that a warning is raised when credentials are passed to Mixpanel with a custom consumer."""
+        import warnings
+
+        credentials = mixpanel.ServiceAccountCredentials(
+            username=self.SERVICE_ACCOUNT_USERNAME,
+            secret=self.SERVICE_ACCOUNT_SECRET,
+            project_id=self.PROJECT_ID,
+        )
+
+        consumer = mixpanel.BufferedConsumer(max_size=1)
+
+        # Should warn when both consumer and credentials are provided
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            mp = mixpanel.Mixpanel(self.TOKEN, consumer=consumer, credentials=credentials)
+
+            assert len(w) == 1
+            assert issubclass(w[0].category, UserWarning)
+            assert "ignored when a custom consumer is provided" in str(w[0].message)
+
+        # Should NOT warn when only credentials are provided (consumer is auto-created)
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            mp = mixpanel.Mixpanel(self.TOKEN, credentials=credentials)
+            assert len(w) == 0
+
+        # Should NOT warn when only consumer is provided (no credentials)
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            mp = mixpanel.Mixpanel(self.TOKEN, consumer=consumer)
+            assert len(w) == 0
