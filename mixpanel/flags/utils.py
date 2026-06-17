@@ -39,14 +39,26 @@ def _fnv1a64(data: bytes) -> int:
     return hash_value
 
 
-def prepare_common_query_params(token: str, sdk_version: str) -> dict[str, str]:
+def prepare_common_query_params(
+    token: str, sdk_version: str, project_id: str | None = None
+) -> dict[str, str]:
     """Prepare common query string parameters for feature flag evaluation.
 
     :param token: The project token
     :param sdk_version: The SDK version
+    :param project_id: Optional project ID for service account authentication
     :return: Dictionary of common query parameters
     """
-    return {"mp_lib": "python", "lib_version": sdk_version, "token": token}
+    params = {
+        "mp_lib": "python",
+        "lib_version": sdk_version,
+        "token": token,
+    }
+
+    if project_id is not None:
+        params["project_id"] = project_id
+
+    return params
 
 
 def generate_traceparent() -> str:

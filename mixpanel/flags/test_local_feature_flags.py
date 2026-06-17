@@ -10,6 +10,8 @@ import httpx
 import pytest
 import respx
 
+from mixpanel.credentials import ServiceAccountCredentials
+
 from .local_feature_flags import LocalFeatureFlagsProvider
 from .types import (
     ExperimentationFlag,
@@ -808,3 +810,104 @@ class TestLocalFeatureFlagsProviderSync:
                 TEST_FLAG_KEY, "fallback", USER_CONTEXT
             )
             assert result2 != "fallback"
+
+
+def test_local_flags_with_service_account_credentials():
+    """Test LocalFeatureFlagsProvider accepts httpx client params with service account auth."""
+    config = LocalFlagsConfig(
+        api_host="api.mixpanel.com", request_timeout_in_seconds=10
+    )
+
+    # Create service account credentials
+    credentials = ServiceAccountCredentials(
+        username="test-service-account",
+        secret="test-service-secret",
+        project_id="12345",
+    )
+
+    tracker = Mock()
+    provider = LocalFeatureFlagsProvider(
+        token="test-token",
+        config=config,
+        version="1.0.0",
+        tracker=tracker,
+        credentials=credentials,
+    )
+
+    # Verify the httpx clients were configured with httpx.BasicAuth
+    assert provider._sync_client.auth is not None
+    assert isinstance(provider._sync_client.auth, httpx.BasicAuth)
+    assert provider._async_client.auth is not None
+    assert isinstance(provider._async_client.auth, httpx.BasicAuth)
+
+    # Verify query params include both token and project_id
+    assert "project_id" in provider._request_params
+    assert provider._request_params["project_id"] == "12345"
+    assert "token" in provider._request_params
+    assert provider._request_params["token"] == "test-token"
+    assert provider._request_params["mp_lib"] == "python"
+    assert provider._request_params["lib_version"] == "1.0.0"
+
+    provider.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_local_flags_async_with_service_account_credentials():
+    """Test LocalFeatureFlagsProvider async client works with service account auth."""
+    config = LocalFlagsConfig(
+        api_host="api.mixpanel.com", request_timeout_in_seconds=10
+    )
+
+    # Create service account credentials
+    credentials = ServiceAccountCredentials(
+        username="test-service-account",
+        secret="test-service-secret",
+        project_id="12345",
+    )
+
+    tracker = Mock()
+    provider = LocalFeatureFlagsProvider(
+        token="test-token",
+        config=config,
+        version="1.0.0",
+        tracker=tracker,
+        credentials=credentials,
+    )
+
+    # Verify auth configured with httpx.BasicAuth
+    assert provider._async_client.auth is not None
+    assert isinstance(provider._async_client.auth, httpx.BasicAuth)
+
+    await provider._async_client.aclose()
+    provider.shutdown()
+
+
+def test_local_flags_fallback_to_token_without_credentials():
+    """Test LocalFeatureFlagsProvider works with token auth (no credentials)."""
+    config = LocalFlagsConfig(
+        api_host="api.mixpanel.com", request_timeout_in_seconds=10
+    )
+
+    tracker = Mock()
+    provider = LocalFeatureFlagsProvider(
+        token="test-token",
+        config=config,
+        version="1.0.0",
+        tracker=tracker,
+        credentials=None,
+    )
+
+    # Verify auth still configured (using token)
+    assert provider._sync_client.auth is not None
+    assert isinstance(provider._sync_client.auth, httpx.BasicAuth)
+    assert provider._async_client.auth is not None
+    assert isinstance(provider._async_client.auth, httpx.BasicAuth)
+
+    # Verify query params use token instead of project_id
+    assert "token" in provider._request_params
+    assert provider._request_params["token"] == "test-token"
+    assert "project_id" not in provider._request_params
+    assert provider._request_params["mp_lib"] == "python"
+    assert provider._request_params["lib_version"] == "1.0.0"
+
+    provider.shutdown()

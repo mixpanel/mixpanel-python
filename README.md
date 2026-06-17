@@ -40,6 +40,81 @@ mp.people_set(DISTINCT_ID, {'$first_name' : 'Ilya', 'favorite pizza': 'margherit
 You can use an instance of the Mixpanel class for sending all of your events
 and people updates.
 
+## Service Account Authentication
+
+For enhanced security in server-to-server integrations, you can use service account credentials for authentication instead of API secrets:
+
+```python
+from mixpanel import Mixpanel, ServiceAccountCredentials
+
+# Create credentials object
+# Service accounts replace api_key/api_secret for authentication
+credentials = ServiceAccountCredentials(
+    username='YOUR_SERVICE_ACCOUNT_USERNAME',
+    secret='YOUR_SERVICE_ACCOUNT_SECRET',
+    project_id='YOUR_PROJECT_ID'
+)
+
+# Token identifies the project and is used for event tracking
+# Credentials are used for endpoints that require authentication
+mp = Mixpanel(YOUR_TOKEN, credentials=credentials)
+
+# Event tracking operations use the token (sent in payload)
+mp.track(DISTINCT_ID, 'button clicked', {'color': 'blue'})
+mp.people_set(DISTINCT_ID, {'$first_name': 'John'})
+```
+
+Service account credentials can also be used with custom consumers like `BufferedConsumer`:
+
+```python
+from mixpanel import Mixpanel, BufferedConsumer, ServiceAccountCredentials
+
+credentials = ServiceAccountCredentials(
+    username='YOUR_SERVICE_ACCOUNT_USERNAME',
+    secret='YOUR_SERVICE_ACCOUNT_SECRET',
+    project_id='YOUR_PROJECT_ID'
+)
+
+# Option 1: Pass credentials to the consumer constructor
+consumer = BufferedConsumer(max_size=50, credentials=credentials)
+mp = Mixpanel(YOUR_TOKEN, consumer=consumer)
+
+# Option 2: Let Mixpanel create the default consumer with credentials
+mp = Mixpanel(YOUR_TOKEN, credentials=credentials)
+
+# Event tracking uses the token (sent in payload)
+mp.track(DISTINCT_ID, 'event_name')
+```
+
+Service account credentials are only used for the `/import` endpoint and feature flags. Regular event tracking operations (`track`, `people_set`, `group_set`) use the token provided in the constructor, which is sent in the event payload.
+
+### Service Accounts with Feature Flags
+
+Service account credentials are automatically used for feature flag operations when configured:
+
+```python
+from mixpanel import Mixpanel, ServiceAccountCredentials
+from mixpanel.flags.types import LocalFlagsConfig
+
+credentials = ServiceAccountCredentials(
+    username='YOUR_SERVICE_ACCOUNT_USERNAME',
+    secret='YOUR_SERVICE_ACCOUNT_SECRET',
+    project_id='YOUR_PROJECT_ID'
+)
+
+# Token identifies the project for event tracking, credentials handle authentication
+mp = Mixpanel(
+    YOUR_TOKEN,
+    credentials=credentials,
+    local_flags_config=LocalFlagsConfig()
+)
+
+# Feature flag requests will use service account authentication
+variant = mp.local_flags.get_variant_value('my-flag', fallback_value=False, context={...})
+```
+
+**Note**: When using service account credentials, the `token` parameter in the `Mixpanel` constructor is still required for event tracking operations (`track`, `people_set`, etc.) since the token is included in the event data payload. However, feature flag operations use the `project_id` from credentials instead of the token for authentication.
+
 ## Additional Information
 
 * [Help Docs](https://www.mixpanel.com/help/reference/python)

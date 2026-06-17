@@ -3,12 +3,13 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import urllib.parse
 from datetime import datetime
 from typing import Any, Callable
 
 import httpx
 from asgiref.sync import sync_to_async
+
+from mixpanel.credentials import ServiceAccountCredentials
 
 from .types import RemoteFlagsConfig, RemoteFlagsResponse, SelectedVariant
 from .utils import (
@@ -26,17 +27,38 @@ class RemoteFeatureFlagsProvider:
     FLAGS_URL_PATH = "/flags"
 
     def __init__(
-        self, token: str, config: RemoteFlagsConfig, version: str, tracker: Callable
+        self,
+        token: str,
+        config: RemoteFlagsConfig,
+        version: str,
+        tracker: Callable,
+        credentials: ServiceAccountCredentials | None = None,
     ) -> None:
+        """Initialize the RemoteFeatureFlagsProvider.
+
+        :param str token: your project's Mixpanel token
+        :param RemoteFlagsConfig config: configuration options for the remote feature flags provider
+        :param str version: the version of the Mixpanel library being used, just for tracking
+        :param Callable tracker: A function used to track flags exposure events to mixpanel
+        :param ServiceAccountCredentials credentials: Optional service account credentials for authentication.
+        """
         self._token: str = token
         self._config: RemoteFlagsConfig = config
         self._version: str = version
         self._tracker: Callable = tracker
+        self._credentials = credentials
+        self._project_id: str | None = credentials.project_id if credentials else None
+
+        # Build httpx client parameters
+        if credentials:
+            auth = httpx.BasicAuth(credentials.username, credentials.secret)
+        else:
+            auth = httpx.BasicAuth(token, "")
 
         httpx_client_parameters = {
             "base_url": f"https://{config.api_host}",
             "headers": REQUEST_HEADERS,
-            "auth": httpx.BasicAuth(token, ""),
+            "auth": auth,
             "timeout": httpx.Timeout(config.request_timeout_in_seconds),
         }
 
@@ -44,7 +66,11 @@ class RemoteFeatureFlagsProvider:
             **httpx_client_parameters
         )
         self._sync_client: httpx.Client = httpx.Client(**httpx_client_parameters)
-        self._request_params_base = prepare_common_query_params(self._token, version)
+
+        # Build request params - use service account (no token) or token auth
+        self._request_params_base = prepare_common_query_params(
+            self._token, version, self._project_id
+        )
 
     async def aget_all_variants(
         self, context: dict[str, Any]
@@ -277,11 +303,12 @@ class RemoteFeatureFlagsProvider:
         self, context: dict[str, Any], flag_key: str | None = None
     ) -> dict[str, str]:
         params = self._request_params_base.copy()
-        context_json = json.dumps(context).encode("utf-8")
-        url_encoded_context = urllib.parse.quote(context_json)
-        params["context"] = url_encoded_context
+        # Let httpx handle URL encoding - don't double-encode
+        context_json = json.dumps(context)
+        params["context"] = context_json
         if flag_key is not None:
             params["flag_key"] = flag_key
+        # Note: project_id already set in _request_params_base by prepare_common_query_params
         return params
 
     def _instrument_call(self, start_time: datetime, end_time: datetime) -> None:

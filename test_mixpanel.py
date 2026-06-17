@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import base64
 import datetime
 import decimal
 import json
 import time
+from unittest.mock import patch
 from urllib import parse as urllib_parse
 
 import pytest
@@ -17,13 +19,17 @@ class LogConsumer:
     def __init__(self):
         self.log = []
 
-    def send(self, endpoint, event, api_key=None, api_secret=None):
+    def send(self, endpoint, event, api_key=None):
         entry = [endpoint, json.loads(event)]
-        if api_key != (None, None):
-            if api_key:
+        # Only append api_key if it's not (None, None)
+        if api_key is not None:
+            # api_key might be a single value or (api_key, api_secret) tuple
+            if isinstance(api_key, tuple):
+                # Don't append if it's (None, None)
+                if api_key != (None, None):
+                    entry.append(api_key)
+            else:
                 entry.append(api_key)
-            if api_secret:
-                entry.append(api_secret)
         self.log.append(tuple(entry))
 
     def clear(self):
@@ -397,6 +403,50 @@ class TestMixpanelIdentity(TestMixpanelBase):
             call = rsps.calls[0]
             assert call.request.method == "POST"
             assert call.request.url == "https://api.mixpanel.com/track"
+            body = (
+                call.request.body
+                if isinstance(call.request.body, str)
+                else call.request.body.decode("utf-8")
+            )
+            posted_data = dict(urllib_parse.parse_qsl(body))
+            assert json.loads(posted_data["data"]) == {
+                "event": "$create_alias",
+                "properties": {
+                    "alias": "ALIAS",
+                    "token": "12345",
+                    "distinct_id": "ORIGINAL ID",
+                },
+            }
+
+    def test_alias_with_service_account(self):
+        """Test that alias() does NOT use service account credentials.
+
+        Service account credentials are only for /import and feature flag endpoints.
+        alias() uses the /track endpoint and should not include auth headers.
+        """
+        credentials = mixpanel.ServiceAccountCredentials(
+            username="test_user", secret="test_secret", project_id="test_project_id"
+        )
+        mp = mixpanel.Mixpanel("12345", credentials=credentials)
+
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.POST,
+                "https://api.mixpanel.com/track",
+                json={"status": 1, "error": None},
+                status=200,
+            )
+
+            mp.alias("ALIAS", "ORIGINAL ID")
+
+            call = rsps.calls[0]
+            assert call.request.method == "POST"
+            # Should NOT have project_id query parameter - credentials not used for /track
+            assert "project_id" not in call.request.url
+            # Should NOT have basic auth header - credentials not used for /track
+            auth_header = call.request.headers.get("Authorization")
+            assert auth_header is None
+            # Verify the payload
             body = (
                 call.request.body
                 if isinstance(call.request.body, str)
@@ -800,7 +850,7 @@ class TestBufferedConsumer:
         assert self.log == [("imports", ["Event"], ("MY_API_KEY", None))]
 
     def test_send_remembers_api_secret(self):
-        self.consumer.send("imports", '"Event"', api_secret="ZZZZZZ")
+        self.consumer.send("imports", '"Event"', (None, "ZZZZZZ"))
         assert len(self.log) == 0
         self.consumer.flush()
         assert self.log == [("imports", ["Event"], (None, "ZZZZZZ"))]
@@ -874,3 +924,370 @@ class TestFunctional:
                 "$token": "12345",
             }
             assert expected_data == data
+
+
+class TestServiceAccountAuth:
+    """Test service account authentication."""
+
+    TOKEN = "test-token"
+    SERVICE_ACCOUNT_USERNAME = "test-user"
+    SERVICE_ACCOUNT_SECRET = "test-secret"
+    PROJECT_ID = "123456"
+    API_SECRET = "test-api-secret"
+    DISTINCT_ID = "test-user-123"
+
+    def _verify_basic_auth(self, username, secret):
+        """Helper to verify Basic Auth header."""
+        expected_auth = base64.b64encode(f"{username}:{secret}".encode()).decode()
+        return f"Basic {expected_auth}"
+
+    @responses.activate
+    def test_consumer_with_service_account(self):
+        """Test Consumer uses service account for Basic Auth when passed to /import endpoint."""
+        responses.add(
+            responses.POST,
+            "https://api.mixpanel.com/import",
+            json={"status": 1, "error": None},
+        )
+
+        credentials = mixpanel.ServiceAccountCredentials(
+            username=self.SERVICE_ACCOUNT_USERNAME,
+            secret=self.SERVICE_ACCOUNT_SECRET,
+            project_id=self.PROJECT_ID,
+        )
+        consumer = mixpanel.Consumer(credentials=credentials)
+
+        event = json.dumps({"event": "test_event", "properties": {"token": self.TOKEN}})
+        consumer.send("imports", event)
+
+        assert len(responses.calls) == 1
+        request = responses.calls[0].request
+
+        # Verify Basic Auth header
+        auth_header = request.headers.get("Authorization")
+        expected_auth = self._verify_basic_auth(
+            self.SERVICE_ACCOUNT_USERNAME,
+            self.SERVICE_ACCOUNT_SECRET,
+        )
+        assert auth_header == expected_auth
+
+        # Verify project_id query parameter is present (required for service account auth)
+        assert "project_id=" + self.PROJECT_ID in request.url
+
+    @responses.activate
+    def test_mixpanel_with_service_account(self):
+        """Test that track() does NOT use service account credentials.
+
+        Service account credentials are only for /import and feature flag endpoints,
+        not for regular tracking endpoints like /track, /engage, or /groups.
+        """
+        responses.add(
+            responses.POST,
+            "https://api.mixpanel.com/track",
+            json={"status": 1, "error": None},
+        )
+
+        credentials = mixpanel.ServiceAccountCredentials(
+            username=self.SERVICE_ACCOUNT_USERNAME,
+            secret=self.SERVICE_ACCOUNT_SECRET,
+            project_id=self.PROJECT_ID,
+        )
+        mp = mixpanel.Mixpanel(self.TOKEN, credentials=credentials)
+
+        mp.track("test_user", "test_event")
+
+        assert len(responses.calls) == 1
+        request = responses.calls[0].request
+
+        # Verify NO auth header for track() - credentials only used for /import
+        auth_header = request.headers.get("Authorization")
+        assert auth_header is None
+
+        # Verify NO project_id query param for track()
+        assert "project_id" not in request.url
+
+    @responses.activate
+    def test_service_account_takes_precedence_over_api_secret(self):
+        """Test service account credentials take precedence over api_secret."""
+        responses.add(
+            responses.POST,
+            "https://api.mixpanel.com/import",
+            json={"status": 1, "error": None},
+        )
+
+        credentials = mixpanel.ServiceAccountCredentials(
+            username=self.SERVICE_ACCOUNT_USERNAME,
+            secret=self.SERVICE_ACCOUNT_SECRET,
+            project_id=self.PROJECT_ID,
+        )
+        mp = mixpanel.Mixpanel(self.TOKEN, credentials=credentials)
+
+        # import_data provides api_secret, but service account should take precedence
+        mp.import_data(
+            api_key="old_api_key",
+            distinct_id="test_user",
+            event_name="test_event",
+            timestamp=1000,
+            api_secret="different_secret",
+        )
+
+        assert len(responses.calls) == 1
+        request = responses.calls[0].request
+
+        # Verify service account credentials are used, not api_secret
+        auth_header = request.headers.get("Authorization")
+        expected_auth = self._verify_basic_auth(
+            self.SERVICE_ACCOUNT_USERNAME,
+            self.SERVICE_ACCOUNT_SECRET,
+        )
+        assert auth_header == expected_auth
+
+    @responses.activate
+    def test_fallback_to_api_secret_when_no_service_account(self):
+        """Test fallback to api_secret when no service account is configured."""
+        responses.add(
+            responses.POST,
+            "https://api.mixpanel.com/import",
+            json={"status": 1, "error": None},
+        )
+
+        mp = mixpanel.Mixpanel(self.TOKEN)
+
+        api_secret = "test_api_secret"
+        mp.import_data(
+            api_key="old_api_key",
+            distinct_id="test_user",
+            event_name="test_event",
+            timestamp=1000,
+            api_secret=api_secret,
+        )
+
+        assert len(responses.calls) == 1
+        request = responses.calls[0].request
+
+        # Verify api_secret is used
+        auth_header = request.headers.get("Authorization")
+        expected_auth = self._verify_basic_auth(api_secret, "")
+        assert auth_header == expected_auth
+
+    @responses.activate
+    def test_buffered_consumer_with_service_account(self):
+        """Test BufferedConsumer does NOT send credentials for track().
+
+        Service account credentials are only for /import and feature flag endpoints.
+        Even when configured on the Mixpanel instance, they should not be used for /track.
+        """
+        responses.add(
+            responses.POST,
+            "https://api.mixpanel.com/track",
+            json={"status": 1, "error": None},
+        )
+
+        credentials = mixpanel.ServiceAccountCredentials(
+            username=self.SERVICE_ACCOUNT_USERNAME,
+            secret=self.SERVICE_ACCOUNT_SECRET,
+            project_id=self.PROJECT_ID,
+        )
+
+        # Pass credentials to BufferedConsumer - they should NOT be used for /track
+        consumer = mixpanel.BufferedConsumer(max_size=1, credentials=credentials)
+        mp = mixpanel.Mixpanel(self.TOKEN, consumer=consumer)
+
+        mp.track(self.DISTINCT_ID, "test_event")
+
+        assert len(responses.calls) == 1
+        request = responses.calls[0].request
+
+        # Verify NO auth header for /track - credentials only used for /import
+        auth_header = request.headers.get("Authorization")
+        assert auth_header is None
+
+        # Verify NO project_id query param
+        assert "project_id" not in request.url
+
+    @responses.activate
+    def test_no_auth_header_without_credentials(self):
+        """Test no auth header is sent when no credentials are provided."""
+        responses.add(
+            responses.POST,
+            "https://api.mixpanel.com/track",
+            json={"status": 1, "error": None},
+        )
+
+        consumer = mixpanel.Consumer()
+        event = json.dumps({"event": "test_event", "properties": {"token": self.TOKEN}})
+        consumer.send("events", event)
+
+        assert len(responses.calls) == 1
+        request = responses.calls[0].request
+
+        # Verify no Authorization header
+        assert "Authorization" not in request.headers
+
+    def test_credentials_require_all_fields(self):
+        """Test ServiceAccountCredentials validates all required fields are provided."""
+        # Empty username
+        with pytest.raises(ValueError, match="username cannot be empty"):
+            mixpanel.ServiceAccountCredentials(
+                username="", secret="secret", project_id="123"
+            )
+
+        # Empty secret
+        with pytest.raises(ValueError, match="secret cannot be empty"):
+            mixpanel.ServiceAccountCredentials(
+                username="user", secret="", project_id="123"
+            )
+
+        # Empty project_id
+        with pytest.raises(ValueError, match="project_id cannot be empty"):
+            mixpanel.ServiceAccountCredentials(
+                username="user", secret="secret", project_id=""
+            )
+
+        # Whitespace-only username
+        with pytest.raises(ValueError, match="username cannot be empty"):
+            mixpanel.ServiceAccountCredentials(
+                username="   ", secret="secret", project_id="123"
+            )
+
+        # Whitespace-only secret
+        with pytest.raises(ValueError, match="secret cannot be empty"):
+            mixpanel.ServiceAccountCredentials(
+                username="user", secret="   ", project_id="123"
+            )
+
+        # Whitespace-only project_id
+        with pytest.raises(ValueError, match="project_id cannot be empty"):
+            mixpanel.ServiceAccountCredentials(
+                username="user", secret="secret", project_id="   "
+            )
+
+    def test_credentials_rejects_non_string_types(self):
+        """Test ServiceAccountCredentials rejects non-string types with clear error messages."""
+        # Integer project_id (common mistake when copying from dashboard)
+        with pytest.raises(TypeError, match="project_id must be a string"):
+            mixpanel.ServiceAccountCredentials(
+                username="user", secret="secret", project_id=123456
+            )
+
+        # Integer username
+        with pytest.raises(TypeError, match="username must be a string"):
+            mixpanel.ServiceAccountCredentials(
+                username=12345, secret="secret", project_id="123"
+            )
+
+        # Integer secret
+        with pytest.raises(TypeError, match="secret must be a string"):
+            mixpanel.ServiceAccountCredentials(
+                username="user", secret=12345, project_id="123"
+            )
+
+        # None values
+        with pytest.raises(TypeError, match="username must be a string"):
+            mixpanel.ServiceAccountCredentials(
+                username=None, secret="secret", project_id="123"
+            )
+
+        with pytest.raises(TypeError, match="secret must be a string"):
+            mixpanel.ServiceAccountCredentials(
+                username="user", secret=None, project_id="123"
+            )
+
+        with pytest.raises(TypeError, match="project_id must be a string"):
+            mixpanel.ServiceAccountCredentials(
+                username="user", secret="secret", project_id=None
+            )
+
+    def test_credentials_strips_whitespace(self):
+        """Test ServiceAccountCredentials strips leading/trailing whitespace."""
+        credentials = mixpanel.ServiceAccountCredentials(
+            username="  test-user  ", secret="  test-secret  ", project_id="  123456  "
+        )
+
+        assert credentials.username == "test-user"
+        assert credentials.secret == "test-secret"
+        assert credentials.project_id == "123456"
+
+    def test_credentials_repr_hides_secret(self):
+        """Test ServiceAccountCredentials __repr__ doesn't expose the secret."""
+        credentials = mixpanel.ServiceAccountCredentials(
+            username="test-user", secret="test-secret", project_id="123456"
+        )
+        repr_str = repr(credentials)
+
+        assert "test-user" in repr_str
+        assert "test-secret" not in repr_str
+        assert "***" in repr_str
+        assert "123456" in repr_str
+
+    @responses.activate
+    def test_buffered_consumer_import_with_service_account(self):
+        """Test BufferedConsumer DOES send credentials for import_data().
+
+        Service account credentials should be used for /import endpoint,
+        even when using BufferedConsumer.
+        """
+        responses.add(
+            responses.POST,
+            "https://api.mixpanel.com/import",
+            json={"status": 1, "error": None},
+        )
+
+        credentials = mixpanel.ServiceAccountCredentials(
+            username=self.SERVICE_ACCOUNT_USERNAME,
+            secret=self.SERVICE_ACCOUNT_SECRET,
+            project_id=self.PROJECT_ID,
+        )
+
+        consumer = mixpanel.BufferedConsumer(max_size=1, credentials=credentials)
+        mp = mixpanel.Mixpanel(self.TOKEN, consumer=consumer)
+
+        mp.import_data(
+            api_key=None,
+            distinct_id=self.DISTINCT_ID,
+            event_name="test_event",
+            timestamp=1000,
+        )
+
+        assert len(responses.calls) == 1
+        request = responses.calls[0].request
+
+        # Verify Basic Auth header IS present for /import
+        auth_header = request.headers.get("Authorization")
+        expected_auth = self._verify_basic_auth(
+            self.SERVICE_ACCOUNT_USERNAME,
+            self.SERVICE_ACCOUNT_SECRET,
+        )
+        assert auth_header == expected_auth
+
+        # Verify project_id query param IS present for /import
+        assert f"project_id={self.PROJECT_ID}" in request.url
+
+    def test_warns_when_credentials_ignored(self):
+        """Test that a warning is logged when credentials are passed to Mixpanel with a custom consumer."""
+        credentials = mixpanel.ServiceAccountCredentials(
+            username=self.SERVICE_ACCOUNT_USERNAME,
+            secret=self.SERVICE_ACCOUNT_SECRET,
+            project_id=self.PROJECT_ID,
+        )
+
+        consumer = mixpanel.BufferedConsumer(max_size=1)
+
+        # Should warn when both consumer and credentials are provided
+        with patch("mixpanel.logger.warning") as mock_warning:
+            mixpanel.Mixpanel(self.TOKEN, consumer=consumer, credentials=credentials)
+            mock_warning.assert_called_once()
+            assert (
+                "ignored when a custom consumer is provided"
+                in mock_warning.call_args[0][0]
+            )
+
+        # Should NOT warn when only credentials are provided (consumer is auto-created)
+        with patch("mixpanel.logger.warning") as mock_warning:
+            mixpanel.Mixpanel(self.TOKEN, credentials=credentials)
+            mock_warning.assert_not_called()
+
+        # Should NOT warn when only consumer is provided (no credentials)
+        with patch("mixpanel.logger.warning") as mock_warning:
+            mixpanel.Mixpanel(self.TOKEN, consumer=consumer)
+            mock_warning.assert_not_called()
