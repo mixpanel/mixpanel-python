@@ -840,10 +840,11 @@ def test_local_flags_with_service_account_credentials():
     assert provider._async_client.auth is not None
     assert isinstance(provider._async_client.auth, httpx.BasicAuth)
 
-    # Verify query params use project_id instead of token
+    # Verify query params include both token and project_id
     assert "project_id" in provider._request_params
     assert provider._request_params["project_id"] == "12345"
-    assert "token" not in provider._request_params
+    assert "token" in provider._request_params
+    assert provider._request_params["token"] == "test-token"
     assert provider._request_params["mp_lib"] == "python"
     assert provider._request_params["lib_version"] == "1.0.0"
 

@@ -436,10 +436,11 @@ def test_remote_flags_with_service_account_credentials():
     # Verify project_id is stored
     assert provider._project_id == "12345"
 
-    # Verify query params use project_id instead of token
+    # Verify query params include both token and project_id
     assert "project_id" in provider._request_params_base
     assert provider._request_params_base["project_id"] == "12345"
-    assert "token" not in provider._request_params_base
+    assert "token" in provider._request_params_base
+    assert provider._request_params_base["token"] == "test-token"
     assert provider._request_params_base["mp_lib"] == "python"
     assert provider._request_params_base["lib_version"] == "1.0.0"
 

@@ -49,14 +49,14 @@ def prepare_common_query_params(
     :param project_id: Optional project ID for service account authentication
     :return: Dictionary of common query parameters
     """
-    params = {"mp_lib": "python", "lib_version": sdk_version}
+    params = {
+        "mp_lib": "python",
+        "lib_version": sdk_version,
+        "token": token,
+    }
 
     if project_id is not None:
-        # Service account authentication - use project_id instead of token
         params["project_id"] = project_id
-    else:
-        # Token authentication
-        params["token"] = token
 
     return params
 
