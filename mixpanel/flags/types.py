@@ -64,9 +64,11 @@ class ExperimentationFlag(BaseModel):
 
 
 class VariantSource:
-    """Where a SelectedVariant came from. Set by the providers on every
-    returned variant — coarse-grained (local / remote / fallback). For the
-    specific reason behind a fallback, see FallbackReason.
+    """Where a SelectedVariant came from.
+
+    Set by the providers on every returned variant — coarse-grained
+    (local / remote / fallback). For the specific reason behind a fallback,
+    see FallbackReason.
     """
 
     LOCAL = "local"
@@ -75,11 +77,12 @@ class VariantSource:
 
 
 class FallbackReason:
-    """Why the SDK returned the developer fallback. Only meaningful when
-    SelectedVariant.variant_source == VariantSource.FALLBACK. Matches the
-    constant set used by mixpanel-php so the OpenFeature wrapper can map to
-    the spec-correct error code instead of collapsing every fallback to
-    FLAG_NOT_FOUND.
+    """Why the SDK returned the developer fallback.
+
+    Only meaningful when SelectedVariant.variant_source == VariantSource.FALLBACK.
+    Matches the constant set used by mixpanel-php so the OpenFeature wrapper
+    can map to the spec-correct error code instead of collapsing every
+    fallback to FLAG_NOT_FOUND.
     """
 
     FLAG_NOT_FOUND = "FLAG_NOT_FOUND"
@@ -102,6 +105,7 @@ class SelectedVariant(BaseModel):
 
     def with_source(self, source: str) -> "SelectedVariant":
         """Return a copy of this variant tagged with the given source.
+
         Clears fallback_reason — use as_fallback() if returning a fallback.
         """
         return self.model_copy(

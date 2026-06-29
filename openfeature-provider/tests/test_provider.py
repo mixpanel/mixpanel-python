@@ -41,7 +41,7 @@ def setup_fallback(mock_flags, reason):
     )
 
 
-def setup_flag_not_found(mock_flags, flag_key):  # noqa: ARG001 - flag_key kept for call-site clarity
+def setup_flag_not_found(mock_flags, flag_key):
     """Configure mock for the genuinely-missing-flag path."""
     setup_fallback(mock_flags, FallbackReason.FLAG_NOT_FOUND)
 

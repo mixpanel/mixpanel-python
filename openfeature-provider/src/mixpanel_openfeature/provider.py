@@ -2,10 +2,8 @@ from __future__ import annotations
 
 import math
 import typing
-from collections.abc import Mapping, Sequence
-from typing import Optional, Union
+from typing import Union
 
-from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import ErrorCode
 from openfeature.flag_evaluation import FlagResolutionDetails, Reason
 from openfeature.provider import AbstractProvider, Metadata
@@ -18,6 +16,11 @@ from mixpanel.flags.types import (
     SelectedVariant,
 )
 
+if typing.TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
+
+    from openfeature.evaluation_context import EvaluationContext
+
 FlagValueType = Union[bool, str, int, float, list, dict, None]
 
 
@@ -27,7 +30,7 @@ class MixpanelProvider(AbstractProvider):
     def __init__(
         self,
         flags_provider: typing.Any,
-        mixpanel_instance: Optional[Mixpanel] = None,
+        mixpanel_instance: Mixpanel | None = None,
     ) -> None:
         super().__init__()
         self._flags_provider = flags_provider
@@ -61,7 +64,7 @@ class MixpanelProvider(AbstractProvider):
         return cls(remote_flags, mixpanel_instance=mp)
 
     @property
-    def mixpanel(self) -> Optional[Mixpanel]:
+    def mixpanel(self) -> Mixpanel | None:
         """The Mixpanel instance used by this provider, if created via a class method."""
         return self._mixpanel
 
@@ -75,7 +78,7 @@ class MixpanelProvider(AbstractProvider):
         self,
         flag_key: str,
         default_value: bool,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[bool]:
         return self._resolve(flag_key, default_value, bool, evaluation_context)
 
@@ -83,7 +86,7 @@ class MixpanelProvider(AbstractProvider):
         self,
         flag_key: str,
         default_value: str,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[str]:
         return self._resolve(flag_key, default_value, str, evaluation_context)
 
@@ -91,7 +94,7 @@ class MixpanelProvider(AbstractProvider):
         self,
         flag_key: str,
         default_value: int,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[int]:
         return self._resolve(flag_key, default_value, int, evaluation_context)
 
@@ -99,17 +102,17 @@ class MixpanelProvider(AbstractProvider):
         self,
         flag_key: str,
         default_value: float,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[float]:
         return self._resolve(flag_key, default_value, float, evaluation_context)
 
     def resolve_object_details(
         self,
         flag_key: str,
-        default_value: Union[Sequence[FlagValueType], Mapping[str, FlagValueType]],
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        default_value: Sequence[FlagValueType] | Mapping[str, FlagValueType],
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[
-        Union[Sequence[FlagValueType], Mapping[str, FlagValueType]]
+        Sequence[FlagValueType] | Mapping[str, FlagValueType]
     ]:
         return self._resolve(flag_key, default_value, None, evaluation_context)
 
@@ -125,7 +128,7 @@ class MixpanelProvider(AbstractProvider):
 
     @staticmethod
     def _build_user_context(
-        evaluation_context: typing.Optional[EvaluationContext],
+        evaluation_context: EvaluationContext | None,
     ) -> dict:
         user_context: dict = {}
         if evaluation_context is not None:
@@ -140,8 +143,8 @@ class MixpanelProvider(AbstractProvider):
         self,
         flag_key: str,
         default_value: typing.Any,
-        expected_type: typing.Optional[type],
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        expected_type: type | None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails:
         if not self._are_flags_ready():
             return FlagResolutionDetails(
@@ -161,41 +164,11 @@ class MixpanelProvider(AbstractProvider):
                 reason=Reason.ERROR,
             )
 
-        # variant_source distinguishes local / remote / fallback. When fallback,
-        # fallback_reason carries the specific reason (PHP-aligned constants)
-        # so we can map each to the spec-correct OpenFeature response instead
-        # of collapsing every fallback to FLAG_NOT_FOUND.
-        if result.fallback_reason == FallbackReason.FLAG_NOT_FOUND:
-            return FlagResolutionDetails(
-                value=default_value,
-                error_code=ErrorCode.FLAG_NOT_FOUND,
-                reason=Reason.DEFAULT,
-            )
-        if result.fallback_reason == FallbackReason.MISSING_CONTEXT_KEY:
-            return FlagResolutionDetails(
-                value=default_value,
-                error_code=ErrorCode.TARGETING_KEY_MISSING,
-                reason=Reason.ERROR,
-            )
-        if result.fallback_reason == FallbackReason.NO_ROLLOUT_MATCH:
-            # Flag exists, user just didn't match any rollout — per the
-            # OpenFeature spec this is `reason: DEFAULT` with no error.
-            return FlagResolutionDetails(
-                value=default_value,
-                reason=Reason.DEFAULT,
-            )
-        if result.fallback_reason == FallbackReason.BACKEND_ERROR:
-            return FlagResolutionDetails(
-                value=default_value,
-                error_code=ErrorCode.GENERAL,
-                reason=Reason.ERROR,
-            )
-        if result.fallback_reason == FallbackReason.NOT_READY:
-            return FlagResolutionDetails(
-                value=default_value,
-                error_code=ErrorCode.PROVIDER_NOT_READY,
-                reason=Reason.ERROR,
-            )
+        fallback_details = self._fallback_details(
+            result.fallback_reason, default_value
+        )
+        if fallback_details is not None:
+            return fallback_details
 
         value = result.variant_value
         variant_key = result.variant_key
@@ -243,6 +216,39 @@ class MixpanelProvider(AbstractProvider):
         return FlagResolutionDetails(
             value=value, variant=variant_key, reason=Reason.TARGETING_MATCH
         )
+
+    @staticmethod
+    def _fallback_details(
+        fallback_reason: str | None, default_value: typing.Any
+    ) -> FlagResolutionDetails | None:
+        """Map a fallback reason to its OpenFeature response, or None if not a fallback.
+
+        variant_source distinguishes local / remote / fallback. When fallback,
+        fallback_reason carries the specific reason (PHP-aligned constants)
+        so we map each to the spec-correct OpenFeature response instead of
+        collapsing every fallback to FLAG_NOT_FOUND.
+        """
+        if fallback_reason is None:
+            return None
+        # Flag exists, user just didn't match any rollout — per the
+        # OpenFeature spec this is `reason: DEFAULT` with no error.
+        if fallback_reason == FallbackReason.NO_ROLLOUT_MATCH:
+            return FlagResolutionDetails(value=default_value, reason=Reason.DEFAULT)
+        error_mapping = {
+            FallbackReason.FLAG_NOT_FOUND: (ErrorCode.FLAG_NOT_FOUND, Reason.DEFAULT),
+            FallbackReason.MISSING_CONTEXT_KEY: (
+                ErrorCode.TARGETING_KEY_MISSING,
+                Reason.ERROR,
+            ),
+            FallbackReason.BACKEND_ERROR: (ErrorCode.GENERAL, Reason.ERROR),
+            FallbackReason.NOT_READY: (ErrorCode.PROVIDER_NOT_READY, Reason.ERROR),
+        }
+        if fallback_reason in error_mapping:
+            error_code, reason = error_mapping[fallback_reason]
+            return FlagResolutionDetails(
+                value=default_value, error_code=error_code, reason=reason
+            )
+        return None
 
     def _are_flags_ready(self) -> bool:
         if hasattr(self._flags_provider, "are_flags_ready"):
