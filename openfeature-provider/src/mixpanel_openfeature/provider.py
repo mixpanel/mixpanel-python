@@ -11,7 +11,12 @@ from openfeature.flag_evaluation import FlagResolutionDetails, Reason
 from openfeature.provider import AbstractProvider, Metadata
 
 from mixpanel import Mixpanel
-from mixpanel.flags.types import LocalFlagsConfig, RemoteFlagsConfig, SelectedVariant
+from mixpanel.flags.types import (
+    FallbackReason,
+    LocalFlagsConfig,
+    RemoteFlagsConfig,
+    SelectedVariant,
+)
 
 FlagValueType = Union[bool, str, int, float, list, dict, None]
 
@@ -156,11 +161,40 @@ class MixpanelProvider(AbstractProvider):
                 reason=Reason.ERROR,
             )
 
-        if result is fallback:
+        # variant_source distinguishes local / remote / fallback. When fallback,
+        # fallback_reason carries the specific reason (PHP-aligned constants)
+        # so we can map each to the spec-correct OpenFeature response instead
+        # of collapsing every fallback to FLAG_NOT_FOUND.
+        if result.fallback_reason == FallbackReason.FLAG_NOT_FOUND:
             return FlagResolutionDetails(
                 value=default_value,
                 error_code=ErrorCode.FLAG_NOT_FOUND,
                 reason=Reason.DEFAULT,
+            )
+        if result.fallback_reason == FallbackReason.MISSING_CONTEXT_KEY:
+            return FlagResolutionDetails(
+                value=default_value,
+                error_code=ErrorCode.TARGETING_KEY_MISSING,
+                reason=Reason.ERROR,
+            )
+        if result.fallback_reason == FallbackReason.NO_ROLLOUT_MATCH:
+            # Flag exists, user just didn't match any rollout — per the
+            # OpenFeature spec this is `reason: DEFAULT` with no error.
+            return FlagResolutionDetails(
+                value=default_value,
+                reason=Reason.DEFAULT,
+            )
+        if result.fallback_reason == FallbackReason.BACKEND_ERROR:
+            return FlagResolutionDetails(
+                value=default_value,
+                error_code=ErrorCode.GENERAL,
+                reason=Reason.ERROR,
+            )
+        if result.fallback_reason == FallbackReason.NOT_READY:
+            return FlagResolutionDetails(
+                value=default_value,
+                error_code=ErrorCode.PROVIDER_NOT_READY,
+                reason=Reason.ERROR,
             )
 
         value = result.variant_value

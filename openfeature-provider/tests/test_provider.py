@@ -5,7 +5,7 @@ from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import ErrorCode
 from openfeature.flag_evaluation import Reason
 
-from mixpanel.flags.types import SelectedVariant
+from mixpanel.flags.types import FallbackReason, SelectedVariant, VariantSource
 from mixpanel_openfeature import MixpanelProvider
 
 
@@ -22,17 +22,28 @@ def provider(mock_flags):
 
 
 def setup_flag(mock_flags, flag_key, value, variant_key="variant-key"):
-    """Configure mock to return a SelectedVariant with the given value."""
+    """Configure mock to return a successfully-evaluated SelectedVariant."""
     mock_flags.get_variant.side_effect = lambda key, fallback, ctx: (
-        SelectedVariant(variant_key=variant_key, variant_value=value)
+        SelectedVariant(
+            variant_key=variant_key,
+            variant_value=value,
+            variant_source=VariantSource.LOCAL,
+        )
         if key == flag_key
-        else fallback
+        else fallback.as_fallback(FallbackReason.FLAG_NOT_FOUND)
     )
 
 
-def setup_flag_not_found(mock_flags, flag_key):
-    """Configure mock to return the fallback (identity check triggers FLAG_NOT_FOUND)."""
-    mock_flags.get_variant.side_effect = lambda key, fallback, ctx: fallback
+def setup_fallback(mock_flags, reason):
+    """Configure mock to always return the caller's fallback tagged with `reason`."""
+    mock_flags.get_variant.side_effect = (
+        lambda key, fallback, ctx: fallback.as_fallback(reason)
+    )
+
+
+def setup_flag_not_found(mock_flags, flag_key):  # noqa: ARG001 - flag_key kept for call-site clarity
+    """Configure mock for the genuinely-missing-flag path."""
+    setup_fallback(mock_flags, FallbackReason.FLAG_NOT_FOUND)
 
 
 # --- Metadata ---
@@ -298,13 +309,73 @@ def test_remote_provider_always_ready():
     remote_flags = MagicMock(spec=[])  # empty spec = no attributes
     remote_flags.get_variant = MagicMock(
         side_effect=lambda key, fallback, ctx: SelectedVariant(
-            variant_key="v1", variant_value=True
+            variant_key="v1", variant_value=True, variant_source=VariantSource.REMOTE
         )
     )
     provider = MixpanelProvider(remote_flags)
     result = provider.resolve_boolean_details("flag", False)
     assert result.value is True
     assert result.reason == Reason.TARGETING_MATCH
+
+
+# --- No rollout matched (flag exists, no rollout matched) ---
+
+
+def test_no_rollout_match_returns_default_reason_without_error(provider, mock_flags):
+    setup_fallback(mock_flags, FallbackReason.NO_ROLLOUT_MATCH)
+    result = provider.resolve_boolean_details("flag", True)
+    assert result.value is True
+    assert result.reason == Reason.DEFAULT
+    assert result.error_code is None
+
+
+def test_no_rollout_match_for_string(provider, mock_flags):
+    setup_fallback(mock_flags, FallbackReason.NO_ROLLOUT_MATCH)
+    result = provider.resolve_string_details("flag", "default")
+    assert result.value == "default"
+    assert result.reason == Reason.DEFAULT
+    assert result.error_code is None
+
+
+# --- Missing context key ---
+
+
+def test_missing_context_key_returns_targeting_key_missing(provider, mock_flags):
+    setup_fallback(mock_flags, FallbackReason.MISSING_CONTEXT_KEY)
+    result = provider.resolve_boolean_details("flag", False)
+    assert result.value is False
+    assert result.error_code == ErrorCode.TARGETING_KEY_MISSING
+    assert result.reason == Reason.ERROR
+
+
+def test_missing_context_key_for_string(provider, mock_flags):
+    setup_fallback(mock_flags, FallbackReason.MISSING_CONTEXT_KEY)
+    result = provider.resolve_string_details("flag", "default")
+    assert result.value == "default"
+    assert result.error_code == ErrorCode.TARGETING_KEY_MISSING
+    assert result.reason == Reason.ERROR
+
+
+# --- Backend error ---
+
+
+def test_backend_error_maps_to_general(provider, mock_flags):
+    setup_fallback(mock_flags, FallbackReason.BACKEND_ERROR)
+    result = provider.resolve_string_details("flag", "default")
+    assert result.value == "default"
+    assert result.error_code == ErrorCode.GENERAL
+    assert result.reason == Reason.ERROR
+
+
+# --- Not ready ---
+
+
+def test_not_ready_reason_maps_to_provider_not_ready(provider, mock_flags):
+    setup_fallback(mock_flags, FallbackReason.NOT_READY)
+    result = provider.resolve_boolean_details("flag", True)
+    assert result.value is True
+    assert result.error_code == ErrorCode.PROVIDER_NOT_READY
+    assert result.reason == Reason.ERROR
 
 
 # --- Lifecycle ---

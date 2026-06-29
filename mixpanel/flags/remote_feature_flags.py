@@ -11,7 +11,13 @@ from asgiref.sync import sync_to_async
 
 from mixpanel.credentials import ServiceAccountCredentials
 
-from .types import RemoteFlagsConfig, RemoteFlagsResponse, SelectedVariant
+from .types import (
+    FallbackReason,
+    RemoteFlagsConfig,
+    RemoteFlagsResponse,
+    SelectedVariant,
+    VariantSource,
+)
 from .utils import (
     EXPOSURE_EVENT,
     REQUEST_HEADERS,
@@ -153,7 +159,7 @@ class RemoteFeatureFlagsProvider:
                 )
         except Exception:
             logger.exception("Failed to get remote variant for flag '%s'", flag_key)
-            return fallback_value
+            return fallback_value.as_fallback(FallbackReason.BACKEND_ERROR)
         else:
             return selected_variant
 
@@ -267,7 +273,7 @@ class RemoteFeatureFlagsProvider:
 
         except Exception:
             logger.exception("Failed to get remote variant for flag '%s'", flag_key)
-            return fallback_value
+            return fallback_value.as_fallback(FallbackReason.BACKEND_ERROR)
         else:
             return selected_variant
 
@@ -362,13 +368,17 @@ class RemoteFeatureFlagsProvider:
         fallback_value: SelectedVariant,
     ) -> tuple[SelectedVariant, bool]:
         if flag_key in flags:
-            return flags[flag_key], False
+            return flags[flag_key].with_source(VariantSource.REMOTE), False
         logger.debug(
             "Flag '%s' not found in remote response. Returning fallback, '%s'",
             flag_key,
             fallback_value,
         )
-        return fallback_value, True
+        # The /flags endpoint only returns variants the user is enrolled in,
+        # so a missing key could mean the flag doesn't exist OR the user
+        # isn't in any rollout. The remote SDK can't tell them apart without
+        # server-side help — surface as FLAG_NOT_FOUND for now.
+        return fallback_value.as_fallback(FallbackReason.FLAG_NOT_FOUND), True
 
     def shutdown(self):
         self._sync_client.close()

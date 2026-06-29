@@ -15,9 +15,11 @@ from mixpanel.credentials import ServiceAccountCredentials
 from .types import (
     ExperimentationFlag,
     ExperimentationFlags,
+    FallbackReason,
     LocalFlagsConfig,
     Rollout,
     SelectedVariant,
+    VariantSource,
 )
 from .utils import (
     EXPOSURE_EVENT,
@@ -228,7 +230,7 @@ class LocalFeatureFlagsProvider:
 
         if not flag_definition:
             logger.warning("Cannot find flag definition for key: '%s'", flag_key)
-            return fallback_value
+            return fallback_value.as_fallback(FallbackReason.FLAG_NOT_FOUND)
 
         if not (context_value := context.get(flag_definition.context)):
             logger.warning(
@@ -236,7 +238,7 @@ class LocalFeatureFlagsProvider:
                 flag_definition.context,
                 flag_key,
             )
-            return fallback_value
+            return fallback_value.as_fallback(FallbackReason.MISSING_CONTEXT_KEY)
 
         selected_variant: SelectedVariant | None = None
 
@@ -257,7 +259,7 @@ class LocalFeatureFlagsProvider:
                 self._track_exposure(
                     flag_key, selected_variant, context, end_time - start_time
                 )
-            return selected_variant
+            return selected_variant.with_source(VariantSource.LOCAL)
 
         logger.debug(
             "%s context %s not eligible for any rollout for flag: %s",
@@ -265,7 +267,7 @@ class LocalFeatureFlagsProvider:
             context_value,
             flag_key,
         )
-        return fallback_value
+        return fallback_value.as_fallback(FallbackReason.NO_ROLLOUT_MATCH)
 
     def track_exposure_event(
         self, flag_key: str, variant: SelectedVariant, context: dict[str, Any]

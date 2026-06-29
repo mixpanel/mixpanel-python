@@ -63,6 +63,32 @@ class ExperimentationFlag(BaseModel):
     hash_salt: Optional[str] = None
 
 
+class VariantSource:
+    """Where a SelectedVariant came from. Set by the providers on every
+    returned variant — coarse-grained (local / remote / fallback). For the
+    specific reason behind a fallback, see FallbackReason.
+    """
+
+    LOCAL = "local"
+    REMOTE = "remote"
+    FALLBACK = "fallback"
+
+
+class FallbackReason:
+    """Why the SDK returned the developer fallback. Only meaningful when
+    SelectedVariant.variant_source == VariantSource.FALLBACK. Matches the
+    constant set used by mixpanel-php so the OpenFeature wrapper can map to
+    the spec-correct error code instead of collapsing every fallback to
+    FLAG_NOT_FOUND.
+    """
+
+    FLAG_NOT_FOUND = "FLAG_NOT_FOUND"
+    MISSING_CONTEXT_KEY = "MISSING_CONTEXT_KEY"
+    NO_ROLLOUT_MATCH = "NO_ROLLOUT_MATCH"
+    BACKEND_ERROR = "BACKEND_ERROR"
+    NOT_READY = "NOT_READY"
+
+
 class SelectedVariant(BaseModel):
     # variant_key can be None if being used as a fallback
     variant_key: Optional[str] = None
@@ -70,6 +96,26 @@ class SelectedVariant(BaseModel):
     experiment_id: Optional[str] = None
     is_experiment_active: Optional[bool] = None
     is_qa_tester: Optional[bool] = None
+    variant_source: Optional[str] = None
+    # None on success; one of FallbackReason.* when variant_source is FALLBACK
+    fallback_reason: Optional[str] = None
+
+    def with_source(self, source: str) -> "SelectedVariant":
+        """Return a copy of this variant tagged with the given source.
+        Clears fallback_reason — use as_fallback() if returning a fallback.
+        """
+        return self.model_copy(
+            update={"variant_source": source, "fallback_reason": None}
+        )
+
+    def as_fallback(self, reason: str) -> "SelectedVariant":
+        """Return a copy of this variant tagged as a fallback with the given reason."""
+        return self.model_copy(
+            update={
+                "variant_source": VariantSource.FALLBACK,
+                "fallback_reason": reason,
+            }
+        )
 
 
 class ExperimentationFlags(BaseModel):
