@@ -157,10 +157,11 @@ class MixpanelProvider(AbstractProvider):
         user_context = self._build_user_context(evaluation_context)
         try:
             result = self._flags_provider.get_variant(flag_key, fallback, user_context)
-        except Exception:
+        except Exception as exc:
             return FlagResolutionDetails(
                 value=default_value,
                 error_code=ErrorCode.GENERAL,
+                error_message=str(exc),
                 reason=Reason.ERROR,
             )
 
@@ -219,34 +220,35 @@ class MixpanelProvider(AbstractProvider):
 
     @staticmethod
     def _fallback_details(
-        fallback_reason: str | None, default_value: typing.Any
+        fallback_reason: FallbackReason | None, default_value: typing.Any
     ) -> FlagResolutionDetails | None:
         """Map a fallback reason to its OpenFeature response, or None if not a fallback.
 
         variant_source distinguishes local / remote / fallback. When fallback,
-        fallback_reason carries the specific reason (PHP-aligned constants)
-        so we map each to the spec-correct OpenFeature response instead of
-        collapsing every fallback to FLAG_NOT_FOUND.
+        fallback_reason carries the discriminating kind (PHP-aligned) and an
+        optional message (BACKEND_ERROR's response body, MISSING_CONTEXT_KEY's
+        missing attribute) so we map each to the spec-correct OpenFeature
+        response and forward the message as error_message.
         """
         if fallback_reason is None:
             return None
         # Flag exists, user just didn't match any rollout — per the
         # OpenFeature spec this is `reason: DEFAULT` with no error.
-        if fallback_reason == FallbackReason.NO_ROLLOUT_MATCH:
+        if fallback_reason.kind == "NO_ROLLOUT_MATCH":
             return FlagResolutionDetails(value=default_value, reason=Reason.DEFAULT)
         error_mapping = {
-            FallbackReason.FLAG_NOT_FOUND: (ErrorCode.FLAG_NOT_FOUND, Reason.DEFAULT),
-            FallbackReason.MISSING_CONTEXT_KEY: (
-                ErrorCode.TARGETING_KEY_MISSING,
-                Reason.ERROR,
-            ),
-            FallbackReason.BACKEND_ERROR: (ErrorCode.GENERAL, Reason.ERROR),
-            FallbackReason.NOT_READY: (ErrorCode.PROVIDER_NOT_READY, Reason.ERROR),
+            "FLAG_NOT_FOUND": (ErrorCode.FLAG_NOT_FOUND, Reason.DEFAULT),
+            "MISSING_CONTEXT_KEY": (ErrorCode.TARGETING_KEY_MISSING, Reason.ERROR),
+            "BACKEND_ERROR": (ErrorCode.GENERAL, Reason.ERROR),
+            "NOT_READY": (ErrorCode.PROVIDER_NOT_READY, Reason.ERROR),
         }
-        if fallback_reason in error_mapping:
-            error_code, reason = error_mapping[fallback_reason]
+        if fallback_reason.kind in error_mapping:
+            error_code, reason = error_mapping[fallback_reason.kind]
             return FlagResolutionDetails(
-                value=default_value, error_code=error_code, reason=reason
+                value=default_value,
+                error_code=error_code,
+                error_message=fallback_reason.message,
+                reason=reason,
             )
         return None
 

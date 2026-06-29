@@ -10,7 +10,12 @@ import respx
 from mixpanel.credentials import ServiceAccountCredentials
 
 from .remote_feature_flags import RemoteFeatureFlagsProvider
-from .types import RemoteFlagsConfig, RemoteFlagsResponse, SelectedVariant
+from .types import (
+    RemoteFlagsConfig,
+    RemoteFlagsResponse,
+    SelectedVariant,
+    VariantSource,
+)
 
 ENDPOINT = "https://api.mixpanel.com/flags"
 
@@ -264,6 +269,26 @@ class TestRemoteFeatureFlagsProviderSync:
             "test_flag", "control", {"distinct_id": "user123"}
         )
         assert result == "control"
+
+    @respx.mock
+    def test_get_variant_tags_fallback_with_backend_message_on_http_error(self):
+        """SDK-83: the backend's response message must propagate through
+        FallbackReason.message so the OpenFeature wrapper can forward it
+        as error_message instead of swallowing it into a bare GENERAL."""
+        respx.get(ENDPOINT).mock(
+            return_value=httpx.Response(
+                400, text="distinct_id must be provided in evalContext as a string"
+            )
+        )
+
+        fallback = SelectedVariant(variant_value="control")
+        result = self._flags.get_variant(
+            "test_flag", fallback, {"distinct_id": "user123"}, reportExposure=False
+        )
+
+        assert result.variant_source == VariantSource.FALLBACK
+        assert result.fallback_reason.kind == "BACKEND_ERROR"
+        assert "distinct_id must be provided" in result.fallback_reason.message
 
     @respx.mock
     def test_get_variant_value_is_fallback_if_bad_response_format(self):

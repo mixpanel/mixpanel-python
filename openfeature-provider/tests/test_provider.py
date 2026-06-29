@@ -30,7 +30,7 @@ def setup_flag(mock_flags, flag_key, value, variant_key="variant-key"):
             variant_source=VariantSource.LOCAL,
         )
         if key == flag_key
-        else fallback.as_fallback(FallbackReason.FLAG_NOT_FOUND)
+        else fallback.as_fallback(FallbackReason.flag_not_found())
     )
 
 
@@ -43,7 +43,7 @@ def setup_fallback(mock_flags, reason):
 
 def setup_flag_not_found(mock_flags, flag_key):
     """Configure mock for the genuinely-missing-flag path."""
-    setup_fallback(mock_flags, FallbackReason.FLAG_NOT_FOUND)
+    setup_fallback(mock_flags, FallbackReason.flag_not_found())
 
 
 # --- Metadata ---
@@ -322,7 +322,7 @@ def test_remote_provider_always_ready():
 
 
 def test_no_rollout_match_returns_default_reason_without_error(provider, mock_flags):
-    setup_fallback(mock_flags, FallbackReason.NO_ROLLOUT_MATCH)
+    setup_fallback(mock_flags, FallbackReason.no_rollout_match())
     result = provider.resolve_boolean_details("flag", True)
     assert result.value is True
     assert result.reason == Reason.DEFAULT
@@ -330,7 +330,7 @@ def test_no_rollout_match_returns_default_reason_without_error(provider, mock_fl
 
 
 def test_no_rollout_match_for_string(provider, mock_flags):
-    setup_fallback(mock_flags, FallbackReason.NO_ROLLOUT_MATCH)
+    setup_fallback(mock_flags, FallbackReason.no_rollout_match())
     result = provider.resolve_string_details("flag", "default")
     assert result.value == "default"
     assert result.reason == Reason.DEFAULT
@@ -341,37 +341,46 @@ def test_no_rollout_match_for_string(provider, mock_flags):
 
 
 def test_missing_context_key_returns_targeting_key_missing(provider, mock_flags):
-    setup_fallback(mock_flags, FallbackReason.MISSING_CONTEXT_KEY)
+    setup_fallback(mock_flags, FallbackReason.missing_context_key("distinct_id"))
     result = provider.resolve_boolean_details("flag", False)
     assert result.value is False
     assert result.error_code == ErrorCode.TARGETING_KEY_MISSING
     assert result.reason == Reason.ERROR
 
 
-def test_missing_context_key_for_string(provider, mock_flags):
-    setup_fallback(mock_flags, FallbackReason.MISSING_CONTEXT_KEY)
+def test_missing_context_key_forwards_missing_attribute_as_error_message(
+    provider, mock_flags
+):
+    setup_fallback(mock_flags, FallbackReason.missing_context_key("distinct_id"))
     result = provider.resolve_string_details("flag", "default")
     assert result.value == "default"
     assert result.error_code == ErrorCode.TARGETING_KEY_MISSING
+    assert result.error_message == "distinct_id"
     assert result.reason == Reason.ERROR
 
 
-# --- Backend error ---
+# --- Backend error (SDK-83: forwards the backend's response message) ---
 
 
-def test_backend_error_maps_to_general(provider, mock_flags):
-    setup_fallback(mock_flags, FallbackReason.BACKEND_ERROR)
+def test_backend_error_maps_to_general_and_forwards_message(provider, mock_flags):
+    setup_fallback(
+        mock_flags,
+        FallbackReason.backend_error(
+            "HTTP 400: distinct_id must be provided in evalContext as a string"
+        ),
+    )
     result = provider.resolve_string_details("flag", "default")
     assert result.value == "default"
     assert result.error_code == ErrorCode.GENERAL
     assert result.reason == Reason.ERROR
+    assert "distinct_id must be provided" in result.error_message
 
 
 # --- Not ready ---
 
 
 def test_not_ready_reason_maps_to_provider_not_ready(provider, mock_flags):
-    setup_fallback(mock_flags, FallbackReason.NOT_READY)
+    setup_fallback(mock_flags, FallbackReason.not_ready())
     result = provider.resolve_boolean_details("flag", True)
     assert result.value is True
     assert result.error_code == ErrorCode.PROVIDER_NOT_READY

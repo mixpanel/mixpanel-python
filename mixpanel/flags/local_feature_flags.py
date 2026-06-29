@@ -230,7 +230,7 @@ class LocalFeatureFlagsProvider:
 
         if not flag_definition:
             logger.warning("Cannot find flag definition for key: '%s'", flag_key)
-            return fallback_value.as_fallback(FallbackReason.FLAG_NOT_FOUND)
+            return fallback_value.as_fallback(FallbackReason.flag_not_found())
 
         if not (context_value := context.get(flag_definition.context)):
             logger.warning(
@@ -238,7 +238,9 @@ class LocalFeatureFlagsProvider:
                 flag_definition.context,
                 flag_key,
             )
-            return fallback_value.as_fallback(FallbackReason.MISSING_CONTEXT_KEY)
+            return fallback_value.as_fallback(
+                FallbackReason.missing_context_key(flag_definition.context)
+            )
 
         selected_variant: SelectedVariant | None = None
 
@@ -267,7 +269,7 @@ class LocalFeatureFlagsProvider:
             context_value,
             flag_key,
         )
-        return fallback_value.as_fallback(FallbackReason.NO_ROLLOUT_MATCH)
+        return fallback_value.as_fallback(FallbackReason.no_rollout_match())
 
     def track_exposure_event(
         self, flag_key: str, variant: SelectedVariant, context: dict[str, Any]

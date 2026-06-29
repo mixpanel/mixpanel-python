@@ -157,9 +157,15 @@ class RemoteFeatureFlagsProvider:
                         distinct_id, EXPOSURE_EVENT, properties
                     )
                 )
-        except Exception:
+        except Exception as exc:
             logger.exception("Failed to get remote variant for flag '%s'", flag_key)
-            return fallback_value.as_fallback(FallbackReason.BACKEND_ERROR)
+            # SDK-83: attach the exception message so the OpenFeature wrapper
+            # can forward it as error_message. Without this the caller sees
+            # a bare GENERAL error and has to dig through logs to find out
+            # the backend rejected the request.
+            return fallback_value.as_fallback(
+                FallbackReason.backend_error(self._describe_backend_error(exc))
+            )
         else:
             return selected_variant
 
@@ -271,9 +277,13 @@ class RemoteFeatureFlagsProvider:
                 )
                 self._tracker(distinct_id, EXPOSURE_EVENT, properties)
 
-        except Exception:
+        except Exception as exc:
             logger.exception("Failed to get remote variant for flag '%s'", flag_key)
-            return fallback_value.as_fallback(FallbackReason.BACKEND_ERROR)
+            # SDK-83: attach the exception message so the OpenFeature wrapper
+            # can forward it as error_message.
+            return fallback_value.as_fallback(
+                FallbackReason.backend_error(self._describe_backend_error(exc))
+            )
         else:
             return selected_variant
 
@@ -361,6 +371,20 @@ class RemoteFeatureFlagsProvider:
         flags_response = RemoteFlagsResponse.model_validate(response.json())
         return flags_response.flags
 
+    @staticmethod
+    def _describe_backend_error(exc: Exception) -> str:
+        """Best-effort backend message for FallbackReason.backend_error.
+
+        For HTTP errors the response body usually contains the actionable
+        detail (e.g. "distinct_id must be provided in evalContext as a
+        string") — httpx's default str(exc) only carries the status line,
+        so reach into exc.response.text when available.
+        """
+        if isinstance(exc, httpx.HTTPStatusError):
+            body = exc.response.text.strip() if exc.response is not None else ""
+            return f"HTTP {exc.response.status_code}: {body}" if body else str(exc)
+        return str(exc)
+
     def _lookup_flag_in_response(
         self,
         flag_key: str,
@@ -378,7 +402,7 @@ class RemoteFeatureFlagsProvider:
         # so a missing key could mean the flag doesn't exist OR the user
         # isn't in any rollout. The remote SDK can't tell them apart without
         # server-side help — surface as FLAG_NOT_FOUND for now.
-        return fallback_value.as_fallback(FallbackReason.FLAG_NOT_FOUND), True
+        return fallback_value.as_fallback(FallbackReason.flag_not_found()), True
 
     def shutdown(self):
         self._sync_client.close()

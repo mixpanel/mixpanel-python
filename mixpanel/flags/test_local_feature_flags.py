@@ -16,7 +16,6 @@ from .local_feature_flags import LocalFeatureFlagsProvider
 from .types import (
     ExperimentationFlag,
     ExperimentationFlags,
-    FallbackReason,
     FlagTestUsers,
     LocalFlagsConfig,
     Rollout,
@@ -741,7 +740,8 @@ class TestLocalFeatureFlagsProviderAsync:
         fallback = SelectedVariant(variant_value="fb")
         result = self._flags.get_variant("missing", fallback, USER_CONTEXT)
         assert result.variant_source == VariantSource.FALLBACK
-        assert result.fallback_reason == FallbackReason.FLAG_NOT_FOUND
+        assert result.fallback_reason.kind == "FLAG_NOT_FOUND"
+        assert result.fallback_reason.message is None
         assert result.variant_value == "fb"
 
     @respx.mock
@@ -751,7 +751,8 @@ class TestLocalFeatureFlagsProviderAsync:
         fallback = SelectedVariant(variant_value="fb")
         result = self._flags.get_variant(TEST_FLAG_KEY, fallback, {})
         assert result.variant_source == VariantSource.FALLBACK
-        assert result.fallback_reason == FallbackReason.MISSING_CONTEXT_KEY
+        assert result.fallback_reason.kind == "MISSING_CONTEXT_KEY"
+        assert result.fallback_reason.message == "distinct_id"
 
     @respx.mock
     async def test_get_variant_tags_no_rollout_match(self):
@@ -760,7 +761,7 @@ class TestLocalFeatureFlagsProviderAsync:
         fallback = SelectedVariant(variant_value="fb")
         result = self._flags.get_variant(TEST_FLAG_KEY, fallback, USER_CONTEXT)
         assert result.variant_source == VariantSource.FALLBACK
-        assert result.fallback_reason == FallbackReason.NO_ROLLOUT_MATCH
+        assert result.fallback_reason.kind == "NO_ROLLOUT_MATCH"
 
     @respx.mock
     async def test_get_variant_value_uses_most_recent_polled_flag(self):

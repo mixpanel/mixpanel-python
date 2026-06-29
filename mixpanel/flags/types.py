@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict
 
@@ -76,20 +76,55 @@ class VariantSource:
     FALLBACK = "fallback"
 
 
-class FallbackReason:
+class FallbackReason(BaseModel):
     """Why the SDK returned the developer fallback.
 
     Only meaningful when SelectedVariant.variant_source == VariantSource.FALLBACK.
-    Matches the constant set used by mixpanel-php so the OpenFeature wrapper
-    can map to the spec-correct error code instead of collapsing every
-    fallback to FLAG_NOT_FOUND.
+
+    `kind` is the discriminator (PHP-aligned). `message` is set on reasons
+    that carry useful detail (BACKEND_ERROR with the backend's response body,
+    MISSING_CONTEXT_KEY with the missing attribute name); None otherwise.
+    The OpenFeature wrapper dispatches on kind and forwards message into
+    FlagResolutionDetails.error_message.
     """
 
-    FLAG_NOT_FOUND = "FLAG_NOT_FOUND"
-    MISSING_CONTEXT_KEY = "MISSING_CONTEXT_KEY"
-    NO_ROLLOUT_MATCH = "NO_ROLLOUT_MATCH"
-    BACKEND_ERROR = "BACKEND_ERROR"
-    NOT_READY = "NOT_READY"
+    model_config = ConfigDict(frozen=True)
+
+    kind: Literal[
+        "FLAG_NOT_FOUND",
+        "MISSING_CONTEXT_KEY",
+        "NO_ROLLOUT_MATCH",
+        "BACKEND_ERROR",
+        "NOT_READY",
+    ]
+    message: Optional[str] = None
+
+    # Factory methods. Reasons without meaningful detail return a frozen
+    # singleton; reasons with detail allocate per call.
+    @classmethod
+    def flag_not_found(cls) -> "FallbackReason":
+        return _FLAG_NOT_FOUND
+
+    @classmethod
+    def no_rollout_match(cls) -> "FallbackReason":
+        return _NO_ROLLOUT_MATCH
+
+    @classmethod
+    def not_ready(cls) -> "FallbackReason":
+        return _NOT_READY
+
+    @classmethod
+    def missing_context_key(cls, key: Optional[str] = None) -> "FallbackReason":
+        return cls(kind="MISSING_CONTEXT_KEY", message=key)
+
+    @classmethod
+    def backend_error(cls, message: str) -> "FallbackReason":
+        return cls(kind="BACKEND_ERROR", message=message)
+
+
+_FLAG_NOT_FOUND = FallbackReason(kind="FLAG_NOT_FOUND")
+_NO_ROLLOUT_MATCH = FallbackReason(kind="NO_ROLLOUT_MATCH")
+_NOT_READY = FallbackReason(kind="NOT_READY")
 
 
 class SelectedVariant(BaseModel):
@@ -100,8 +135,8 @@ class SelectedVariant(BaseModel):
     is_experiment_active: Optional[bool] = None
     is_qa_tester: Optional[bool] = None
     variant_source: Optional[str] = None
-    # None on success; one of FallbackReason.* when variant_source is FALLBACK
-    fallback_reason: Optional[str] = None
+    # None on success; set when variant_source == FALLBACK
+    fallback_reason: Optional[FallbackReason] = None
 
     def with_source(self, source: str) -> "SelectedVariant":
         """Return a copy of this variant tagged with the given source.
@@ -112,7 +147,7 @@ class SelectedVariant(BaseModel):
             update={"variant_source": source, "fallback_reason": None}
         )
 
-    def as_fallback(self, reason: str) -> "SelectedVariant":
+    def as_fallback(self, reason: FallbackReason) -> "SelectedVariant":
         """Return a copy of this variant tagged as a fallback with the given reason."""
         return self.model_copy(
             update={
