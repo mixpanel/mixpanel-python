@@ -674,9 +674,7 @@ class TestLocalFeatureFlagsProviderAsync:
                 captured.append(threading.current_thread())
                 tracker_done.set()
 
-            config = LocalFlagsConfig(
-                enable_polling=False, exposure_executor=executor
-            )
+            config = LocalFlagsConfig(enable_polling=False, exposure_executor=executor)
             provider = LocalFeatureFlagsProvider(
                 "test-token", config, "1.0.0", Mock(side_effect=tracker)
             )
@@ -708,9 +706,7 @@ class TestLocalFeatureFlagsProviderAsync:
                 tracker_thread.set()
 
             tracker_mock = Mock(side_effect=tracker)
-            config = LocalFlagsConfig(
-                enable_polling=False, exposure_executor=executor
-            )
+            config = LocalFlagsConfig(enable_polling=False, exposure_executor=executor)
             provider = LocalFeatureFlagsProvider(
                 "test-token", config, "1.0.0", tracker_mock
             )
