@@ -283,6 +283,57 @@ class TestRemoteFeatureFlagsProviderSync:
         )
         self.mock_tracker.assert_not_called()
 
+    def test_default_exposure_runs_inline_on_calling_thread(self):
+        """Smoke test: exposure_executor defaults to None, tracker runs inline."""
+        called_on: list[threading.Thread] = []
+
+        def tracker(_distinct_id, _event, _properties):
+            called_on.append(threading.current_thread())
+
+        provider = RemoteFeatureFlagsProvider(
+            "test-token", RemoteFlagsConfig(), "1.0.0", tracker
+        )
+        try:
+            provider.track_exposure_event(
+                "manual",
+                SelectedVariant(variant_key="treatment", variant_value="x"),
+                {"distinct_id": "user123"},
+            )
+            assert called_on == [threading.current_thread()]
+        finally:
+            provider.__exit__(None, None, None)
+
+    def test_track_exposure_event_routes_through_executor(self):
+        """Manual API also honors exposure_executor."""
+        executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="exposure")
+        try:
+            tracker_done = threading.Event()
+            captured: list[threading.Thread] = []
+
+            def tracker(_distinct_id, _event, _properties):
+                captured.append(threading.current_thread())
+                tracker_done.set()
+
+            provider = RemoteFeatureFlagsProvider(
+                "test-token",
+                RemoteFlagsConfig(exposure_executor=executor),
+                "1.0.0",
+                Mock(side_effect=tracker),
+            )
+            try:
+                provider.track_exposure_event(
+                    "manual",
+                    SelectedVariant(variant_key="treatment", variant_value="x"),
+                    {"distinct_id": "user123"},
+                )
+                assert tracker_done.wait(timeout=2.0)
+                assert captured[0] is not threading.current_thread()
+                assert captured[0].name.startswith("exposure")
+            finally:
+                provider.__exit__(None, None, None)
+        finally:
+            executor.shutdown(wait=True)
+
     @respx.mock
     def test_exposure_executor_dispatches_tracker_off_calling_thread(self):
         respx.get(ENDPOINT).mock(

@@ -648,6 +648,53 @@ class TestLocalFeatureFlagsProviderAsync:
         self._mock_tracker.assert_not_called()
 
     @respx.mock
+    async def test_default_exposure_runs_inline_on_calling_thread(self):
+        """Smoke test: exposure_executor defaults to None, tracker runs inline."""
+        flag = create_test_flag(rollout_percentage=100.0)
+        await self.setup_flags([flag])
+
+        called_on: list[threading.Thread] = []
+
+        def tracker(_distinct_id, _event, _properties):
+            called_on.append(threading.current_thread())
+
+        self._mock_tracker.side_effect = tracker
+        self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", USER_CONTEXT)
+        assert called_on == [threading.current_thread()]
+
+    @respx.mock
+    async def test_track_exposure_event_routes_through_executor(self):
+        """Manual API also honors exposure_executor."""
+        executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="exposure")
+        try:
+            tracker_done = threading.Event()
+            captured: list[threading.Thread] = []
+
+            def tracker(_distinct_id, _event, _properties):
+                captured.append(threading.current_thread())
+                tracker_done.set()
+
+            config = LocalFlagsConfig(
+                enable_polling=False, exposure_executor=executor
+            )
+            provider = LocalFeatureFlagsProvider(
+                "test-token", config, "1.0.0", Mock(side_effect=tracker)
+            )
+            try:
+                provider.track_exposure_event(
+                    "manual",
+                    SelectedVariant(variant_key="treatment", variant_value="x"),
+                    USER_CONTEXT,
+                )
+                assert tracker_done.wait(timeout=2.0)
+                assert captured[0] is not threading.current_thread()
+                assert captured[0].name.startswith("exposure")
+            finally:
+                await provider.__aexit__(None, None, None)
+        finally:
+            executor.shutdown(wait=True)
+
+    @respx.mock
     async def test_exposure_executor_dispatches_tracker_off_calling_thread(self):
         flag = create_test_flag(rollout_percentage=100.0)
         executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="exposure")
