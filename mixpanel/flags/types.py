@@ -86,6 +86,10 @@ class FallbackReason(BaseModel):
     MISSING_CONTEXT_KEY with the missing attribute name); None otherwise.
     The OpenFeature wrapper dispatches on kind and forwards message into
     FlagResolutionDetails.error_message.
+
+    Note: the wrapper handles PROVIDER_NOT_READY by short-circuiting before
+    invoking the provider (see MixpanelProvider._are_flags_ready), so there
+    is no NOT_READY kind here — no producer would ever construct it.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -95,7 +99,6 @@ class FallbackReason(BaseModel):
         "MISSING_CONTEXT_KEY",
         "NO_ROLLOUT_MATCH",
         "BACKEND_ERROR",
-        "NOT_READY",
     ]
     message: Optional[str] = None
 
@@ -110,10 +113,6 @@ class FallbackReason(BaseModel):
         return _NO_ROLLOUT_MATCH
 
     @classmethod
-    def not_ready(cls) -> "FallbackReason":
-        return _NOT_READY
-
-    @classmethod
     def missing_context_key(cls, key: Optional[str] = None) -> "FallbackReason":
         return cls(kind="MISSING_CONTEXT_KEY", message=key)
 
@@ -124,7 +123,6 @@ class FallbackReason(BaseModel):
 
 _FLAG_NOT_FOUND = FallbackReason(kind="FLAG_NOT_FOUND")
 _NO_ROLLOUT_MATCH = FallbackReason(kind="NO_ROLLOUT_MATCH")
-_NOT_READY = FallbackReason(kind="NOT_READY")
 
 
 class SelectedVariant(BaseModel):
