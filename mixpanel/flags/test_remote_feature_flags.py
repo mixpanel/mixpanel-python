@@ -159,7 +159,11 @@ class TestRemoteFeatureFlagsProviderAsync:
 
         result = await self._flags.aget_all_variants({"distinct_id": "user123"})
 
-        assert result == variants
+        assert set(result.keys()) == {"flag1", "flag2"}
+        assert result["flag1"].variant_value == "value1"
+        assert result["flag2"].variant_value == "value2"
+        # Every returned variant must be tagged with variant_source=REMOTE.
+        assert all(v.variant_source == VariantSource.REMOTE for v in result.values())
 
     @respx.mock
     async def test_aget_all_variants_returns_none_on_network_error(self):
@@ -390,7 +394,10 @@ class TestRemoteFeatureFlagsProviderSync:
 
         result = self._flags.get_all_variants({"distinct_id": "user123"})
 
-        assert result == variants
+        assert set(result.keys()) == {"flag1", "flag2"}
+        assert result["flag1"].variant_value == "value1"
+        assert result["flag2"].variant_value == "value2"
+        assert all(v.variant_source == VariantSource.REMOTE for v in result.values())
 
     @respx.mock
     def test_get_all_variants_returns_none_on_network_error(self):

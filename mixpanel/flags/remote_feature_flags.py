@@ -100,6 +100,8 @@ class RemoteFeatureFlagsProvider:
         except Exception:
             logger.exception("Failed to get remote variants")
 
+        if flags is not None:
+            flags = {k: v.with_source(VariantSource.REMOTE) for k, v in flags.items()}
         return flags
 
     async def aget_variant_value(
@@ -222,6 +224,8 @@ class RemoteFeatureFlagsProvider:
         except Exception:
             logger.exception("Failed to get remote variants")
 
+        if flags is not None:
+            flags = {k: v.with_source(VariantSource.REMOTE) for k, v in flags.items()}
         return flags
 
     def get_variant_value(

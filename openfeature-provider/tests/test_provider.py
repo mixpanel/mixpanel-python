@@ -163,6 +163,20 @@ def test_flag_not_found_boolean(provider, mock_flags):
     assert result.reason == Reason.DEFAULT
 
 
+def test_bare_fallback_treated_as_flag_not_found(provider, mock_flags):
+    """A custom flags provider written against the pre-SDK-79 contract may
+    return the fallback object unchanged (no .as_fallback tag). Treat that
+    as FLAG_NOT_FOUND rather than a successful targeting match."""
+    # Return the fallback object as-is with no fallback_reason set.
+    mock_flags.get_variant.side_effect = (
+        lambda _key, fallback, _ctx, **_kwargs: fallback
+    )
+    result = provider.resolve_string_details("any-flag", "default")
+    assert result.value == "default"
+    assert result.error_code == ErrorCode.FLAG_NOT_FOUND
+    assert result.reason == Reason.DEFAULT
+
+
 def test_flag_not_found_string(provider, mock_flags):
     setup_flag_not_found(mock_flags, "missing-flag")
     result = provider.resolve_string_details("missing-flag", "fallback")

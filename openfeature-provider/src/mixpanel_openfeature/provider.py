@@ -139,7 +139,7 @@ class MixpanelProvider(AbstractProvider):
                 user_context["targetingKey"] = evaluation_context.targeting_key
         return user_context
 
-    def _resolve(
+    def _resolve(  # noqa: C901 — type-coercion branches are intentional
         self,
         flag_key: str,
         default_value: typing.Any,
@@ -163,6 +163,16 @@ class MixpanelProvider(AbstractProvider):
                 error_code=ErrorCode.GENERAL,
                 error_message=str(exc),
                 reason=Reason.ERROR,
+            )
+
+        # Defensive: a custom flags provider written against the pre-SDK-79
+        # contract may return the fallback object unchanged (no .as_fallback
+        # tag). Treat that as FLAG_NOT_FOUND rather than a successful match.
+        if self._is_untagged_fallback(result, fallback):
+            return FlagResolutionDetails(
+                value=default_value,
+                error_code=ErrorCode.FLAG_NOT_FOUND,
+                reason=Reason.DEFAULT,
             )
 
         fallback_details = self._fallback_details(
@@ -217,6 +227,12 @@ class MixpanelProvider(AbstractProvider):
         return FlagResolutionDetails(
             value=value, variant=variant_key, reason=Reason.TARGETING_MATCH
         )
+
+    @staticmethod
+    def _is_untagged_fallback(
+        result: SelectedVariant, fallback: SelectedVariant
+    ) -> bool:
+        return result is fallback and result.fallback_reason is None
 
     @staticmethod
     def _fallback_details(
