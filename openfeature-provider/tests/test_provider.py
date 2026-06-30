@@ -376,12 +376,6 @@ def test_backend_error_maps_to_general_and_forwards_message(provider, mock_flags
     assert "distinct_id must be provided" in result.error_message
 
 
-# Not-ready handling is covered by the test_provider_not_ready_* tests above,
-# which exercise the wrapper's are_flags_ready short-circuit. The provider
-# never stamps a NOT_READY fallback reason, so there is no producer-side
-# dispatch to test here.
-
-
 # --- Lifecycle ---
 
 

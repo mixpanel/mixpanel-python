@@ -236,9 +236,6 @@ class MixpanelProvider(AbstractProvider):
         # OpenFeature spec this is `reason: DEFAULT` with no error.
         if fallback_reason.kind == "NO_ROLLOUT_MATCH":
             return FlagResolutionDetails(value=default_value, reason=Reason.DEFAULT)
-        # PROVIDER_NOT_READY is handled before invoking the provider
-        # (see _are_flags_ready short-circuit at the top of resolve), so
-        # there's no NOT_READY kind to dispatch on here.
         error_mapping = {
             "FLAG_NOT_FOUND": (ErrorCode.FLAG_NOT_FOUND, Reason.DEFAULT),
             "MISSING_CONTEXT_KEY": (ErrorCode.TARGETING_KEY_MISSING, Reason.ERROR),

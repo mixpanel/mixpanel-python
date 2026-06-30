@@ -86,10 +86,6 @@ class FallbackReason(BaseModel):
     MISSING_CONTEXT_KEY with the missing attribute name); None otherwise.
     The OpenFeature wrapper dispatches on kind and forwards message into
     FlagResolutionDetails.error_message.
-
-    Note: the wrapper handles PROVIDER_NOT_READY by short-circuiting before
-    invoking the provider (see MixpanelProvider._are_flags_ready), so there
-    is no NOT_READY kind here — no producer would ever construct it.
     """
 
     model_config = ConfigDict(frozen=True)
