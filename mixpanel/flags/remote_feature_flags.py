@@ -237,7 +237,7 @@ class RemoteFeatureFlagsProvider:
                 properties = self._build_tracking_properties(
                     flag_key, selected_variant, start_time, end_time
                 )
-                self._tracker(distinct_id, EXPOSURE_EVENT, properties)
+                self._dispatch_exposure(distinct_id, properties)
 
         except Exception:
             logger.exception("Failed to get remote variant for flag '%s'", flag_key)
@@ -267,11 +267,22 @@ class RemoteFeatureFlagsProvider:
         """
         if distinct_id := context.get("distinct_id"):
             properties = self._build_tracking_properties(flag_key, variant)
-            self._tracker(distinct_id, EXPOSURE_EVENT, properties)
+            self._dispatch_exposure(distinct_id, properties)
         else:
             logger.error(
                 "Cannot track exposure event without a distinct_id in the context"
             )
+
+    def _dispatch_exposure(self, distinct_id: str, properties: dict[str, Any]) -> None:
+        if (executor := self._config.exposure_executor) is not None:
+            try:
+                executor.submit(self._tracker, distinct_id, EXPOSURE_EVENT, properties)
+            except RuntimeError:
+                logger.exception(
+                    "Exposure event dropped — executor refused to accept task"
+                )
+            return
+        self._tracker(distinct_id, EXPOSURE_EVENT, properties)
 
     def _prepare_query_params(
         self, context: dict[str, Any], flag_key: str | None = None

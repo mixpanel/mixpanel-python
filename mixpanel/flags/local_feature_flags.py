@@ -511,11 +511,22 @@ class LocalFeatureFlagsProvider:
             if latency_in_seconds is not None:
                 properties["Variant fetch latency (ms)"] = latency_in_seconds * 1000
 
-            self._tracker(distinct_id, EXPOSURE_EVENT, properties)
+            self._dispatch_exposure(distinct_id, properties)
         else:
             logger.error(
                 "Cannot track exposure event without a distinct_id in the context"
             )
+
+    def _dispatch_exposure(self, distinct_id: str, properties: dict[str, Any]) -> None:
+        if (executor := self._config.exposure_executor) is not None:
+            try:
+                executor.submit(self._tracker, distinct_id, EXPOSURE_EVENT, properties)
+            except RuntimeError:
+                logger.exception(
+                    "Exposure event dropped — executor refused to accept task"
+                )
+            return
+        self._tracker(distinct_id, EXPOSURE_EVENT, properties)
 
     async def __aenter__(self):
         return self

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import Mock
 
 import httpx
@@ -280,6 +282,45 @@ class TestRemoteFeatureFlagsProviderSync:
             "test_flag", "control", {"distinct_id": "user123"}
         )
         self.mock_tracker.assert_not_called()
+
+    @respx.mock
+    def test_exposure_executor_dispatches_tracker_off_calling_thread(self):
+        respx.get(ENDPOINT).mock(
+            return_value=create_success_response(
+                {
+                    "test_flag": SelectedVariant(
+                        variant_key="treatment", variant_value="treatment"
+                    )
+                }
+            )
+        )
+
+        executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="exposure")
+        try:
+            calling_thread = threading.current_thread()
+            tracker_thread = threading.Event()
+            captured_thread: list[threading.Thread] = []
+
+            def tracker(_distinct_id, _event, _properties):
+                captured_thread.append(threading.current_thread())
+                tracker_thread.set()
+
+            tracker_mock = Mock(side_effect=tracker)
+            config = RemoteFlagsConfig(exposure_executor=executor)
+            provider = RemoteFeatureFlagsProvider(
+                "test-token", config, "1.0.0", tracker_mock
+            )
+            try:
+                provider.get_variant_value(
+                    "test_flag", "control", {"distinct_id": "user123"}
+                )
+                assert tracker_thread.wait(timeout=2.0), "tracker never ran"
+                assert captured_thread[0] is not calling_thread
+                assert captured_thread[0].name.startswith("exposure")
+            finally:
+                provider.__exit__(None, None, None)
+        finally:
+            executor.shutdown(wait=True)
 
     @respx.mock
     def test_is_enabled_returns_true_for_true_variant_value(self):

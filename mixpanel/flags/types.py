@@ -1,3 +1,4 @@
+from concurrent.futures import Executor
 from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict
@@ -10,6 +11,10 @@ class FlagsConfig(BaseModel):
 
     api_host: str = "api.mixpanel.com"
     request_timeout_in_seconds: int = 10
+    # Optional executor used to dispatch exposure-event HTTP sends so flag
+    # evaluation does not block on the network round trip. None (default)
+    # preserves the existing inline behavior.
+    exposure_executor: Optional[Executor] = None
 
 
 class LocalFlagsConfig(FlagsConfig):

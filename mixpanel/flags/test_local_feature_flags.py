@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from itertools import chain, repeat
 from typing import Any
 from unittest.mock import Mock, patch
@@ -645,6 +646,40 @@ class TestLocalFeatureFlagsProviderAsync:
             "nonexistent_flag", "fallback", {"company_id": "company123"}
         )
         self._mock_tracker.assert_not_called()
+
+    @respx.mock
+    async def test_exposure_executor_dispatches_tracker_off_calling_thread(self):
+        flag = create_test_flag(rollout_percentage=100.0)
+        executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="exposure")
+        try:
+            calling_thread = threading.current_thread()
+            tracker_thread = threading.Event()
+            captured_thread: list[threading.Thread] = []
+
+            def tracker(_distinct_id, _event, _properties):
+                captured_thread.append(threading.current_thread())
+                tracker_thread.set()
+
+            tracker_mock = Mock(side_effect=tracker)
+            config = LocalFlagsConfig(
+                enable_polling=False, exposure_executor=executor
+            )
+            provider = LocalFeatureFlagsProvider(
+                "test-token", config, "1.0.0", tracker_mock
+            )
+            try:
+                respx.get("https://api.mixpanel.com/flags/definitions").mock(
+                    return_value=create_flags_response([flag])
+                )
+                await provider.astart_polling_for_definitions()
+                provider.get_variant_value(TEST_FLAG_KEY, "fallback", USER_CONTEXT)
+                assert tracker_thread.wait(timeout=2.0), "tracker never ran"
+                assert captured_thread[0] is not calling_thread
+                assert captured_thread[0].name.startswith("exposure")
+            finally:
+                await provider.__aexit__(None, None, None)
+        finally:
+            executor.shutdown(wait=True)
 
     @respx.mock
     async def test_get_all_variants_returns_all_variants_when_user_in_rollout(self):
