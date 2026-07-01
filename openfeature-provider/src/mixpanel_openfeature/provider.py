@@ -265,7 +265,17 @@ class MixpanelProvider(AbstractProvider):
                 error_message=fallback_reason.message,
                 reason=reason,
             )
-        return None
+        # Exhaustive: every FallbackReason.Kind Literal is handled above. If a
+        # new kind is added to the enum without also being wired into the
+        # mapping (or NO_ROLLOUT_MATCH branch above), fall back to GENERAL
+        # rather than returning None — which _resolve would silently
+        # misinterpret as a successful targeting match.
+        return FlagResolutionDetails(
+            value=default_value,
+            error_code=ErrorCode.GENERAL,
+            error_message=f"Unrecognized fallback_reason.kind: {fallback_reason.kind}",
+            reason=Reason.ERROR,
+        )
 
     def _are_flags_ready(self) -> bool:
         if hasattr(self._flags_provider, "are_flags_ready"):

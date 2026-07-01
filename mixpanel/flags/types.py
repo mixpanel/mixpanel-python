@@ -109,7 +109,11 @@ class FallbackReason(BaseModel):
         return _NO_ROLLOUT_MATCH
 
     @classmethod
-    def missing_context_key(cls, key: Optional[str] = None) -> "FallbackReason":
+    def missing_context_key(cls, key: str) -> "FallbackReason":
+        # The whole point of MISSING_CONTEXT_KEY is telling the caller *which*
+        # attribute is absent; a nullable default would leak `message=None`
+        # into the OpenFeature wrapper's error_message and defeat the SDK-79
+        # richer-error-propagation goal.
         return cls(kind="MISSING_CONTEXT_KEY", message=key)
 
     @classmethod
