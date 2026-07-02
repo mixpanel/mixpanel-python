@@ -295,6 +295,27 @@ class TestRemoteFeatureFlagsProviderSync:
         assert "distinct_id must be provided" in result.fallback_reason.message
 
     @respx.mock
+    def test_backend_error_message_never_leaks_token_or_distinct_id(self):
+        """Empty-body HTTP error must NOT expose the request URL — httpx's
+        default str(exc) formatting would include the query string, which
+        carries the project token and JSON-encoded context (SDK-83 security
+        review). Only the status code should surface downstream."""
+        respx.get(ENDPOINT).mock(return_value=httpx.Response(500, text=""))
+
+        fallback = SelectedVariant(variant_value="control")
+        result = self._flags.get_variant(
+            "test_flag", fallback, {"distinct_id": "user123"}, reportExposure=False
+        )
+
+        assert result.variant_source == VariantSource.FALLBACK
+        assert result.fallback_reason.kind == "BACKEND_ERROR"
+        message = result.fallback_reason.message
+        assert message == "HTTP 500"
+        assert "test-token" not in message
+        assert "distinct_id" not in message
+        assert "user123" not in message
+
+    @respx.mock
     def test_get_variant_value_is_fallback_if_bad_response_format(self):
         respx.get(ENDPOINT).mock(return_value=httpx.Response(200, text="invalid json"))
 

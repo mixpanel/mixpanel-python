@@ -383,10 +383,18 @@ class RemoteFeatureFlagsProvider:
         detail (e.g. "distinct_id must be provided in evalContext as a
         string") — httpx's default str(exc) only carries the status line,
         so reach into exc.response.text when available.
+
+        Never fall back to ``str(exc)`` for HTTPStatusError: httpx's default
+        formatting includes the full request URL, which carries the project
+        token and distinct_id in the query string. Since this message is
+        forwarded verbatim into ``FlagResolutionDetails.error_message`` by
+        the OpenFeature wrapper, leaking those into user-visible output
+        would be a real regression (SDK-83 security review).
         """
         if isinstance(exc, httpx.HTTPStatusError):
             body = exc.response.text.strip() if exc.response is not None else ""
-            return f"HTTP {exc.response.status_code}: {body}" if body else str(exc)
+            status = exc.response.status_code if exc.response is not None else "?"
+            return f"HTTP {status}: {body}" if body else f"HTTP {status}"
         return str(exc)
 
     def _lookup_flag_in_response(
