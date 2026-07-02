@@ -18,8 +18,8 @@ from .types import (
     SelectedVariant,
 )
 from .utils import (
-    EXPOSURE_EVENT,
     REQUEST_HEADERS,
+    dispatch_exposure,
     generate_traceparent,
     normalized_hash,
     prepare_common_query_params,
@@ -518,15 +518,9 @@ class LocalFeatureFlagsProvider:
             )
 
     def _dispatch_exposure(self, distinct_id: str, properties: dict[str, Any]) -> None:
-        if (executor := self._config.exposure_executor) is not None:
-            try:
-                executor.submit(self._tracker, distinct_id, EXPOSURE_EVENT, properties)
-            except RuntimeError:
-                logger.exception(
-                    "Exposure event dropped — executor refused to accept task"
-                )
-            return
-        self._tracker(distinct_id, EXPOSURE_EVENT, properties)
+        dispatch_exposure(
+            self._tracker, self._config.exposure_executor, distinct_id, properties
+        )
 
     async def __aenter__(self):
         return self
