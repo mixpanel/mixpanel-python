@@ -40,7 +40,9 @@ class TestUtils:
 
         dispatch_exposure(tracker, None, "user-1", {"prop": "value"})
 
-        tracker.assert_called_once_with("user-1", "$experiment_started", {"prop": "value"})
+        tracker.assert_called_once_with(
+            "user-1", "$experiment_started", {"prop": "value"}
+        )
 
     def test_dispatch_exposure_logs_executor_thread_exceptions(self, caplog):
         # Without the done-callback the future.exception() would be silently

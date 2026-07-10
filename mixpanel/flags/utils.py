@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import logging
 import uuid
-from concurrent.futures import Executor, Future
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
+
+if TYPE_CHECKING:
+    from concurrent.futures import Executor, Future
 
 logger = logging.getLogger(__name__)
 
@@ -72,9 +74,7 @@ def dispatch_exposure(
     try:
         future = executor.submit(tracker, distinct_id, EXPOSURE_EVENT, properties)
     except RuntimeError:
-        logger.exception(
-            "Exposure event dropped — executor refused to accept task"
-        )
+        logger.exception("Exposure event dropped — executor refused to accept task")
         return
 
     # Retrieve exceptions raised on the executor thread; otherwise a
