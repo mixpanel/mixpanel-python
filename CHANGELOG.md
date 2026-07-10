@@ -1,5 +1,15 @@
 # Changelog
 
+## [v5.2.0](https://github.com/mixpanel/mixpanel-python/tree/v5.2.0) (2026-07-10)
+
+### Features
+- add service account authentication support ([#175](https://github.com/mixpanel/mixpanel-python/pull/175))
+
+### Fixes
+- restore PyPy 3.9 compatibility by pinning pydantic ([#176](https://github.com/mixpanel/mixpanel-python/pull/176))
+
+[Full Changelog](https://github.com/mixpanel/mixpanel-python/compare/v5.1.0...v5.2.0)
+
 Release notes for the `mixpanel` Python package will be added here starting
 with the first release made under the standardized release process.
 
