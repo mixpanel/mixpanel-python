@@ -47,6 +47,7 @@ def close_async_client_from_sync(client: httpx.AsyncClient) -> None:
         "or using __aexit__ from async code."
     )
 
+
 REQUEST_HEADERS: dict[str, str] = {
     "X-Scheme": "https",
     "X-Forwarded-Proto": "https",
