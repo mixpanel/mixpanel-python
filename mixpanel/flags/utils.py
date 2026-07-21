@@ -3,11 +3,19 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
+from typing import TYPE_CHECKING
 
-import httpx
 from asgiref.sync import async_to_sync
 
+if TYPE_CHECKING:
+    import httpx
+
 logger = logging.getLogger(__name__)
+
+# Retains a hard reference to fire-and-forget aclose() tasks scheduled
+# from close_async_client_from_sync when a loop is already running, so
+# they can't be gc'd before completing. Removed via done_callback.
+_pending_aclose_tasks: set[asyncio.Task] = set()
 
 EXPOSURE_EVENT = "$experiment_started"
 
@@ -30,7 +38,9 @@ def close_async_client_from_sync(client: httpx.AsyncClient) -> None:
         async_to_sync(client.aclose)()
         return
 
-    loop.create_task(client.aclose())
+    task = loop.create_task(client.aclose())
+    _pending_aclose_tasks.add(task)
+    task.add_done_callback(_pending_aclose_tasks.discard)
     logger.warning(
         "close_async_client_from_sync scheduled aclose() on a running "
         "event loop and did not wait for it. Prefer awaiting aclose() "
