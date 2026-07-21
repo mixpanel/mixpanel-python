@@ -40,12 +40,24 @@ def close_async_client_from_sync(client: httpx.AsyncClient) -> None:
 
     task = loop.create_task(client.aclose())
     _pending_aclose_tasks.add(task)
-    task.add_done_callback(_pending_aclose_tasks.discard)
+    task.add_done_callback(_on_aclose_task_done)
     logger.warning(
         "close_async_client_from_sync scheduled aclose() on a running "
         "event loop and did not wait for it. Prefer awaiting aclose() "
         "or using __aexit__ from async code."
     )
+
+
+def _on_aclose_task_done(task: asyncio.Task) -> None:
+    _pending_aclose_tasks.discard(task)
+    if task.cancelled():
+        return
+    exc = task.exception()
+    if exc is not None:
+        # Without this, the caller sees a successful shutdown() return
+        # and the failure only surfaces as an anonymous "Task exception
+        # was never retrieved" line at gc time.
+        logger.error("Async HTTP client close failed: %s: %s", type(exc).__name__, exc)
 
 
 REQUEST_HEADERS: dict[str, str] = {
