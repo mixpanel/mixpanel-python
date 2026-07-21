@@ -2,16 +2,24 @@ from __future__ import annotations
 
 import math
 import typing
-from collections.abc import Mapping, Sequence
-from typing import Optional, Union
+from typing import Union
 
-from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import ErrorCode
 from openfeature.flag_evaluation import FlagResolutionDetails, Reason
 from openfeature.provider import AbstractProvider, Metadata
 
 from mixpanel import Mixpanel
-from mixpanel.flags.types import LocalFlagsConfig, RemoteFlagsConfig, SelectedVariant
+from mixpanel.flags.types import (
+    FallbackReason,
+    LocalFlagsConfig,
+    RemoteFlagsConfig,
+    SelectedVariant,
+)
+
+if typing.TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
+
+    from openfeature.evaluation_context import EvaluationContext
 
 FlagValueType = Union[bool, str, int, float, list, dict, None]
 
@@ -22,7 +30,7 @@ class MixpanelProvider(AbstractProvider):
     def __init__(
         self,
         flags_provider: typing.Any,
-        mixpanel_instance: Optional[Mixpanel] = None,
+        mixpanel_instance: Mixpanel | None = None,
     ) -> None:
         super().__init__()
         self._flags_provider = flags_provider
@@ -56,7 +64,7 @@ class MixpanelProvider(AbstractProvider):
         return cls(remote_flags, mixpanel_instance=mp)
 
     @property
-    def mixpanel(self) -> Optional[Mixpanel]:
+    def mixpanel(self) -> Mixpanel | None:
         """The Mixpanel instance used by this provider, if created via a class method."""
         return self._mixpanel
 
@@ -70,7 +78,7 @@ class MixpanelProvider(AbstractProvider):
         self,
         flag_key: str,
         default_value: bool,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[bool]:
         return self._resolve(flag_key, default_value, bool, evaluation_context)
 
@@ -78,7 +86,7 @@ class MixpanelProvider(AbstractProvider):
         self,
         flag_key: str,
         default_value: str,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[str]:
         return self._resolve(flag_key, default_value, str, evaluation_context)
 
@@ -86,7 +94,7 @@ class MixpanelProvider(AbstractProvider):
         self,
         flag_key: str,
         default_value: int,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[int]:
         return self._resolve(flag_key, default_value, int, evaluation_context)
 
@@ -94,17 +102,17 @@ class MixpanelProvider(AbstractProvider):
         self,
         flag_key: str,
         default_value: float,
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[float]:
         return self._resolve(flag_key, default_value, float, evaluation_context)
 
     def resolve_object_details(
         self,
         flag_key: str,
-        default_value: Union[Sequence[FlagValueType], Mapping[str, FlagValueType]],
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        default_value: Sequence[FlagValueType] | Mapping[str, FlagValueType],
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails[
-        Union[Sequence[FlagValueType], Mapping[str, FlagValueType]]
+        Sequence[FlagValueType] | Mapping[str, FlagValueType]
     ]:
         return self._resolve(flag_key, default_value, None, evaluation_context)
 
@@ -120,7 +128,7 @@ class MixpanelProvider(AbstractProvider):
 
     @staticmethod
     def _build_user_context(
-        evaluation_context: typing.Optional[EvaluationContext],
+        evaluation_context: EvaluationContext | None,
     ) -> dict:
         user_context: dict = {}
         if evaluation_context is not None:
@@ -131,12 +139,12 @@ class MixpanelProvider(AbstractProvider):
                 user_context["targetingKey"] = evaluation_context.targeting_key
         return user_context
 
-    def _resolve(
+    def _resolve(  # noqa: C901 — type-coercion branches are intentional
         self,
         flag_key: str,
         default_value: typing.Any,
-        expected_type: typing.Optional[type],
-        evaluation_context: typing.Optional[EvaluationContext] = None,
+        expected_type: type | None,
+        evaluation_context: EvaluationContext | None = None,
     ) -> FlagResolutionDetails:
         if not self._are_flags_ready():
             return FlagResolutionDetails(
@@ -149,19 +157,29 @@ class MixpanelProvider(AbstractProvider):
         user_context = self._build_user_context(evaluation_context)
         try:
             result = self._flags_provider.get_variant(flag_key, fallback, user_context)
-        except Exception:
+        except Exception as exc:
             return FlagResolutionDetails(
                 value=default_value,
                 error_code=ErrorCode.GENERAL,
+                error_message=str(exc),
                 reason=Reason.ERROR,
             )
 
-        if result is fallback:
+        # Defensive: a custom flags provider written against the pre-SDK-79
+        # contract may return the fallback object unchanged (no .as_fallback
+        # tag). Treat that as FLAG_NOT_FOUND rather than a successful match.
+        if self._is_untagged_fallback(result, fallback):
             return FlagResolutionDetails(
                 value=default_value,
                 error_code=ErrorCode.FLAG_NOT_FOUND,
                 reason=Reason.DEFAULT,
             )
+
+        fallback_details = self._fallback_details(
+            result.fallback_reason, default_value
+        )
+        if fallback_details is not None:
+            return fallback_details
 
         value = result.variant_value
         variant_key = result.variant_key
@@ -208,6 +226,55 @@ class MixpanelProvider(AbstractProvider):
 
         return FlagResolutionDetails(
             value=value, variant=variant_key, reason=Reason.TARGETING_MATCH
+        )
+
+    @staticmethod
+    def _is_untagged_fallback(
+        result: SelectedVariant, fallback: SelectedVariant
+    ) -> bool:
+        return result is fallback and result.fallback_reason is None
+
+    @staticmethod
+    def _fallback_details(
+        fallback_reason: FallbackReason | None, default_value: typing.Any
+    ) -> FlagResolutionDetails | None:
+        """Map a fallback reason to its OpenFeature response, or None if not a fallback.
+
+        variant_source distinguishes local / remote / fallback. When fallback,
+        fallback_reason carries the discriminating kind (PHP-aligned) and an
+        optional message (BACKEND_ERROR's response body, MISSING_CONTEXT_KEY's
+        missing attribute) so we map each to the spec-correct OpenFeature
+        response and forward the message as error_message.
+        """
+        if fallback_reason is None:
+            return None
+        # Flag exists, user just didn't match any rollout — per the
+        # OpenFeature spec this is `reason: DEFAULT` with no error.
+        if fallback_reason.kind == "NO_ROLLOUT_MATCH":
+            return FlagResolutionDetails(value=default_value, reason=Reason.DEFAULT)
+        error_mapping = {
+            "FLAG_NOT_FOUND": (ErrorCode.FLAG_NOT_FOUND, Reason.DEFAULT),
+            "MISSING_CONTEXT_KEY": (ErrorCode.TARGETING_KEY_MISSING, Reason.ERROR),
+            "BACKEND_ERROR": (ErrorCode.GENERAL, Reason.ERROR),
+        }
+        if fallback_reason.kind in error_mapping:
+            error_code, reason = error_mapping[fallback_reason.kind]
+            return FlagResolutionDetails(
+                value=default_value,
+                error_code=error_code,
+                error_message=fallback_reason.message,
+                reason=reason,
+            )
+        # Exhaustive: every FallbackReason.Kind Literal is handled above. If a
+        # new kind is added to the enum without also being wired into the
+        # mapping (or NO_ROLLOUT_MATCH branch above), fall back to GENERAL
+        # rather than returning None — which _resolve would silently
+        # misinterpret as a successful targeting match.
+        return FlagResolutionDetails(
+            value=default_value,
+            error_code=ErrorCode.GENERAL,
+            error_message=f"Unrecognized fallback_reason.kind: {fallback_reason.kind}",
+            reason=Reason.ERROR,
         )
 
     def _are_flags_ready(self) -> bool:

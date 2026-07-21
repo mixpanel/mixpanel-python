@@ -11,6 +11,8 @@ import httpx
 import pytest
 import respx
 
+from mixpanel.credentials import ServiceAccountCredentials
+
 from .local_feature_flags import LocalFeatureFlagsProvider
 from .types import (
     ExperimentationFlag,
@@ -22,6 +24,7 @@ from .types import (
     SelectedVariant,
     Variant,
     VariantOverride,
+    VariantSource,
 )
 
 TEST_FLAG_KEY = "test_flag"
@@ -800,6 +803,45 @@ class TestLocalFeatureFlagsProviderAsync:
         assert result is True
 
     @respx.mock
+    async def test_get_variant_tags_match_as_local(self):
+        flag = create_test_flag(rollout_percentage=100.0)
+        await self.setup_flags([flag])
+        fallback = SelectedVariant(variant_value="fb")
+        result = self._flags.get_variant(TEST_FLAG_KEY, fallback, USER_CONTEXT)
+        assert result.variant_source == VariantSource.LOCAL
+        assert result.fallback_reason is None
+        assert result.variant_key is not None
+
+    @respx.mock
+    async def test_get_variant_tags_missing_flag(self):
+        await self.setup_flags([])
+        fallback = SelectedVariant(variant_value="fb")
+        result = self._flags.get_variant("missing", fallback, USER_CONTEXT)
+        assert result.variant_source == VariantSource.FALLBACK
+        assert result.fallback_reason.kind == "FLAG_NOT_FOUND"
+        assert result.fallback_reason.message is None
+        assert result.variant_value == "fb"
+
+    @respx.mock
+    async def test_get_variant_tags_missing_context(self):
+        flag = create_test_flag(context="distinct_id")
+        await self.setup_flags([flag])
+        fallback = SelectedVariant(variant_value="fb")
+        result = self._flags.get_variant(TEST_FLAG_KEY, fallback, {})
+        assert result.variant_source == VariantSource.FALLBACK
+        assert result.fallback_reason.kind == "MISSING_CONTEXT_KEY"
+        assert result.fallback_reason.message == "distinct_id"
+
+    @respx.mock
+    async def test_get_variant_tags_no_rollout_match(self):
+        flag = create_test_flag(rollout_percentage=0.0)
+        await self.setup_flags([flag])
+        fallback = SelectedVariant(variant_value="fb")
+        result = self._flags.get_variant(TEST_FLAG_KEY, fallback, USER_CONTEXT)
+        assert result.variant_source == VariantSource.FALLBACK
+        assert result.fallback_reason.kind == "NO_ROLLOUT_MATCH"
+
+    @respx.mock
     async def test_get_variant_value_uses_most_recent_polled_flag(self):
         polling_iterations = 0
         polling_limit_check = asyncio.Condition()
@@ -886,3 +928,104 @@ class TestLocalFeatureFlagsProviderSync:
                 TEST_FLAG_KEY, "fallback", USER_CONTEXT
             )
             assert result2 != "fallback"
+
+
+def test_local_flags_with_service_account_credentials():
+    """Test LocalFeatureFlagsProvider accepts httpx client params with service account auth."""
+    config = LocalFlagsConfig(
+        api_host="api.mixpanel.com", request_timeout_in_seconds=10
+    )
+
+    # Create service account credentials
+    credentials = ServiceAccountCredentials(
+        username="test-service-account",
+        secret="test-service-secret",
+        project_id="12345",
+    )
+
+    tracker = Mock()
+    provider = LocalFeatureFlagsProvider(
+        token="test-token",
+        config=config,
+        version="1.0.0",
+        tracker=tracker,
+        credentials=credentials,
+    )
+
+    # Verify the httpx clients were configured with httpx.BasicAuth
+    assert provider._sync_client.auth is not None
+    assert isinstance(provider._sync_client.auth, httpx.BasicAuth)
+    assert provider._async_client.auth is not None
+    assert isinstance(provider._async_client.auth, httpx.BasicAuth)
+
+    # Verify query params include both token and project_id
+    assert "project_id" in provider._request_params
+    assert provider._request_params["project_id"] == "12345"
+    assert "token" in provider._request_params
+    assert provider._request_params["token"] == "test-token"
+    assert provider._request_params["mp_lib"] == "python"
+    assert provider._request_params["lib_version"] == "1.0.0"
+
+    provider.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_local_flags_async_with_service_account_credentials():
+    """Test LocalFeatureFlagsProvider async client works with service account auth."""
+    config = LocalFlagsConfig(
+        api_host="api.mixpanel.com", request_timeout_in_seconds=10
+    )
+
+    # Create service account credentials
+    credentials = ServiceAccountCredentials(
+        username="test-service-account",
+        secret="test-service-secret",
+        project_id="12345",
+    )
+
+    tracker = Mock()
+    provider = LocalFeatureFlagsProvider(
+        token="test-token",
+        config=config,
+        version="1.0.0",
+        tracker=tracker,
+        credentials=credentials,
+    )
+
+    # Verify auth configured with httpx.BasicAuth
+    assert provider._async_client.auth is not None
+    assert isinstance(provider._async_client.auth, httpx.BasicAuth)
+
+    await provider._async_client.aclose()
+    provider.shutdown()
+
+
+def test_local_flags_fallback_to_token_without_credentials():
+    """Test LocalFeatureFlagsProvider works with token auth (no credentials)."""
+    config = LocalFlagsConfig(
+        api_host="api.mixpanel.com", request_timeout_in_seconds=10
+    )
+
+    tracker = Mock()
+    provider = LocalFeatureFlagsProvider(
+        token="test-token",
+        config=config,
+        version="1.0.0",
+        tracker=tracker,
+        credentials=None,
+    )
+
+    # Verify auth still configured (using token)
+    assert provider._sync_client.auth is not None
+    assert isinstance(provider._sync_client.auth, httpx.BasicAuth)
+    assert provider._async_client.auth is not None
+    assert isinstance(provider._async_client.auth, httpx.BasicAuth)
+
+    # Verify query params use token instead of project_id
+    assert "token" in provider._request_params
+    assert provider._request_params["token"] == "test-token"
+    assert "project_id" not in provider._request_params
+    assert provider._request_params["mp_lib"] == "python"
+    assert provider._request_params["lib_version"] == "1.0.0"
+
+    provider.shutdown()

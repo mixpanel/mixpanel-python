@@ -5,7 +5,7 @@ from openfeature.evaluation_context import EvaluationContext
 from openfeature.exception import ErrorCode
 from openfeature.flag_evaluation import Reason
 
-from mixpanel.flags.types import SelectedVariant
+from mixpanel.flags.types import FallbackReason, SelectedVariant, VariantSource
 from mixpanel_openfeature import MixpanelProvider
 
 
@@ -22,17 +22,28 @@ def provider(mock_flags):
 
 
 def setup_flag(mock_flags, flag_key, value, variant_key="variant-key"):
-    """Configure mock to return a SelectedVariant with the given value."""
+    """Configure mock to return a successfully-evaluated SelectedVariant."""
     mock_flags.get_variant.side_effect = lambda key, fallback, ctx: (
-        SelectedVariant(variant_key=variant_key, variant_value=value)
+        SelectedVariant(
+            variant_key=variant_key,
+            variant_value=value,
+            variant_source=VariantSource.LOCAL,
+        )
         if key == flag_key
-        else fallback
+        else fallback.as_fallback(FallbackReason.flag_not_found())
+    )
+
+
+def setup_fallback(mock_flags, reason):
+    """Configure mock to always return the caller's fallback tagged with `reason`."""
+    mock_flags.get_variant.side_effect = (
+        lambda key, fallback, ctx: fallback.as_fallback(reason)
     )
 
 
 def setup_flag_not_found(mock_flags, flag_key):
-    """Configure mock to return the fallback (identity check triggers FLAG_NOT_FOUND)."""
-    mock_flags.get_variant.side_effect = lambda key, fallback, ctx: fallback
+    """Configure mock for the genuinely-missing-flag path."""
+    setup_fallback(mock_flags, FallbackReason.flag_not_found())
 
 
 # --- Metadata ---
@@ -148,6 +159,20 @@ def test_flag_not_found_boolean(provider, mock_flags):
     setup_flag_not_found(mock_flags, "missing-flag")
     result = provider.resolve_boolean_details("missing-flag", True)
     assert result.value is True
+    assert result.error_code == ErrorCode.FLAG_NOT_FOUND
+    assert result.reason == Reason.DEFAULT
+
+
+def test_bare_fallback_treated_as_flag_not_found(provider, mock_flags):
+    """A custom flags provider written against the pre-SDK-79 contract may
+    return the fallback object unchanged (no .as_fallback tag). Treat that
+    as FLAG_NOT_FOUND rather than a successful targeting match."""
+    # Return the fallback object as-is with no fallback_reason set.
+    mock_flags.get_variant.side_effect = (
+        lambda _key, fallback, _ctx, **_kwargs: fallback
+    )
+    result = provider.resolve_string_details("any-flag", "default")
+    assert result.value == "default"
     assert result.error_code == ErrorCode.FLAG_NOT_FOUND
     assert result.reason == Reason.DEFAULT
 
@@ -298,13 +323,71 @@ def test_remote_provider_always_ready():
     remote_flags = MagicMock(spec=[])  # empty spec = no attributes
     remote_flags.get_variant = MagicMock(
         side_effect=lambda key, fallback, ctx: SelectedVariant(
-            variant_key="v1", variant_value=True
+            variant_key="v1", variant_value=True, variant_source=VariantSource.REMOTE
         )
     )
     provider = MixpanelProvider(remote_flags)
     result = provider.resolve_boolean_details("flag", False)
     assert result.value is True
     assert result.reason == Reason.TARGETING_MATCH
+
+
+# --- No rollout matched (flag exists, no rollout matched) ---
+
+
+def test_no_rollout_match_returns_default_reason_without_error(provider, mock_flags):
+    setup_fallback(mock_flags, FallbackReason.no_rollout_match())
+    result = provider.resolve_boolean_details("flag", True)
+    assert result.value is True
+    assert result.reason == Reason.DEFAULT
+    assert result.error_code is None
+
+
+def test_no_rollout_match_for_string(provider, mock_flags):
+    setup_fallback(mock_flags, FallbackReason.no_rollout_match())
+    result = provider.resolve_string_details("flag", "default")
+    assert result.value == "default"
+    assert result.reason == Reason.DEFAULT
+    assert result.error_code is None
+
+
+# --- Missing context key ---
+
+
+def test_missing_context_key_returns_targeting_key_missing(provider, mock_flags):
+    setup_fallback(mock_flags, FallbackReason.missing_context_key("distinct_id"))
+    result = provider.resolve_boolean_details("flag", False)
+    assert result.value is False
+    assert result.error_code == ErrorCode.TARGETING_KEY_MISSING
+    assert result.reason == Reason.ERROR
+
+
+def test_missing_context_key_forwards_missing_attribute_as_error_message(
+    provider, mock_flags
+):
+    setup_fallback(mock_flags, FallbackReason.missing_context_key("distinct_id"))
+    result = provider.resolve_string_details("flag", "default")
+    assert result.value == "default"
+    assert result.error_code == ErrorCode.TARGETING_KEY_MISSING
+    assert result.error_message == "distinct_id"
+    assert result.reason == Reason.ERROR
+
+
+# --- Backend error (SDK-83: forwards the backend's response message) ---
+
+
+def test_backend_error_maps_to_general_and_forwards_message(provider, mock_flags):
+    setup_fallback(
+        mock_flags,
+        FallbackReason.backend_error(
+            "HTTP 400: distinct_id must be provided in evalContext as a string"
+        ),
+    )
+    result = provider.resolve_string_details("flag", "default")
+    assert result.value == "default"
+    assert result.error_code == ErrorCode.GENERAL
+    assert result.reason == Reason.ERROR
+    assert "distinct_id must be provided" in result.error_message
 
 
 # --- Lifecycle ---

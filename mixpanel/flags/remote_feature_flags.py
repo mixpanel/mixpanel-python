@@ -3,14 +3,21 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import urllib.parse
 from datetime import datetime
 from typing import Any, Callable
 
 import httpx
 from asgiref.sync import sync_to_async
 
-from .types import RemoteFlagsConfig, RemoteFlagsResponse, SelectedVariant
+from mixpanel.credentials import ServiceAccountCredentials
+
+from .types import (
+    FallbackReason,
+    RemoteFlagsConfig,
+    RemoteFlagsResponse,
+    SelectedVariant,
+    VariantSource,
+)
 from .utils import (
     EXPOSURE_EVENT,
     REQUEST_HEADERS,
@@ -27,17 +34,38 @@ class RemoteFeatureFlagsProvider:
     FLAGS_URL_PATH = "/flags"
 
     def __init__(
-        self, token: str, config: RemoteFlagsConfig, version: str, tracker: Callable
+        self,
+        token: str,
+        config: RemoteFlagsConfig,
+        version: str,
+        tracker: Callable,
+        credentials: ServiceAccountCredentials | None = None,
     ) -> None:
+        """Initialize the RemoteFeatureFlagsProvider.
+
+        :param str token: your project's Mixpanel token
+        :param RemoteFlagsConfig config: configuration options for the remote feature flags provider
+        :param str version: the version of the Mixpanel library being used, just for tracking
+        :param Callable tracker: A function used to track flags exposure events to mixpanel
+        :param ServiceAccountCredentials credentials: Optional service account credentials for authentication.
+        """
         self._token: str = token
         self._config: RemoteFlagsConfig = config
         self._version: str = version
         self._tracker: Callable = tracker
+        self._credentials = credentials
+        self._project_id: str | None = credentials.project_id if credentials else None
+
+        # Build httpx client parameters
+        if credentials:
+            auth = httpx.BasicAuth(credentials.username, credentials.secret)
+        else:
+            auth = httpx.BasicAuth(token, "")
 
         httpx_client_parameters = {
             "base_url": f"https://{config.api_host}",
             "headers": REQUEST_HEADERS,
-            "auth": httpx.BasicAuth(token, ""),
+            "auth": auth,
             "timeout": httpx.Timeout(config.request_timeout_in_seconds),
         }
 
@@ -45,7 +73,11 @@ class RemoteFeatureFlagsProvider:
             **httpx_client_parameters
         )
         self._sync_client: httpx.Client = httpx.Client(**httpx_client_parameters)
-        self._request_params_base = prepare_common_query_params(self._token, version)
+
+        # Build request params - use service account (no token) or token auth
+        self._request_params_base = prepare_common_query_params(
+            self._token, version, self._project_id
+        )
 
     async def aget_all_variants(
         self, context: dict[str, Any]
@@ -69,6 +101,8 @@ class RemoteFeatureFlagsProvider:
         except Exception:
             logger.exception("Failed to get remote variants")
 
+        if flags is not None:
+            flags = {k: v.with_source(VariantSource.REMOTE) for k, v in flags.items()}
         return flags
 
     async def aget_variant_value(
@@ -126,9 +160,15 @@ class RemoteFeatureFlagsProvider:
                         distinct_id, EXPOSURE_EVENT, properties
                     )
                 )
-        except Exception:
+        except Exception as exc:
             logger.exception("Failed to get remote variant for flag '%s'", flag_key)
-            return fallback_value
+            # SDK-83: attach the exception message so the OpenFeature wrapper
+            # can forward it as error_message. Without this the caller sees
+            # a bare GENERAL error and has to dig through logs to find out
+            # the backend rejected the request.
+            return fallback_value.as_fallback(
+                FallbackReason.backend_error(self._describe_backend_error(exc))
+            )
         else:
             return selected_variant
 
@@ -185,6 +225,8 @@ class RemoteFeatureFlagsProvider:
         except Exception:
             logger.exception("Failed to get remote variants")
 
+        if flags is not None:
+            flags = {k: v.with_source(VariantSource.REMOTE) for k, v in flags.items()}
         return flags
 
     def get_variant_value(
@@ -240,9 +282,13 @@ class RemoteFeatureFlagsProvider:
                 )
                 self._dispatch_exposure(distinct_id, properties)
 
-        except Exception:
+        except Exception as exc:
             logger.exception("Failed to get remote variant for flag '%s'", flag_key)
-            return fallback_value
+            # SDK-83: attach the exception message so the OpenFeature wrapper
+            # can forward it as error_message.
+            return fallback_value.as_fallback(
+                FallbackReason.backend_error(self._describe_backend_error(exc))
+            )
         else:
             return selected_variant
 
@@ -283,11 +329,12 @@ class RemoteFeatureFlagsProvider:
         self, context: dict[str, Any], flag_key: str | None = None
     ) -> dict[str, str]:
         params = self._request_params_base.copy()
-        context_json = json.dumps(context).encode("utf-8")
-        url_encoded_context = urllib.parse.quote(context_json)
-        params["context"] = url_encoded_context
+        # Let httpx handle URL encoding - don't double-encode
+        context_json = json.dumps(context)
+        params["context"] = context_json
         if flag_key is not None:
             params["flag_key"] = flag_key
+        # Note: project_id already set in _request_params_base by prepare_common_query_params
         return params
 
     def _instrument_call(self, start_time: datetime, end_time: datetime) -> None:
@@ -334,6 +381,28 @@ class RemoteFeatureFlagsProvider:
         flags_response = RemoteFlagsResponse.model_validate(response.json())
         return flags_response.flags
 
+    @staticmethod
+    def _describe_backend_error(exc: Exception) -> str:
+        """Best-effort backend message for FallbackReason.backend_error.
+
+        For HTTP errors the response body usually contains the actionable
+        detail (e.g. "distinct_id must be provided in evalContext as a
+        string") — httpx's default str(exc) only carries the status line,
+        so reach into exc.response.text when available.
+
+        Never fall back to ``str(exc)`` for HTTPStatusError: httpx's default
+        formatting includes the full request URL, which carries the project
+        token and distinct_id in the query string. Since this message is
+        forwarded verbatim into ``FlagResolutionDetails.error_message`` by
+        the OpenFeature wrapper, leaking those into user-visible output
+        would be a real regression (SDK-83 security review).
+        """
+        if isinstance(exc, httpx.HTTPStatusError):
+            body = exc.response.text.strip() if exc.response is not None else ""
+            status = exc.response.status_code if exc.response is not None else "?"
+            return f"HTTP {status}: {body}" if body else f"HTTP {status}"
+        return str(exc)
+
     def _lookup_flag_in_response(
         self,
         flag_key: str,
@@ -341,13 +410,17 @@ class RemoteFeatureFlagsProvider:
         fallback_value: SelectedVariant,
     ) -> tuple[SelectedVariant, bool]:
         if flag_key in flags:
-            return flags[flag_key], False
+            return flags[flag_key].with_source(VariantSource.REMOTE), False
         logger.debug(
             "Flag '%s' not found in remote response. Returning fallback, '%s'",
             flag_key,
             fallback_value,
         )
-        return fallback_value, True
+        # The /flags endpoint only returns variants the user is enrolled in,
+        # so a missing key could mean the flag doesn't exist OR the user
+        # isn't in any rollout. The remote SDK can't tell them apart without
+        # server-side help — surface as FLAG_NOT_FOUND for now.
+        return fallback_value.as_fallback(FallbackReason.flag_not_found()), True
 
     def shutdown(self):
         self._sync_client.close()

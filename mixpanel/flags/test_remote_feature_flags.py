@@ -9,8 +9,15 @@ import httpx
 import pytest
 import respx
 
+from mixpanel.credentials import ServiceAccountCredentials
+
 from .remote_feature_flags import RemoteFeatureFlagsProvider
-from .types import RemoteFlagsConfig, RemoteFlagsResponse, SelectedVariant
+from .types import (
+    RemoteFlagsConfig,
+    RemoteFlagsResponse,
+    SelectedVariant,
+    VariantSource,
+)
 
 ENDPOINT = "https://api.mixpanel.com/flags"
 
@@ -154,7 +161,11 @@ class TestRemoteFeatureFlagsProviderAsync:
 
         result = await self._flags.aget_all_variants({"distinct_id": "user123"})
 
-        assert result == variants
+        assert set(result.keys()) == {"flag1", "flag2"}
+        assert result["flag1"].variant_value == "value1"
+        assert result["flag2"].variant_value == "value2"
+        # Every returned variant must be tagged with variant_source=REMOTE.
+        assert all(v.variant_source == VariantSource.REMOTE for v in result.values())
 
     @respx.mock
     async def test_aget_all_variants_returns_none_on_network_error(self):
@@ -203,6 +214,48 @@ class TestRemoteFeatureFlagsProviderAsync:
         self.mock_tracker.assert_called_once()
 
 
+class TestPrepareQueryParams:
+    def setup_method(self):
+        config = RemoteFlagsConfig()
+        self.mock_tracker = Mock()
+        self._flags = RemoteFeatureFlagsProvider(
+            "test-token", config, "1.0.0", self.mock_tracker
+        )
+
+    def teardown_method(self):
+        self._flags.__exit__(None, None, None)
+
+    def test_context_is_json_string_not_url_encoded(self):
+        context = {"distinct_id": "user123", "plan": "premium"}
+        params = self._flags._prepare_query_params(context)
+        assert params["context"] == '{"distinct_id": "user123", "plan": "premium"}'
+
+    def test_context_is_not_bytes(self):
+        context = {"distinct_id": "user123"}
+        params = self._flags._prepare_query_params(context)
+        assert isinstance(params["context"], str)
+
+    def test_flag_key_included_when_provided(self):
+        context = {"distinct_id": "user123"}
+        params = self._flags._prepare_query_params(context, flag_key="my_flag")
+        assert params["flag_key"] == "my_flag"
+
+    def test_flag_key_absent_when_not_provided(self):
+        context = {"distinct_id": "user123"}
+        params = self._flags._prepare_query_params(context)
+        assert "flag_key" not in params
+
+    @respx.mock
+    def test_request_url_has_properly_encoded_context(self):
+        respx.get(ENDPOINT).mock(return_value=create_success_response({}))
+        self._flags.get_all_variants({"distinct_id": "user123"})
+
+        request = respx.calls.last.request
+        url_str = str(request.url)
+        assert "%257B" not in url_str, "context param is double-encoded"
+        assert "b%27" not in url_str, "context param contains bytes literal"
+
+
 class TestRemoteFeatureFlagsProviderSync:
     def setup_method(self):
         config = RemoteFlagsConfig()
@@ -222,6 +275,47 @@ class TestRemoteFeatureFlagsProviderSync:
             "test_flag", "control", {"distinct_id": "user123"}
         )
         assert result == "control"
+
+    @respx.mock
+    def test_get_variant_tags_fallback_with_backend_message_on_http_error(self):
+        """SDK-83: the backend's response message must propagate through
+        FallbackReason.message so the OpenFeature wrapper can forward it
+        as error_message instead of swallowing it into a bare GENERAL."""
+        respx.get(ENDPOINT).mock(
+            return_value=httpx.Response(
+                400, text="distinct_id must be provided in evalContext as a string"
+            )
+        )
+
+        fallback = SelectedVariant(variant_value="control")
+        result = self._flags.get_variant(
+            "test_flag", fallback, {"distinct_id": "user123"}, reportExposure=False
+        )
+
+        assert result.variant_source == VariantSource.FALLBACK
+        assert result.fallback_reason.kind == "BACKEND_ERROR"
+        assert "distinct_id must be provided" in result.fallback_reason.message
+
+    @respx.mock
+    def test_backend_error_message_never_leaks_token_or_distinct_id(self):
+        """Empty-body HTTP error must NOT expose the request URL — httpx's
+        default str(exc) formatting would include the query string, which
+        carries the project token and JSON-encoded context (SDK-83 security
+        review). Only the status code should surface downstream."""
+        respx.get(ENDPOINT).mock(return_value=httpx.Response(500, text=""))
+
+        fallback = SelectedVariant(variant_value="control")
+        result = self._flags.get_variant(
+            "test_flag", fallback, {"distinct_id": "user123"}, reportExposure=False
+        )
+
+        assert result.variant_source == VariantSource.FALLBACK
+        assert result.fallback_reason.kind == "BACKEND_ERROR"
+        message = result.fallback_reason.message
+        assert message == "HTTP 500"
+        assert "test-token" not in message
+        assert "distinct_id" not in message
+        assert "user123" not in message
 
     @respx.mock
     def test_get_variant_value_is_fallback_if_bad_response_format(self):
@@ -413,7 +507,10 @@ class TestRemoteFeatureFlagsProviderSync:
 
         result = self._flags.get_all_variants({"distinct_id": "user123"})
 
-        assert result == variants
+        assert set(result.keys()) == {"flag1", "flag2"}
+        assert result["flag1"].variant_value == "value1"
+        assert result["flag2"].variant_value == "value2"
+        assert all(v.variant_source == VariantSource.REMOTE for v in result.values())
 
     @respx.mock
     def test_get_all_variants_returns_none_on_network_error(self):
@@ -452,3 +549,77 @@ class TestRemoteFeatureFlagsProviderSync:
         )
 
         self.mock_tracker.assert_called_once()
+
+
+def test_remote_flags_with_service_account_credentials():
+    """Test RemoteFeatureFlagsProvider uses service account credentials for auth."""
+    config = RemoteFlagsConfig(
+        api_host="api.mixpanel.com", request_timeout_in_seconds=10
+    )
+
+    # Create service account credentials
+    credentials = ServiceAccountCredentials(
+        username="test-service-account",
+        secret="test-service-secret",
+        project_id="12345",
+    )
+
+    tracker = Mock()
+    provider = RemoteFeatureFlagsProvider(
+        token="test-token",
+        config=config,
+        version="1.0.0",
+        tracker=tracker,
+        credentials=credentials,
+    )
+
+    # Verify the httpx clients were configured with httpx.BasicAuth
+    assert provider._sync_client.auth is not None
+    assert isinstance(provider._sync_client.auth, httpx.BasicAuth)
+    assert provider._async_client.auth is not None
+    assert isinstance(provider._async_client.auth, httpx.BasicAuth)
+    # Verify project_id is stored
+    assert provider._project_id == "12345"
+
+    # Verify query params include both token and project_id
+    assert "project_id" in provider._request_params_base
+    assert provider._request_params_base["project_id"] == "12345"
+    assert "token" in provider._request_params_base
+    assert provider._request_params_base["token"] == "test-token"
+    assert provider._request_params_base["mp_lib"] == "python"
+    assert provider._request_params_base["lib_version"] == "1.0.0"
+
+    provider.shutdown()
+
+
+def test_remote_flags_fallback_to_token_without_credentials():
+    """Test RemoteFeatureFlagsProvider works with token auth (no credentials)."""
+    config = RemoteFlagsConfig(
+        api_host="api.mixpanel.com", request_timeout_in_seconds=10
+    )
+
+    tracker = Mock()
+    provider = RemoteFeatureFlagsProvider(
+        token="test-token",
+        config=config,
+        version="1.0.0",
+        tracker=tracker,
+        credentials=None,
+    )
+
+    # Verify auth still configured (using token)
+    assert provider._sync_client.auth is not None
+    assert isinstance(provider._sync_client.auth, httpx.BasicAuth)
+    assert provider._async_client.auth is not None
+    assert isinstance(provider._async_client.auth, httpx.BasicAuth)
+    # Verify no project_id when using token
+    assert provider._project_id is None
+
+    # Verify query params use token instead of project_id
+    assert "token" in provider._request_params_base
+    assert provider._request_params_base["token"] == "test-token"
+    assert "project_id" not in provider._request_params_base
+    assert provider._request_params_base["mp_lib"] == "python"
+    assert provider._request_params_base["lib_version"] == "1.0.0"
+
+    provider.shutdown()

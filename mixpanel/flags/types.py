@@ -1,5 +1,5 @@
 from concurrent.futures import Executor
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict
 
@@ -68,6 +68,68 @@ class ExperimentationFlag(BaseModel):
     hash_salt: Optional[str] = None
 
 
+class VariantSource:
+    """Where a SelectedVariant came from.
+
+    Set by the providers on every returned variant — coarse-grained
+    (local / remote / fallback). For the specific reason behind a fallback,
+    see FallbackReason.
+    """
+
+    LOCAL = "local"
+    REMOTE = "remote"
+    FALLBACK = "fallback"
+
+
+class FallbackReason(BaseModel):
+    """Why the SDK returned the developer fallback.
+
+    Only meaningful when SelectedVariant.variant_source == VariantSource.FALLBACK.
+
+    `kind` is the discriminator (PHP-aligned). `message` is set on reasons
+    that carry useful detail (BACKEND_ERROR with the backend's response body,
+    MISSING_CONTEXT_KEY with the missing attribute name); None otherwise.
+    The OpenFeature wrapper dispatches on kind and forwards message into
+    FlagResolutionDetails.error_message.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    kind: Literal[
+        "FLAG_NOT_FOUND",
+        "MISSING_CONTEXT_KEY",
+        "NO_ROLLOUT_MATCH",
+        "BACKEND_ERROR",
+    ]
+    message: Optional[str] = None
+
+    # Factory methods. Reasons without meaningful detail return a frozen
+    # singleton; reasons with detail allocate per call.
+    @classmethod
+    def flag_not_found(cls) -> "FallbackReason":
+        return _FLAG_NOT_FOUND
+
+    @classmethod
+    def no_rollout_match(cls) -> "FallbackReason":
+        return _NO_ROLLOUT_MATCH
+
+    @classmethod
+    def missing_context_key(cls, key: str) -> "FallbackReason":
+        # The whole point of MISSING_CONTEXT_KEY is telling the caller *which*
+        # attribute is absent; a nullable default would leak `message=None`
+        # into the OpenFeature wrapper's error_message and defeat the SDK-79
+        # richer-error-propagation goal.
+        return cls(kind="MISSING_CONTEXT_KEY", message=key)
+
+    @classmethod
+    def backend_error(cls, message: str) -> "FallbackReason":
+        return cls(kind="BACKEND_ERROR", message=message)
+
+
+_FLAG_NOT_FOUND = FallbackReason(kind="FLAG_NOT_FOUND")
+_NO_ROLLOUT_MATCH = FallbackReason(kind="NO_ROLLOUT_MATCH")
+
+
 class SelectedVariant(BaseModel):
     # variant_key can be None if being used as a fallback
     variant_key: Optional[str] = None
@@ -75,6 +137,27 @@ class SelectedVariant(BaseModel):
     experiment_id: Optional[str] = None
     is_experiment_active: Optional[bool] = None
     is_qa_tester: Optional[bool] = None
+    variant_source: Optional[str] = None
+    # None on success; set when variant_source == FALLBACK
+    fallback_reason: Optional[FallbackReason] = None
+
+    def with_source(self, source: str) -> "SelectedVariant":
+        """Return a copy of this variant tagged with the given source.
+
+        Clears fallback_reason — use as_fallback() if returning a fallback.
+        """
+        return self.model_copy(
+            update={"variant_source": source, "fallback_reason": None}
+        )
+
+    def as_fallback(self, reason: FallbackReason) -> "SelectedVariant":
+        """Return a copy of this variant tagged as a fallback with the given reason."""
+        return self.model_copy(
+            update={
+                "variant_source": VariantSource.FALLBACK,
+                "fallback_reason": reason,
+            }
+        )
 
 
 class ExperimentationFlags(BaseModel):
