@@ -951,3 +951,31 @@ def test_local_flags_fallback_to_token_without_credentials():
     assert provider._request_params["lib_version"] == "1.0.0"
 
     provider.shutdown()
+
+
+# SDK-85: sync __exit__ and shutdown() historically only closed
+# _sync_client, leaking _async_client's connection pool + background
+# transport. The two tests below fail on the pre-fix code.
+
+
+def test_sync_shutdown_closes_both_clients():
+    config = LocalFlagsConfig(enable_polling=False)
+    provider = LocalFeatureFlagsProvider("test-token", config, "1.0.0", Mock())
+
+    assert not provider._sync_client.is_closed
+    assert not provider._async_client.is_closed
+
+    provider.shutdown()
+
+    assert provider._sync_client.is_closed
+    assert provider._async_client.is_closed
+
+
+def test_sync_context_manager_exit_closes_both_clients():
+    config = LocalFlagsConfig(enable_polling=False)
+    with LocalFeatureFlagsProvider("test-token", config, "1.0.0", Mock()) as provider:
+        assert not provider._sync_client.is_closed
+        assert not provider._async_client.is_closed
+
+    assert provider._sync_client.is_closed
+    assert provider._async_client.is_closed

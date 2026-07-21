@@ -24,6 +24,7 @@ from .types import (
 from .utils import (
     EXPOSURE_EVENT,
     REQUEST_HEADERS,
+    close_async_client_from_sync,
     generate_traceparent,
     normalized_hash,
     prepare_common_query_params,
@@ -544,8 +545,15 @@ class LocalFeatureFlagsProvider:
         return self
 
     def shutdown(self):
+        # SDK-85: close both clients from sync context. Historically only
+        # _sync_client.close() ran here, leaving _async_client's connection
+        # pool + background transport to leak (httpx emits a
+        # ResourceWarning at gc time). The helper bridges to sync via
+        # asgiref when no loop is running, or schedules a background
+        # aclose() task when called from an already-running loop.
         self.stop_polling_for_definitions()
         self._sync_client.close()
+        close_async_client_from_sync(self._async_client)
 
     def __enter__(self):
         return self
@@ -554,8 +562,8 @@ class LocalFeatureFlagsProvider:
         logger.info("Exiting the LocalFeatureFlagsProvider and cleaning up resources")
         await self.astop_polling_for_definitions()
         await self._async_client.aclose()
+        self._sync_client.close()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         logger.info("Exiting the LocalFeatureFlagsProvider and cleaning up resources")
-        self.stop_polling_for_definitions()
-        self._sync_client.close()
+        self.shutdown()

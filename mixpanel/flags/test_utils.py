@@ -1,10 +1,16 @@
 from __future__ import annotations
 
+import asyncio
 import re
 
+import httpx
 import pytest
 
-from .utils import generate_traceparent, normalized_hash
+from .utils import (
+    close_async_client_from_sync,
+    generate_traceparent,
+    normalized_hash,
+)
 
 
 class TestUtils:
@@ -31,3 +37,35 @@ class TestUtils:
         assert result == expected_hash, (
             f"Expected hash of {expected_hash} for '{key}' with salt '{salt}', got {result}"
         )
+
+
+class TestCloseAsyncClientFromSync:
+    # SDK-85: shutdown() and __exit__ need to close the AsyncClient
+    # from sync context without breaking callers that happen to be
+    # inside a running event loop.
+
+    def test_closes_client_when_no_loop_running(self):
+        client = httpx.AsyncClient()
+        assert not client.is_closed
+
+        close_async_client_from_sync(client)
+
+        assert client.is_closed
+
+    @pytest.mark.asyncio
+    async def test_schedules_close_and_warns_when_loop_running(self, caplog):
+        # Inside an async test we already have a running loop — the
+        # helper must not raise (as async_to_sync would) and must
+        # schedule the aclose task for later.
+        client = httpx.AsyncClient()
+        assert not client.is_closed
+
+        with caplog.at_level("WARNING", logger="mixpanel.flags.utils"):
+            close_async_client_from_sync(client)
+
+        # Give the event loop a chance to execute the scheduled task.
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+
+        assert client.is_closed
+        assert any("scheduled aclose" in rec.message for rec in caplog.records)

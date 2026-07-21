@@ -1,8 +1,41 @@
 from __future__ import annotations
 
+import asyncio
+import logging
 import uuid
 
+import httpx
+from asgiref.sync import async_to_sync
+
+logger = logging.getLogger(__name__)
+
 EXPOSURE_EVENT = "$experiment_started"
+
+
+def close_async_client_from_sync(client: httpx.AsyncClient) -> None:
+    """SDK-85: close an ``httpx.AsyncClient`` from sync code.
+
+    If no event loop is running on the current thread, bridges to sync
+    via ``asgiref.async_to_sync`` and blocks until close completes.
+
+    If a loop is already running on this thread (e.g. ``shutdown()`` was
+    called from inside an async function), schedules a background
+    ``aclose`` task without blocking — ``async_to_sync`` would raise
+    ``RuntimeError`` in that scenario. Callers running under an event
+    loop should prefer ``__aexit__`` / awaiting ``aclose`` directly.
+    """
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        async_to_sync(client.aclose)()
+        return
+
+    loop.create_task(client.aclose())
+    logger.warning(
+        "close_async_client_from_sync scheduled aclose() on a running "
+        "event loop and did not wait for it. Prefer awaiting aclose() "
+        "or using __aexit__ from async code."
+    )
 
 REQUEST_HEADERS: dict[str, str] = {
     "X-Scheme": "https",
