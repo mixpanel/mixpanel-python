@@ -23,6 +23,7 @@ from .types import (
     SelectedVariant,
     Variant,
     VariantOverride,
+    VariantSource,
 )
 
 TEST_FLAG_KEY = "test_flag"
@@ -722,6 +723,45 @@ class TestLocalFeatureFlagsProviderAsync:
         await self.setup_flags([flag])
         result = self._flags.is_enabled(TEST_FLAG_KEY, USER_CONTEXT)
         assert result is True
+
+    @respx.mock
+    async def test_get_variant_tags_match_as_local(self):
+        flag = create_test_flag(rollout_percentage=100.0)
+        await self.setup_flags([flag])
+        fallback = SelectedVariant(variant_value="fb")
+        result = self._flags.get_variant(TEST_FLAG_KEY, fallback, USER_CONTEXT)
+        assert result.variant_source == VariantSource.LOCAL
+        assert result.fallback_reason is None
+        assert result.variant_key is not None
+
+    @respx.mock
+    async def test_get_variant_tags_missing_flag(self):
+        await self.setup_flags([])
+        fallback = SelectedVariant(variant_value="fb")
+        result = self._flags.get_variant("missing", fallback, USER_CONTEXT)
+        assert result.variant_source == VariantSource.FALLBACK
+        assert result.fallback_reason.kind == "FLAG_NOT_FOUND"
+        assert result.fallback_reason.message is None
+        assert result.variant_value == "fb"
+
+    @respx.mock
+    async def test_get_variant_tags_missing_context(self):
+        flag = create_test_flag(context="distinct_id")
+        await self.setup_flags([flag])
+        fallback = SelectedVariant(variant_value="fb")
+        result = self._flags.get_variant(TEST_FLAG_KEY, fallback, {})
+        assert result.variant_source == VariantSource.FALLBACK
+        assert result.fallback_reason.kind == "MISSING_CONTEXT_KEY"
+        assert result.fallback_reason.message == "distinct_id"
+
+    @respx.mock
+    async def test_get_variant_tags_no_rollout_match(self):
+        flag = create_test_flag(rollout_percentage=0.0)
+        await self.setup_flags([flag])
+        fallback = SelectedVariant(variant_value="fb")
+        result = self._flags.get_variant(TEST_FLAG_KEY, fallback, USER_CONTEXT)
+        assert result.variant_source == VariantSource.FALLBACK
+        assert result.fallback_reason.kind == "NO_ROLLOUT_MATCH"
 
     @respx.mock
     async def test_get_variant_value_uses_most_recent_polled_flag(self):

@@ -11,7 +11,13 @@ from asgiref.sync import sync_to_async
 
 from mixpanel.credentials import ServiceAccountCredentials
 
-from .types import RemoteFlagsConfig, RemoteFlagsResponse, SelectedVariant
+from .types import (
+    FallbackReason,
+    RemoteFlagsConfig,
+    RemoteFlagsResponse,
+    SelectedVariant,
+    VariantSource,
+)
 from .utils import (
     EXPOSURE_EVENT,
     REQUEST_HEADERS,
@@ -94,6 +100,8 @@ class RemoteFeatureFlagsProvider:
         except Exception:
             logger.exception("Failed to get remote variants")
 
+        if flags is not None:
+            flags = {k: v.with_source(VariantSource.REMOTE) for k, v in flags.items()}
         return flags
 
     async def aget_variant_value(
@@ -151,9 +159,15 @@ class RemoteFeatureFlagsProvider:
                         distinct_id, EXPOSURE_EVENT, properties
                     )
                 )
-        except Exception:
+        except Exception as exc:
             logger.exception("Failed to get remote variant for flag '%s'", flag_key)
-            return fallback_value
+            # SDK-83: attach the exception message so the OpenFeature wrapper
+            # can forward it as error_message. Without this the caller sees
+            # a bare GENERAL error and has to dig through logs to find out
+            # the backend rejected the request.
+            return fallback_value.as_fallback(
+                FallbackReason.backend_error(self._describe_backend_error(exc))
+            )
         else:
             return selected_variant
 
@@ -210,6 +224,8 @@ class RemoteFeatureFlagsProvider:
         except Exception:
             logger.exception("Failed to get remote variants")
 
+        if flags is not None:
+            flags = {k: v.with_source(VariantSource.REMOTE) for k, v in flags.items()}
         return flags
 
     def get_variant_value(
@@ -265,9 +281,13 @@ class RemoteFeatureFlagsProvider:
                 )
                 self._tracker(distinct_id, EXPOSURE_EVENT, properties)
 
-        except Exception:
+        except Exception as exc:
             logger.exception("Failed to get remote variant for flag '%s'", flag_key)
-            return fallback_value
+            # SDK-83: attach the exception message so the OpenFeature wrapper
+            # can forward it as error_message.
+            return fallback_value.as_fallback(
+                FallbackReason.backend_error(self._describe_backend_error(exc))
+            )
         else:
             return selected_variant
 
@@ -355,6 +375,28 @@ class RemoteFeatureFlagsProvider:
         flags_response = RemoteFlagsResponse.model_validate(response.json())
         return flags_response.flags
 
+    @staticmethod
+    def _describe_backend_error(exc: Exception) -> str:
+        """Best-effort backend message for FallbackReason.backend_error.
+
+        For HTTP errors the response body usually contains the actionable
+        detail (e.g. "distinct_id must be provided in evalContext as a
+        string") — httpx's default str(exc) only carries the status line,
+        so reach into exc.response.text when available.
+
+        Never fall back to ``str(exc)`` for HTTPStatusError: httpx's default
+        formatting includes the full request URL, which carries the project
+        token and distinct_id in the query string. Since this message is
+        forwarded verbatim into ``FlagResolutionDetails.error_message`` by
+        the OpenFeature wrapper, leaking those into user-visible output
+        would be a real regression (SDK-83 security review).
+        """
+        if isinstance(exc, httpx.HTTPStatusError):
+            body = exc.response.text.strip() if exc.response is not None else ""
+            status = exc.response.status_code if exc.response is not None else "?"
+            return f"HTTP {status}: {body}" if body else f"HTTP {status}"
+        return str(exc)
+
     def _lookup_flag_in_response(
         self,
         flag_key: str,
@@ -362,13 +404,17 @@ class RemoteFeatureFlagsProvider:
         fallback_value: SelectedVariant,
     ) -> tuple[SelectedVariant, bool]:
         if flag_key in flags:
-            return flags[flag_key], False
+            return flags[flag_key].with_source(VariantSource.REMOTE), False
         logger.debug(
             "Flag '%s' not found in remote response. Returning fallback, '%s'",
             flag_key,
             fallback_value,
         )
-        return fallback_value, True
+        # The /flags endpoint only returns variants the user is enrolled in,
+        # so a missing key could mean the flag doesn't exist OR the user
+        # isn't in any rollout. The remote SDK can't tell them apart without
+        # server-side help — surface as FLAG_NOT_FOUND for now.
+        return fallback_value.as_fallback(FallbackReason.flag_not_found()), True
 
     def shutdown(self):
         self._sync_client.close()

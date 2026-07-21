@@ -10,7 +10,12 @@ import respx
 from mixpanel.credentials import ServiceAccountCredentials
 
 from .remote_feature_flags import RemoteFeatureFlagsProvider
-from .types import RemoteFlagsConfig, RemoteFlagsResponse, SelectedVariant
+from .types import (
+    RemoteFlagsConfig,
+    RemoteFlagsResponse,
+    SelectedVariant,
+    VariantSource,
+)
 
 ENDPOINT = "https://api.mixpanel.com/flags"
 
@@ -154,7 +159,11 @@ class TestRemoteFeatureFlagsProviderAsync:
 
         result = await self._flags.aget_all_variants({"distinct_id": "user123"})
 
-        assert result == variants
+        assert set(result.keys()) == {"flag1", "flag2"}
+        assert result["flag1"].variant_value == "value1"
+        assert result["flag2"].variant_value == "value2"
+        # Every returned variant must be tagged with variant_source=REMOTE.
+        assert all(v.variant_source == VariantSource.REMOTE for v in result.values())
 
     @respx.mock
     async def test_aget_all_variants_returns_none_on_network_error(self):
@@ -266,6 +275,47 @@ class TestRemoteFeatureFlagsProviderSync:
         assert result == "control"
 
     @respx.mock
+    def test_get_variant_tags_fallback_with_backend_message_on_http_error(self):
+        """SDK-83: the backend's response message must propagate through
+        FallbackReason.message so the OpenFeature wrapper can forward it
+        as error_message instead of swallowing it into a bare GENERAL."""
+        respx.get(ENDPOINT).mock(
+            return_value=httpx.Response(
+                400, text="distinct_id must be provided in evalContext as a string"
+            )
+        )
+
+        fallback = SelectedVariant(variant_value="control")
+        result = self._flags.get_variant(
+            "test_flag", fallback, {"distinct_id": "user123"}, reportExposure=False
+        )
+
+        assert result.variant_source == VariantSource.FALLBACK
+        assert result.fallback_reason.kind == "BACKEND_ERROR"
+        assert "distinct_id must be provided" in result.fallback_reason.message
+
+    @respx.mock
+    def test_backend_error_message_never_leaks_token_or_distinct_id(self):
+        """Empty-body HTTP error must NOT expose the request URL — httpx's
+        default str(exc) formatting would include the query string, which
+        carries the project token and JSON-encoded context (SDK-83 security
+        review). Only the status code should surface downstream."""
+        respx.get(ENDPOINT).mock(return_value=httpx.Response(500, text=""))
+
+        fallback = SelectedVariant(variant_value="control")
+        result = self._flags.get_variant(
+            "test_flag", fallback, {"distinct_id": "user123"}, reportExposure=False
+        )
+
+        assert result.variant_source == VariantSource.FALLBACK
+        assert result.fallback_reason.kind == "BACKEND_ERROR"
+        message = result.fallback_reason.message
+        assert message == "HTTP 500"
+        assert "test-token" not in message
+        assert "distinct_id" not in message
+        assert "user123" not in message
+
+    @respx.mock
     def test_get_variant_value_is_fallback_if_bad_response_format(self):
         respx.get(ENDPOINT).mock(return_value=httpx.Response(200, text="invalid json"))
 
@@ -365,7 +415,10 @@ class TestRemoteFeatureFlagsProviderSync:
 
         result = self._flags.get_all_variants({"distinct_id": "user123"})
 
-        assert result == variants
+        assert set(result.keys()) == {"flag1", "flag2"}
+        assert result["flag1"].variant_value == "value1"
+        assert result["flag2"].variant_value == "value2"
+        assert all(v.variant_source == VariantSource.REMOTE for v in result.values())
 
     @respx.mock
     def test_get_all_variants_returns_none_on_network_error(self):
