@@ -21,6 +21,7 @@ from .types import (
 from .utils import (
     EXPOSURE_EVENT,
     REQUEST_HEADERS,
+    dispatch_exposure,
     generate_traceparent,
     prepare_common_query_params,
 )
@@ -279,7 +280,7 @@ class RemoteFeatureFlagsProvider:
                 properties = self._build_tracking_properties(
                     flag_key, selected_variant, start_time, end_time
                 )
-                self._tracker(distinct_id, EXPOSURE_EVENT, properties)
+                self._dispatch_exposure(distinct_id, properties)
 
         except Exception as exc:
             logger.exception("Failed to get remote variant for flag '%s'", flag_key)
@@ -313,11 +314,16 @@ class RemoteFeatureFlagsProvider:
         """
         if distinct_id := context.get("distinct_id"):
             properties = self._build_tracking_properties(flag_key, variant)
-            self._tracker(distinct_id, EXPOSURE_EVENT, properties)
+            self._dispatch_exposure(distinct_id, properties)
         else:
             logger.error(
                 "Cannot track exposure event without a distinct_id in the context"
             )
+
+    def _dispatch_exposure(self, distinct_id: str, properties: dict[str, Any]) -> None:
+        dispatch_exposure(
+            self._tracker, self._config.exposure_executor, distinct_id, properties
+        )
 
     def _prepare_query_params(
         self, context: dict[str, Any], flag_key: str | None = None

@@ -22,8 +22,8 @@ from .types import (
     VariantSource,
 )
 from .utils import (
-    EXPOSURE_EVENT,
     REQUEST_HEADERS,
+    dispatch_exposure,
     generate_traceparent,
     normalized_hash,
     prepare_common_query_params,
@@ -534,11 +534,16 @@ class LocalFeatureFlagsProvider:
             if latency_in_seconds is not None:
                 properties["Variant fetch latency (ms)"] = latency_in_seconds * 1000
 
-            self._tracker(distinct_id, EXPOSURE_EVENT, properties)
+            self._dispatch_exposure(distinct_id, properties)
         else:
             logger.error(
                 "Cannot track exposure event without a distinct_id in the context"
             )
+
+    def _dispatch_exposure(self, distinct_id: str, properties: dict[str, Any]) -> None:
+        dispatch_exposure(
+            self._tracker, self._config.exposure_executor, distinct_id, properties
+        )
 
     async def __aenter__(self):
         return self

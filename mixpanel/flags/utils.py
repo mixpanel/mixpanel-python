@@ -1,6 +1,13 @@
 from __future__ import annotations
 
+import logging
 import uuid
+from typing import TYPE_CHECKING, Any, Callable
+
+if TYPE_CHECKING:
+    from concurrent.futures import Executor, Future
+
+logger = logging.getLogger(__name__)
 
 EXPOSURE_EVENT = "$experiment_started"
 
@@ -59,6 +66,48 @@ def prepare_common_query_params(
         params["project_id"] = project_id
 
     return params
+
+
+def dispatch_exposure(
+    tracker: Callable,
+    executor: Executor | None,
+    distinct_id: str,
+    properties: dict[str, Any],
+) -> None:
+    """Invoke the tracker inline or via the configured executor.
+
+    Shared between local and remote flag providers so a change to the
+    dispatch policy only needs to happen in one place.
+    """
+    if executor is None:
+        tracker(distinct_id, EXPOSURE_EVENT, properties)
+        return
+
+    try:
+        future = executor.submit(tracker, distinct_id, EXPOSURE_EVENT, properties)
+    except RuntimeError:
+        logger.exception("Exposure event dropped — executor refused to accept task")
+        return
+
+    # Retrieve exceptions raised on the executor thread; otherwise a
+    # tracker raising on the background thread is swallowed by the Future.
+    future.add_done_callback(_log_tracker_future_exception)
+
+
+def _log_tracker_future_exception(future: Future) -> None:
+    # future.exception() raises CancelledError on a cancelled future,
+    # and CancelledError is a BaseException (not Exception) — it would
+    # escape Future._invoke_callbacks' `except Exception` and propagate
+    # into e.g. executor.shutdown(cancel_futures=True).
+    if future.cancelled():
+        return
+    exc = future.exception()
+    if exc is not None:
+        logger.error(
+            "Exposure event failed on executor thread: %s: %s",
+            type(exc).__name__,
+            exc,
+        )
 
 
 def generate_traceparent() -> str:
