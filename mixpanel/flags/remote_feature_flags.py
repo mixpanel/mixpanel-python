@@ -21,6 +21,7 @@ from .types import (
 from .utils import (
     EXPOSURE_EVENT,
     REQUEST_HEADERS,
+    close_async_client_from_sync,
     dispatch_exposure,
     generate_traceparent,
     prepare_common_query_params,
@@ -423,7 +424,10 @@ class RemoteFeatureFlagsProvider:
         return fallback_value.as_fallback(FallbackReason.flag_not_found()), True
 
     def shutdown(self):
+        # SDK-85: close both clients. close_async_client_from_sync raises
+        # if a loop is already running — async callers should use __aexit__.
         self._sync_client.close()
+        close_async_client_from_sync(self._async_client)
 
     def __enter__(self):
         return self
@@ -433,8 +437,9 @@ class RemoteFeatureFlagsProvider:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         logger.info("Exiting the RemoteFeatureFlagsProvider and cleaning up resources")
-        self._sync_client.close()
+        self.shutdown()
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         logger.info("Exiting the RemoteFeatureFlagsProvider and cleaning up resources")
         await self._async_client.aclose()
+        self._sync_client.close()

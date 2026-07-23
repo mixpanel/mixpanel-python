@@ -23,6 +23,7 @@ from .types import (
 )
 from .utils import (
     REQUEST_HEADERS,
+    close_async_client_from_sync,
     dispatch_exposure,
     generate_traceparent,
     normalized_hash,
@@ -549,8 +550,11 @@ class LocalFeatureFlagsProvider:
         return self
 
     def shutdown(self):
+        # SDK-85: close both clients. close_async_client_from_sync raises
+        # if a loop is already running — async callers should use __aexit__.
         self.stop_polling_for_definitions()
         self._sync_client.close()
+        close_async_client_from_sync(self._async_client)
 
     def __enter__(self):
         return self
@@ -559,8 +563,8 @@ class LocalFeatureFlagsProvider:
         logger.info("Exiting the LocalFeatureFlagsProvider and cleaning up resources")
         await self.astop_polling_for_definitions()
         await self._async_client.aclose()
+        self._sync_client.close()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         logger.info("Exiting the LocalFeatureFlagsProvider and cleaning up resources")
-        self.stop_polling_for_definitions()
-        self._sync_client.close()
+        self.shutdown()
