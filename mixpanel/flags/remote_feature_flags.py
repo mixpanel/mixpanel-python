@@ -418,12 +418,8 @@ class RemoteFeatureFlagsProvider:
         return fallback_value.as_fallback(FallbackReason.flag_not_found()), True
 
     def shutdown(self):
-        # SDK-85: close both clients from sync context. Historically only
-        # _sync_client.close() ran here, leaving _async_client's connection
-        # pool + background transport to leak (httpx emits a
-        # ResourceWarning at gc time). The helper bridges to sync via
-        # asgiref when no loop is running, or schedules a background
-        # aclose() task when called from an already-running loop.
+        # SDK-85: close both clients. close_async_client_from_sync raises
+        # if a loop is already running — async callers should use __aexit__.
         self._sync_client.close()
         close_async_client_from_sync(self._async_client)
 

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import uuid
 from typing import TYPE_CHECKING
 
@@ -10,54 +9,31 @@ from asgiref.sync import async_to_sync
 if TYPE_CHECKING:
     import httpx
 
-logger = logging.getLogger(__name__)
-
-# Retains a hard reference to fire-and-forget aclose() tasks scheduled
-# from close_async_client_from_sync when a loop is already running, so
-# they can't be gc'd before completing. Removed via done_callback.
-_pending_aclose_tasks: set[asyncio.Task] = set()
-
 EXPOSURE_EVENT = "$experiment_started"
 
 
 def close_async_client_from_sync(client: httpx.AsyncClient) -> None:
     """SDK-85: close an ``httpx.AsyncClient`` from sync code.
 
-    If no event loop is running on the current thread, bridges to sync
-    via ``asgiref.async_to_sync`` and blocks until close completes.
-
-    If a loop is already running on this thread (e.g. ``shutdown()`` was
-    called from inside an async function), schedules a background
-    ``aclose`` task without blocking — ``async_to_sync`` would raise
-    ``RuntimeError`` in that scenario. Callers running under an event
-    loop should prefer ``__aexit__`` / awaiting ``aclose`` directly.
+    Bridges to sync via ``asgiref.async_to_sync`` and blocks until the
+    close completes. If a loop is already running on the current thread
+    (e.g. ``shutdown()`` was called from inside an ``async def``), raises
+    ``RuntimeError`` — scheduling a background ``aclose`` on the running
+    loop is unsafe because loop teardown can cancel the task before it
+    finishes, defeating the fix. Async callers should use ``__aexit__``
+    or await ``aclose()`` directly.
     """
     try:
-        loop = asyncio.get_running_loop()
+        asyncio.get_running_loop()
     except RuntimeError:
         async_to_sync(client.aclose)()
         return
 
-    task = loop.create_task(client.aclose())
-    _pending_aclose_tasks.add(task)
-    task.add_done_callback(_on_aclose_task_done)
-    logger.warning(
-        "close_async_client_from_sync scheduled aclose() on a running "
-        "event loop and did not wait for it. Prefer awaiting aclose() "
-        "or using __aexit__ from async code."
+    raise RuntimeError(
+        "close_async_client_from_sync() cannot be called from a running "
+        "event loop. Use 'async with provider:' or await the provider's "
+        "__aexit__ from async code."
     )
-
-
-def _on_aclose_task_done(task: asyncio.Task) -> None:
-    _pending_aclose_tasks.discard(task)
-    if task.cancelled():
-        return
-    exc = task.exception()
-    if exc is not None:
-        # Without this, the caller sees a successful shutdown() return
-        # and the failure only surfaces as an anonymous "Task exception
-        # was never retrieved" line at gc time.
-        logger.error("Async HTTP client close failed: %s: %s", type(exc).__name__, exc)
 
 
 REQUEST_HEADERS: dict[str, str] = {

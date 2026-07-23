@@ -918,8 +918,7 @@ async def test_local_flags_async_with_service_account_credentials():
     assert provider._async_client.auth is not None
     assert isinstance(provider._async_client.auth, httpx.BasicAuth)
 
-    await provider._async_client.aclose()
-    provider.shutdown()
+    await provider.__aexit__(None, None, None)
 
 
 def test_local_flags_fallback_to_token_without_credentials():
