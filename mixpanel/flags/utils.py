@@ -95,6 +95,12 @@ def dispatch_exposure(
 
 
 def _log_tracker_future_exception(future: Future) -> None:
+    # future.exception() raises CancelledError on a cancelled future,
+    # and CancelledError is a BaseException (not Exception) — it would
+    # escape Future._invoke_callbacks' `except Exception` and propagate
+    # into e.g. executor.shutdown(cancel_futures=True).
+    if future.cancelled():
+        return
     exc = future.exception()
     if exc is not None:
         logger.error(

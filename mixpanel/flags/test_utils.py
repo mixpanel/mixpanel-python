@@ -2,12 +2,17 @@ from __future__ import annotations
 
 import logging
 import re
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from unittest.mock import MagicMock
 
 import pytest
 
-from .utils import dispatch_exposure, generate_traceparent, normalized_hash
+from .utils import (
+    _log_tracker_future_exception,
+    dispatch_exposure,
+    generate_traceparent,
+    normalized_hash,
+)
 
 
 class TestUtils:
@@ -61,3 +66,18 @@ class TestUtils:
             and "tracker exploded" in rec.message
             for rec in caplog.records
         ), f"expected error log, got {[r.message for r in caplog.records]}"
+
+    def test_log_tracker_future_exception_ignores_cancelled_future(self, caplog):
+        # future.exception() on a cancelled future raises CancelledError
+        # (a BaseException, not Exception) — without the guard, that
+        # would escape Future._invoke_callbacks and propagate into e.g.
+        # executor.shutdown(cancel_futures=True).
+        future: Future = Future()
+        assert future.cancel(), "fresh Future should be cancellable"
+
+        with caplog.at_level(logging.ERROR, logger="mixpanel.flags.utils"):
+            _log_tracker_future_exception(future)  # must not raise
+
+        assert not any(
+            "Exposure event failed" in rec.message for rec in caplog.records
+        ), "cancelled futures must not produce an error log"
