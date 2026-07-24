@@ -1,5 +1,14 @@
 # Changelog
 
+## [v5.3.0](https://github.com/mixpanel/mixpanel-python/tree/v5.3.0) (2026-07-24)
+
+### Fixes
+- close _async_client on sync __exit__ and shutdown() (SDK-85) ([#184](https://github.com/mixpanel/mixpanel-python/pull/184))
+- allow capability to offload reportExposure to async thread (SDK-80) ([#181](https://github.com/mixpanel/mixpanel-python/pull/181))
+- distinguish fallback reasons + forward backend error message (SDK-79, SDK-83) ([#180](https://github.com/mixpanel/mixpanel-python/pull/180))
+
+[Full Changelog](https://github.com/mixpanel/mixpanel-python/compare/v5.2.0...v5.3.0)
+
 ## [v5.2.0](https://github.com/mixpanel/mixpanel-python/tree/v5.2.0) (2026-07-10)
 
 ### Features
