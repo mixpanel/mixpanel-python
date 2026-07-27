@@ -73,7 +73,7 @@ python -m twine upload dist/*  # Publish to PyPI
 local_config = mixpanel.LocalFlagsConfig(
     api_host="api-eu.mixpanel.com",  # EU data residency
     enable_polling=True,
-    polling_interval_in_seconds=90
+    polling_interval_in_seconds=90,
 )
 mp = Mixpanel(token, local_flags_config=local_config)
 ```
