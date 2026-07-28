@@ -13,9 +13,9 @@ jobs:
     - name: Install uv
       uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86  # v5
     - name: Check formatting
-      run: uvx ruff format --check .
+      run: uvx ruff@0.15.22 format --check .
     - name: Check linting
-      run: uvx ruff check .
+      run: uvx ruff@0.15.22 check .
 
   test:
     runs-on: ubuntu-24.04
