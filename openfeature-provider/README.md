@@ -1,6 +1,6 @@
 # Mixpanel Python OpenFeature Provider
 
-##### _May 13, 2026_ - [openfeature/v0.1.0](https://github.com/mixpanel/mixpanel-python/releases/tag/openfeature/v0.1.0)
+##### _July 28, 2026_ - [openfeature/v0.2.0](https://github.com/mixpanel/mixpanel-python/releases/tag/openfeature/v0.2.0)
 
 [![PyPI](https://img.shields.io/pypi/v/mixpanel-openfeature.svg)](https://pypi.org/project/mixpanel-openfeature/)
 [![OpenFeature](https://img.shields.io/badge/OpenFeature-compatible-green)](https://openfeature.dev/)
