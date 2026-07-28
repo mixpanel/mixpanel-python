@@ -21,6 +21,8 @@ from .types import (
 from .utils import (
     EXPOSURE_EVENT,
     REQUEST_HEADERS,
+    close_async_client_from_sync,
+    dispatch_exposure,
     generate_traceparent,
     prepare_common_query_params,
 )
@@ -279,7 +281,7 @@ class RemoteFeatureFlagsProvider:
                 properties = self._build_tracking_properties(
                     flag_key, selected_variant, start_time, end_time
                 )
-                self._tracker(distinct_id, EXPOSURE_EVENT, properties)
+                self._dispatch_exposure(distinct_id, properties)
 
         except Exception as exc:
             logger.exception("Failed to get remote variant for flag '%s'", flag_key)
@@ -313,11 +315,16 @@ class RemoteFeatureFlagsProvider:
         """
         if distinct_id := context.get("distinct_id"):
             properties = self._build_tracking_properties(flag_key, variant)
-            self._tracker(distinct_id, EXPOSURE_EVENT, properties)
+            self._dispatch_exposure(distinct_id, properties)
         else:
             logger.error(
                 "Cannot track exposure event without a distinct_id in the context"
             )
+
+    def _dispatch_exposure(self, distinct_id: str, properties: dict[str, Any]) -> None:
+        dispatch_exposure(
+            self._tracker, self._config.exposure_executor, distinct_id, properties
+        )
 
     def _prepare_query_params(
         self, context: dict[str, Any], flag_key: str | None = None
@@ -417,7 +424,10 @@ class RemoteFeatureFlagsProvider:
         return fallback_value.as_fallback(FallbackReason.flag_not_found()), True
 
     def shutdown(self):
+        # SDK-85: close both clients. close_async_client_from_sync raises
+        # if a loop is already running — async callers should use __aexit__.
         self._sync_client.close()
+        close_async_client_from_sync(self._async_client)
 
     def __enter__(self):
         return self
@@ -427,8 +437,9 @@ class RemoteFeatureFlagsProvider:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         logger.info("Exiting the RemoteFeatureFlagsProvider and cleaning up resources")
-        self._sync_client.close()
+        self.shutdown()
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         logger.info("Exiting the RemoteFeatureFlagsProvider and cleaning up resources")
         await self._async_client.aclose()
+        self._sync_client.close()

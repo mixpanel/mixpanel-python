@@ -201,6 +201,32 @@ When your application is shutting down, call `shutdown()` to clean up resources:
 provider.shutdown()
 ```
 
+### Async Exposure Tracking
+
+By default, every flag evaluation tracks an exposure event inline — the `/track` HTTP round trip happens on the calling thread before `get_*_value()` returns. For latency-sensitive code paths, pass a `concurrent.futures.Executor` so exposure tracking runs off-thread:
+
+```python
+from concurrent.futures import ThreadPoolExecutor
+from mixpanel.flags.types import LocalFlagsConfig
+
+exposure_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="mixpanel-exposure")
+provider = MixpanelProvider.from_local_config(
+    "YOUR_PROJECT_TOKEN",
+    LocalFlagsConfig(exposure_executor=exposure_executor),
+)
+
+# Flag evaluation now returns as soon as the local logic finishes;
+# the exposure POST runs on the executor.
+client = api.get_client()
+client.get_boolean_value("my-feature", False)
+
+# On shutdown, drain the executor so in-flight exposures get sent.
+provider.shutdown()
+exposure_executor.shutdown(wait=True)
+```
+
+The same option lives on `RemoteFlagsConfig`. Defaults to `None` (inline behavior); existing setups are unaffected. The async (`a*`) methods already dispatch exposure tracking via `asyncio.create_task` and ignore `exposure_executor`.
+
 ## Context Mapping
 
 ### All Properties Passed Directly

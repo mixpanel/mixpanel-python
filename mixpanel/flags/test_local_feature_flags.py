@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from itertools import chain, repeat
 from typing import Any
 from unittest.mock import Mock, patch
@@ -650,6 +651,83 @@ class TestLocalFeatureFlagsProviderAsync:
         self._mock_tracker.assert_not_called()
 
     @respx.mock
+    async def test_default_exposure_runs_inline_on_calling_thread(self):
+        """Smoke test: exposure_executor defaults to None, tracker runs inline."""
+        flag = create_test_flag(rollout_percentage=100.0)
+        await self.setup_flags([flag])
+
+        called_on: list[threading.Thread] = []
+
+        def tracker(_distinct_id, _event, _properties):
+            called_on.append(threading.current_thread())
+
+        self._mock_tracker.side_effect = tracker
+        self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", USER_CONTEXT)
+        assert called_on == [threading.current_thread()]
+
+    @respx.mock
+    async def test_track_exposure_event_routes_through_executor(self):
+        """Manual API also honors exposure_executor."""
+        executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="exposure")
+        try:
+            tracker_done = threading.Event()
+            captured: list[threading.Thread] = []
+
+            def tracker(_distinct_id, _event, _properties):
+                captured.append(threading.current_thread())
+                tracker_done.set()
+
+            config = LocalFlagsConfig(enable_polling=False, exposure_executor=executor)
+            provider = LocalFeatureFlagsProvider(
+                "test-token", config, "1.0.0", Mock(side_effect=tracker)
+            )
+            try:
+                provider.track_exposure_event(
+                    "manual",
+                    SelectedVariant(variant_key="treatment", variant_value="x"),
+                    USER_CONTEXT,
+                )
+                assert tracker_done.wait(timeout=2.0)
+                assert captured[0] is not threading.current_thread()
+                assert captured[0].name.startswith("exposure")
+            finally:
+                await provider.__aexit__(None, None, None)
+        finally:
+            executor.shutdown(wait=True)
+
+    @respx.mock
+    async def test_exposure_executor_dispatches_tracker_off_calling_thread(self):
+        flag = create_test_flag(rollout_percentage=100.0)
+        executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="exposure")
+        try:
+            calling_thread = threading.current_thread()
+            tracker_thread = threading.Event()
+            captured_thread: list[threading.Thread] = []
+
+            def tracker(_distinct_id, _event, _properties):
+                captured_thread.append(threading.current_thread())
+                tracker_thread.set()
+
+            tracker_mock = Mock(side_effect=tracker)
+            config = LocalFlagsConfig(enable_polling=False, exposure_executor=executor)
+            provider = LocalFeatureFlagsProvider(
+                "test-token", config, "1.0.0", tracker_mock
+            )
+            try:
+                respx.get("https://api.mixpanel.com/flags/definitions").mock(
+                    return_value=create_flags_response([flag])
+                )
+                await provider.astart_polling_for_definitions()
+                provider.get_variant_value(TEST_FLAG_KEY, "fallback", USER_CONTEXT)
+                assert tracker_thread.wait(timeout=2.0), "tracker never ran"
+                assert captured_thread[0] is not calling_thread
+                assert captured_thread[0].name.startswith("exposure")
+            finally:
+                await provider.__aexit__(None, None, None)
+        finally:
+            executor.shutdown(wait=True)
+
+    @respx.mock
     async def test_get_all_variants_returns_all_variants_when_user_in_rollout(self):
         flag1 = create_test_flag(flag_key="flag1", rollout_percentage=100.0)
         flag2 = create_test_flag(flag_key="flag2", rollout_percentage=100.0)
@@ -918,8 +996,7 @@ async def test_local_flags_async_with_service_account_credentials():
     assert provider._async_client.auth is not None
     assert isinstance(provider._async_client.auth, httpx.BasicAuth)
 
-    await provider._async_client.aclose()
-    provider.shutdown()
+    await provider.__aexit__(None, None, None)
 
 
 def test_local_flags_fallback_to_token_without_credentials():
@@ -951,3 +1028,31 @@ def test_local_flags_fallback_to_token_without_credentials():
     assert provider._request_params["lib_version"] == "1.0.0"
 
     provider.shutdown()
+
+
+# SDK-85: sync __exit__ and shutdown() historically only closed
+# _sync_client, leaking _async_client's connection pool + background
+# transport. The two tests below fail on the pre-fix code.
+
+
+def test_sync_shutdown_closes_both_clients():
+    config = LocalFlagsConfig(enable_polling=False)
+    provider = LocalFeatureFlagsProvider("test-token", config, "1.0.0", Mock())
+
+    assert not provider._sync_client.is_closed
+    assert not provider._async_client.is_closed
+
+    provider.shutdown()
+
+    assert provider._sync_client.is_closed
+    assert provider._async_client.is_closed
+
+
+def test_sync_context_manager_exit_closes_both_clients():
+    config = LocalFlagsConfig(enable_polling=False)
+    with LocalFeatureFlagsProvider("test-token", config, "1.0.0", Mock()) as provider:
+        assert not provider._sync_client.is_closed
+        assert not provider._async_client.is_closed
+
+    assert provider._sync_client.is_closed
+    assert provider._async_client.is_closed
