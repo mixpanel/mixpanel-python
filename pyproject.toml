@@ -15,7 +15,7 @@ requires-python = ">=3.9"
 dependencies = [
     "requests>=2.4.2, <3",
     "httpx>=0.27.0",
-    "pydantic>=2.0.0, <2.12",  # Pin to <2.12 for PyPy 3.9 compatibility (pydantic 2.12+ uses pydantic-core without PyPy 3.9 wheels)
+    "pydantic>=2.0.0, <2.14",  # Pin to <2.12 for PyPy 3.9 compatibility (pydantic 2.12+ uses pydantic-core without PyPy 3.9 wheels)
     "asgiref>=3.0.0",
     "json-logic==0.7.0a0"
 ]
