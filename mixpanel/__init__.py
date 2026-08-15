@@ -969,4 +969,4 @@ class BufferedConsumer:
                 mp_e.endpoint = endpoint
                 raise mp_e from orig_e
             buf = buf[self._max_size :]
-        self._buffers[endpoint] = buf
+            self._buffers[endpoint] = buf
