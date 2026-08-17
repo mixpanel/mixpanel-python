@@ -233,7 +233,7 @@ class LocalFeatureFlagsProvider:
             logger.warning("Cannot find flag definition for key: '%s'", flag_key)
             return fallback_value.as_fallback(FallbackReason.flag_not_found())
 
-        if not (context_value := context.get(flag_definition.context)):
+        if (context_value := context.get(flag_definition.context)) is None:
             logger.warning(
                 "The rollout context, '%s' for flag, '%s' is not present in the supplied context dictionary",
                 flag_definition.context,

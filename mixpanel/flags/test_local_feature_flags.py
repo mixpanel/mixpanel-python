@@ -833,6 +833,30 @@ class TestLocalFeatureFlagsProviderAsync:
         assert result.fallback_reason.message == "distinct_id"
 
     @respx.mock
+    async def test_get_variant_evaluates_zero_context_value(self):
+        flag = create_test_flag(context="account_age_days")
+        await self.setup_flags([flag])
+        fallback = SelectedVariant(variant_value="fb")
+        result = self._flags.get_variant(
+            TEST_FLAG_KEY,
+            fallback,
+            {"distinct_id": DISTINCT_ID, "account_age_days": 0},
+        )
+        assert result.variant_source == VariantSource.LOCAL
+
+    @respx.mock
+    async def test_get_variant_evaluates_false_context_value(self):
+        flag = create_test_flag(context="is_subscriber")
+        await self.setup_flags([flag])
+        fallback = SelectedVariant(variant_value="fb")
+        result = self._flags.get_variant(
+            TEST_FLAG_KEY,
+            fallback,
+            {"distinct_id": DISTINCT_ID, "is_subscriber": False},
+        )
+        assert result.variant_source == VariantSource.LOCAL
+
+    @respx.mock
     async def test_get_variant_tags_no_rollout_match(self):
         flag = create_test_flag(rollout_percentage=0.0)
         await self.setup_flags([flag])
