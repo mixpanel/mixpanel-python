@@ -458,6 +458,43 @@ class TestLocalFeatureFlagsProviderAsync:
         result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
         assert result == "fallback"
 
+    @respx.mock
+    async def test_get_variant_value_respects_semver_compare_rule_satisfied(self):
+        runtime_eval = {"semver_compare": [{"var": "app_version"}, ">=", "1.2.3"]}
+        flag = create_test_flag(runtime_evaluation_rule=runtime_eval)
+        await self.setup_flags([flag])
+        context = self.user_context_with_properties({"app_version": "v1.10.0"})
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
+        assert result != "fallback"
+
+    @respx.mock
+    async def test_get_variant_value_respects_semver_compare_rule_not_satisfied(self):
+        runtime_eval = {"semver_compare": [{"var": "app_version"}, ">=", "1.2.3"]}
+        flag = create_test_flag(runtime_evaluation_rule=runtime_eval)
+        await self.setup_flags([flag])
+        context = self.user_context_with_properties({"app_version": "1.0.0"})
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
+        assert result == "fallback"
+
+    @respx.mock
+    async def test_get_variant_value_respects_datetime_compare_rule_satisfied(self):
+        # 1784160000000 == 2026-07-16T00:00:00Z (epoch milliseconds).
+        runtime_eval = {"datetime_compare": [{"var": "signup"}, "<", 1_784_160_000_000]}
+        flag = create_test_flag(runtime_evaluation_rule=runtime_eval)
+        await self.setup_flags([flag])
+        context = self.user_context_with_properties({"signup": "2026-07-15T00:00:00Z"})
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
+        assert result != "fallback"
+
+    @respx.mock
+    async def test_get_variant_value_respects_datetime_compare_rule_not_satisfied(self):
+        runtime_eval = {"datetime_compare": [{"var": "signup"}, "<", 1_784_160_000_000]}
+        flag = create_test_flag(runtime_evaluation_rule=runtime_eval)
+        await self.setup_flags([flag])
+        context = self.user_context_with_properties({"signup": "2026-07-17T00:00:00Z"})
+        result = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
+        assert result == "fallback"
+
     def user_context_with_properties(
         self, properties: dict[str, Any]
     ) -> dict[str, Any]:

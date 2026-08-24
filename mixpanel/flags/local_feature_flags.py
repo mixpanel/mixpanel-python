@@ -12,6 +12,7 @@ import json_logic
 
 from mixpanel.credentials import ServiceAccountCredentials
 
+from . import custom_operators  # noqa: F401  (registers custom JsonLogic operators)
 from .types import (
     ExperimentationFlag,
     ExperimentationFlags,
