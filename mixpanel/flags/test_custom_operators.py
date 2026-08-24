@@ -2,6 +2,7 @@ import json_logic
 import pytest
 
 import mixpanel.flags.custom_operators  # noqa: F401  (registers the operators)
+from mixpanel.flags.custom_operators import datetime_compare, semver_compare
 
 
 def var_node(key):
@@ -1248,3 +1249,58 @@ def test_semver_compare_operator(rule, data, want):
 )
 def test_datetime_compare_operator(rule, data, want):
     assert bool(json_logic.jsonLogic(rule, data)) is want
+
+
+# The cases below are not golden vectors. They pin fail-closed guards that are specific to this
+# language — a rule shape the engine would never produce, and numeric types Python alone can hand the
+# operator — so they are asserted here rather than shared across SDKs.
+
+
+@pytest.mark.parametrize(
+    ("values", "want"),
+    [
+        pytest.param(("1.2.3", "="), False, id="too few operands"),
+        pytest.param(("1.2.3", "=", "1.2.3", "extra"), False, id="too many operands"),
+        pytest.param(("1.2.3", 5, "1.2.3"), False, id="non-string symbol"),
+    ],
+)
+def test_semver_compare_rejects_malformed_operands(values, want):
+    assert semver_compare(*values) is want
+
+
+@pytest.mark.parametrize(
+    ("values", "want"),
+    [
+        pytest.param(("2026-07-16T00:00:00Z", "="), False, id="too few operands"),
+        pytest.param(
+            ("2026-07-16T00:00:00Z", "=", JUL16_MS, "extra"),
+            False,
+            id="too many operands",
+        ),
+        pytest.param(
+            ("2026-07-16T00:00:00Z", 5, JUL16_MS), False, id="non-string symbol"
+        ),
+    ],
+)
+def test_datetime_compare_rejects_malformed_operands(values, want):
+    assert datetime_compare(*values) is want
+
+
+@pytest.mark.parametrize(
+    ("target", "want"),
+    [
+        pytest.param(
+            True, False, id="bool is an int subclass and must not pass as a target"
+        ),
+        pytest.param("2026-07-16T00:00:00Z", False, id="string target"),
+        pytest.param(float("inf"), False, id="infinite target"),
+        pytest.param(float("nan"), False, id="nan target"),
+    ],
+)
+def test_datetime_compare_rejects_non_epoch_targets(target, want):
+    assert datetime_compare("2026-07-16T00:00:00Z", "=", target) is want
+
+
+def test_datetime_compare_rejects_a_date_that_cannot_exist():
+    # The pattern only guarantees two digits per field, so the parser is what rejects 30 February.
+    assert datetime_compare("2026-02-30T00:00:00Z", "=", JUL16_MS) is False
