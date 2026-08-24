@@ -25,9 +25,9 @@ class TestUtils:
         # https://www.w3.org/TR/trace-context/#traceparent-header
         pattern = r"^00-[0-9a-f]{32}-[0-9a-f]{16}-01$"
 
-        assert re.match(
-            pattern, traceparent
-        ), f"Traceparent '{traceparent}' does not match W3C format"
+        assert re.match(pattern, traceparent), (
+            f"Traceparent '{traceparent}' does not match W3C format"
+        )
 
     @pytest.mark.parametrize(
         ("key", "salt", "expected_hash"),
@@ -38,9 +38,9 @@ class TestUtils:
     )
     def test_normalized_hash_for_known_inputs(self, key, salt, expected_hash):
         result = normalized_hash(key, salt)
-        assert (
-            result == expected_hash
-        ), f"Expected hash of {expected_hash} for '{key}' with salt '{salt}', got {result}"
+        assert result == expected_hash, (
+            f"Expected hash of {expected_hash} for '{key}' with salt '{salt}', got {result}"
+        )
 
     def test_dispatch_exposure_runs_inline_when_no_executor(self):
         tracker = MagicMock()
