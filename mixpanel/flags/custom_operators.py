@@ -13,6 +13,10 @@ _OPERAND_COUNT = 3
 _MAX_EPOCH_MS = 2**63
 # SemVer 2.0.0 requires major.minor.patch; partial versions are zero-padded to this.
 _SEMVER_PARTS = 3
+# Longest operand the semver regex is allowed to see. A real version never approaches this; the
+# bound matches MAX_LENGTH in node-semver, and keeps an arbitrarily long property value off the
+# regex regardless of how the engine schedules backtracking.
+_MAX_SEMVER_LENGTH = 256
 # RFC 3339 section 5.6: months run 01 through 12 and hours 00 through 23.
 _MONTHS_IN_YEAR = 12
 _MAX_HOUR = 23
@@ -51,6 +55,8 @@ def semver_compare(*values: Any) -> bool:
     if not isinstance(symbol, str):
         return False
     if not isinstance(actual, str) or not isinstance(target, str):
+        return False
+    if len(actual) > _MAX_SEMVER_LENGTH or len(target) > _MAX_SEMVER_LENGTH:
         return False
     normalized_actual = _normalize_semver(actual)
     normalized_target = _normalize_semver(target)
