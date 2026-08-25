@@ -5,7 +5,6 @@ import re
 from typing import Any, Callable
 
 import json_logic
-import semver
 from dateutil import parser as dateutil_parser
 
 _OPERAND_COUNT = 3
@@ -29,8 +28,8 @@ _RFC3339_RE = re.compile(
 )
 
 _COMPARATORS: dict[str, Callable[[int], bool]] = {
-    "=": lambda cmp: cmp == 0,
-    "!=": lambda cmp: cmp != 0,
+    "===": lambda cmp: cmp == 0,
+    "!==": lambda cmp: cmp != 0,
     "<": lambda cmp: cmp < 0,
     "<=": lambda cmp: cmp <= 0,
     ">": lambda cmp: cmp > 0,
@@ -54,9 +53,7 @@ def semver_compare(*values: Any) -> bool:
         normalized_target
     ):
         return False
-    actual_version = semver.Version.parse(normalized_actual)
-    target_version = semver.Version.parse(normalized_target)
-    cmp = actual_version.compare(target_version)
+    cmp = _compare_semver(normalized_actual, normalized_target)
     return _comparator_matches(cmp, symbol)
 
 
@@ -102,6 +99,73 @@ def _normalize_semver(value: str) -> str:
     while len(parts) < _SEMVER_PARTS:
         parts.append("0")
     return ".".join(parts) + suffix
+
+
+def _is_numeric_identifier(identifier: str) -> bool:
+    return identifier != "" and all("0" <= char <= "9" for char in identifier)
+
+
+# Numeric identifiers carry no leading zeros, so the longer run of digits is the larger number.
+# Comparing them as digits rather than parsing to a fixed-width integer keeps versions that overflow
+# a 64-bit integer ordered correctly.
+def _compare_numeric(a: str, b: str) -> int:
+    if len(a) != len(b):
+        return -1 if len(a) < len(b) else 1
+    return (a > b) - (a < b)
+
+
+# SemVer 2.0.0 section 11.4: digits compare numerically, a numeric identifier ranks below an
+# alphanumeric one, and anything else compares by ASCII order.
+def _compare_prerelease_identifier(a: str, b: str) -> int:
+    a_numeric, b_numeric = _is_numeric_identifier(a), _is_numeric_identifier(b)
+    if a_numeric and b_numeric:
+        return _compare_numeric(a, b)
+    if a_numeric:
+        return -1
+    if b_numeric:
+        return 1
+    return (a > b) - (a < b)
+
+
+# Ordering per SemVer 2.0.0 section 11. Both operands have already been normalized and matched
+# against the official regex, so the core holds exactly three numeric identifiers and every
+# prerelease field is well-formed; the split needs no error path.
+def _compare_semver(a: str, b: str) -> int:
+    a_core, a_prerelease = _split_semver(a)
+    b_core, b_prerelease = _split_semver(b)
+
+    for a_part, b_part in zip(a_core, b_core):
+        result = _compare_numeric(a_part, b_part)
+        if result:
+            return result
+
+    # A prerelease ranks below the release it belongs to (section 11.3).
+    if not a_prerelease and not b_prerelease:
+        return 0
+    if not a_prerelease:
+        return 1
+    if not b_prerelease:
+        return -1
+
+    for a_field, b_field in zip(a_prerelease, b_prerelease):
+        result = _compare_prerelease_identifier(a_field, b_field)
+        if result:
+            return result
+    # Every field so far is equal, so the longer list wins (section 11.4.4).
+    return (len(a_prerelease) > len(b_prerelease)) - (
+        len(a_prerelease) < len(b_prerelease)
+    )
+
+
+# Strip optional build metadata and separate the core version from pre-release identifiers
+def _split_semver(version: str) -> tuple[list[str], list[str]]:
+    plus = version.find("+")
+    if plus != -1:
+        version = version[:plus]
+    dash = version.find("-")
+    if dash == -1:
+        return version.split("."), []
+    return version[:dash].split("."), version[dash + 1 :].split(".")
 
 
 def _convert_rfc3339_to_unix_seconds(value: Any) -> int | None:
