@@ -6,7 +6,6 @@ import re
 from typing import Any, Callable
 
 import json_logic
-from dateutil import parser as dateutil_parser
 
 _OPERAND_COUNT = 3
 # Epoch milliseconds are compared as int64 elsewhere, so anything at or beyond this is out of range.
@@ -17,9 +16,12 @@ _SEMVER_PARTS = 3
 # bound matches MAX_LENGTH in node-semver, and keeps an arbitrarily long property value off the
 # regex regardless of how the engine schedules backtracking.
 _MAX_SEMVER_LENGTH = 256
-# RFC 3339 section 5.6: months run 01 through 12 and hours 00 through 23.
+# RFC 3339 section 5.6: months run 01 through 12, hours 00 through 23, and minutes and seconds 00
+# through 59. Leap seconds are not represented.
 _MONTHS_IN_YEAR = 12
 _MAX_HOUR = 23
+_MAX_MINUTE = 59
+_MAX_SECOND = 59
 
 # Using the official semantic versioning 2.0.0 regular expression to handle cross-platform validation
 # differences on other SDK's. For example, some platforms allow leading zeros even though it is not valid
@@ -30,10 +32,11 @@ _SEMVER_RE = re.compile(
     r"(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"
 )
 
-# Strict RFC3339 guard for datetime strings. The date and hour fields are captured so the calendar
-# can be validated separately; the pattern only constrains their shape.
+# Strict RFC3339 guard for datetime strings. Every field the instant is built from is captured; the
+# pattern only constrains their shape, so each one is range-checked before use. The fraction is not
+# captured because whole-second semantics discard it.
 _RFC3339_RE = re.compile(
-    r"^(\d{4})-(\d{2})-(\d{2})[Tt](\d{2}):\d{2}:\d{2}(\.\d+)?([Zz]|[+-]\d{2}:\d{2})$"
+    r"^(\d{4})-(\d{2})-(\d{2})[Tt](\d{2}):(\d{2}):(\d{2})(?:\.\d+)?([Zz]|[+-]\d{2}:\d{2})$"
 )
 
 _COMPARATORS: dict[str, Callable[[int], bool]] = {
@@ -179,14 +182,26 @@ def _split_semver(version: str) -> tuple[list[str], list[str]]:
     return version[:dash].split("."), version[dash + 1 :].split(".")
 
 
-# The pattern constrains each field to two digits, which still admits a date that cannot exist, such
-# as 2026-02-30 or 29 February in a common year, as well as an hour of 24, which isoparse accepts as
-# the following midnight. RFC 3339 section 5.6 allows hours 00 through 23, so the calendar is checked
-# here rather than left to the parser.
+# The pattern constrains each field to two digits, which still admits values that cannot exist, such
+# as 2026-02-30, 29 February in a common year, an hour of 24 or a minute of 99. calendar.timegm
+# normalizes those into a real instant rather than rejecting them, so every field is range-checked
+# before it is used.
 def _is_real_calendar_date(year: int, month: int, day: int, hour: int) -> bool:
     if not 1 <= month <= _MONTHS_IN_YEAR or day < 1 or hour > _MAX_HOUR:
         return False
     return day <= calendar.monthrange(year, month)[1]
+
+
+# Returns the offset in seconds east of UTC, or None when it is not a real clock offset. The pattern
+# only guarantees two digits either side of the colon.
+def _utc_offset_seconds(offset: str) -> int | None:
+    if offset == "Z":
+        return 0
+    hours, minutes = int(offset[1:3]), int(offset[4:6])
+    if hours > _MAX_HOUR or minutes > _MAX_MINUTE:
+        return None
+    seconds = hours * 3600 + minutes * 60
+    return -seconds if offset[0] == "-" else seconds
 
 
 def _convert_rfc3339_to_unix_seconds(value: Any) -> int | None:
@@ -196,15 +211,20 @@ def _convert_rfc3339_to_unix_seconds(value: Any) -> int | None:
     fields = _RFC3339_RE.match(normalized)
     if not fields:
         return None
-    year, month, day, hour = (int(fields.group(i)) for i in range(1, 5))
+    year, month, day, hour, minute, second = (int(fields.group(i)) for i in range(1, 7))
     if not _is_real_calendar_date(year, month, day, hour):
         return None
-    try:
-        parsed = dateutil_parser.isoparse(normalized)
-    except (ValueError, OverflowError):
+    if minute > _MAX_MINUTE or second > _MAX_SECOND:
         return None
-    whole_second = parsed.replace(microsecond=0)
-    return int(whole_second.timestamp())
+    offset_seconds = _utc_offset_seconds(fields.group(7))
+    if offset_seconds is None:
+        return None
+    # The fraction is dropped rather than rounded: in an RFC 3339 string the seconds field is already
+    # the floor of the instant, which is the whole-second value both sides of a comparison resolve to.
+    return (
+        calendar.timegm((year, month, day, hour, minute, second, 0, 0, 0))
+        - offset_seconds
+    )
 
 
 def _convert_unix_milliseconds_to_seconds(value: Any) -> int | None:
