@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import calendar
 import math
 import re
 from typing import Any, Callable
@@ -12,6 +13,9 @@ _OPERAND_COUNT = 3
 _MAX_EPOCH_MS = 2**63
 # SemVer 2.0.0 requires major.minor.patch; partial versions are zero-padded to this.
 _SEMVER_PARTS = 3
+# RFC 3339 section 5.6: months run 01 through 12 and hours 00 through 23.
+_MONTHS_IN_YEAR = 12
+_MAX_HOUR = 23
 
 # Using the official semantic versioning 2.0.0 regular expression to handle cross-platform validation
 # differences on other SDK's. For example, some platforms allow leading zeros even though it is not valid
@@ -22,9 +26,10 @@ _SEMVER_RE = re.compile(
     r"(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"
 )
 
-# Strict RFC3339 guard for datetime strings.
+# Strict RFC3339 guard for datetime strings. The date and hour fields are captured so the calendar
+# can be validated separately; the pattern only constrains their shape.
 _RFC3339_RE = re.compile(
-    r"^\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}(\.\d+)?([Zz]|[+-]\d{2}:\d{2})$"
+    r"^(\d{4})-(\d{2})-(\d{2})[Tt](\d{2}):\d{2}:\d{2}(\.\d+)?([Zz]|[+-]\d{2}:\d{2})$"
 )
 
 _COMPARATORS: dict[str, Callable[[int], bool]] = {
@@ -168,11 +173,25 @@ def _split_semver(version: str) -> tuple[list[str], list[str]]:
     return version[:dash].split("."), version[dash + 1 :].split(".")
 
 
+# The pattern constrains each field to two digits, which still admits a date that cannot exist, such
+# as 2026-02-30 or 29 February in a common year, as well as an hour of 24, which isoparse accepts as
+# the following midnight. RFC 3339 section 5.6 allows hours 00 through 23, so the calendar is checked
+# here rather than left to the parser.
+def _is_real_calendar_date(year: int, month: int, day: int, hour: int) -> bool:
+    if not 1 <= month <= _MONTHS_IN_YEAR or day < 1 or hour > _MAX_HOUR:
+        return False
+    return day <= calendar.monthrange(year, month)[1]
+
+
 def _convert_rfc3339_to_unix_seconds(value: Any) -> int | None:
     if not isinstance(value, str):
         return None
     normalized = value.strip().upper()
-    if not _RFC3339_RE.match(normalized):
+    fields = _RFC3339_RE.match(normalized)
+    if not fields:
+        return None
+    year, month, day, hour = (int(fields.group(i)) for i in range(1, 5))
+    if not _is_real_calendar_date(year, month, day, hour):
         return None
     try:
         parsed = dateutil_parser.isoparse(normalized)
