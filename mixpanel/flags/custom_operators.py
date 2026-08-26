@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import calendar
+import datetime
 import math
 import re
 from typing import Any, Callable
@@ -16,12 +16,12 @@ _SEMVER_PARTS = 3
 # bound matches MAX_LENGTH in node-semver, and keeps an arbitrarily long property value off the
 # regex regardless of how the engine schedules backtracking.
 _MAX_SEMVER_LENGTH = 256
-# RFC 3339 section 5.6: months run 01 through 12, hours 00 through 23, and minutes and seconds 00
-# through 59. Leap seconds are not represented.
-_MONTHS_IN_YEAR = 12
+# RFC 3339 section 5.6: hours run 00 through 23 and minutes 00 through 59. These bound the UTC
+# offset, whose fields no date type validates for us.
 _MAX_HOUR = 23
 _MAX_MINUTE = 59
-_MAX_SECOND = 59
+# Instants are reported as whole seconds east of this.
+_EPOCH = datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)
 
 # Using the official semantic versioning 2.0.0 regular expression to handle cross-platform validation
 # differences on other SDK's. For example, some platforms allow leading zeros even though it is not valid
@@ -182,16 +182,6 @@ def _split_semver(version: str) -> tuple[list[str], list[str]]:
     return version[:dash].split("."), version[dash + 1 :].split(".")
 
 
-# The pattern constrains each field to two digits, which still admits values that cannot exist, such
-# as 2026-02-30, 29 February in a common year, an hour of 24 or a minute of 99. calendar.timegm
-# normalizes those into a real instant rather than rejecting them, so every field is range-checked
-# before it is used.
-def _is_real_calendar_date(year: int, month: int, day: int, hour: int) -> bool:
-    if not 1 <= month <= _MONTHS_IN_YEAR or day < 1 or hour > _MAX_HOUR:
-        return False
-    return day <= calendar.monthrange(year, month)[1]
-
-
 # Returns the offset in seconds east of UTC, or None when it is not a real clock offset. The pattern
 # only guarantees two digits either side of the colon.
 def _utc_offset_seconds(offset: str) -> int | None:
@@ -212,19 +202,24 @@ def _convert_rfc3339_to_unix_seconds(value: Any) -> int | None:
     if not fields:
         return None
     year, month, day, hour, minute, second = (int(fields.group(i)) for i in range(1, 7))
-    if not _is_real_calendar_date(year, month, day, hour):
-        return None
-    if minute > _MAX_MINUTE or second > _MAX_SECOND:
-        return None
     offset_seconds = _utc_offset_seconds(fields.group(7))
     if offset_seconds is None:
         return None
+    # The pattern constrains each field to two digits, which still admits values that cannot exist,
+    # such as 2026-02-30, 29 February in a common year, an hour of 24 or a minute of 99. Building a
+    # datetime range-checks every one of them, leap years included, and raises rather than
+    # normalizing the way a plain seconds calculation would. Note this also rejects year 0000, which
+    # datetime cannot represent at all and the other SDKs accept; failing closed on it is the
+    # narrowest behaviour available here.
+    try:
+        moment = datetime.datetime(
+            year, month, day, hour, minute, second, tzinfo=datetime.timezone.utc
+        )
+    except ValueError:
+        return None
     # The fraction is dropped rather than rounded: in an RFC 3339 string the seconds field is already
     # the floor of the instant, which is the whole-second value both sides of a comparison resolve to.
-    return (
-        calendar.timegm((year, month, day, hour, minute, second, 0, 0, 0))
-        - offset_seconds
-    )
+    return int((moment - _EPOCH).total_seconds()) - offset_seconds
 
 
 def _convert_unix_milliseconds_to_seconds(value: Any) -> int | None:
