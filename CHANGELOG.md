@@ -1,5 +1,12 @@
 # Changelog
 
+## [v5.4.0](https://github.com/mixpanel/mixpanel-python/tree/v5.4.0) (2026-09-01)
+
+### Features
+- Implement semver and date custom ops for flags runtime props ([#193](https://github.com/mixpanel/mixpanel-python/pull/193))
+
+[Full Changelog](https://github.com/mixpanel/mixpanel-python/compare/v5.3.0...v5.4.0)
+
 ## [v5.3.0](https://github.com/mixpanel/mixpanel-python/tree/v5.3.0) (2026-07-24)
 
 ### Fixes
