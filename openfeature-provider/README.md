@@ -39,7 +39,7 @@ from openfeature import api
 # 1. Create and register the provider with local evaluation
 provider = MixpanelProvider.from_local_config(
     "YOUR_PROJECT_TOKEN",
-    LocalFlagsConfig(token="YOUR_PROJECT_TOKEN"),
+    LocalFlagsConfig(),
 )
 api.set_provider(provider)
 
@@ -65,7 +65,7 @@ from mixpanel.flags.types import LocalFlagsConfig
 
 provider = MixpanelProvider.from_local_config(
     "YOUR_PROJECT_TOKEN",
-    LocalFlagsConfig(token="YOUR_PROJECT_TOKEN"),
+    LocalFlagsConfig(),
 )
 ```
 
@@ -81,7 +81,7 @@ from mixpanel.flags.types import RemoteFlagsConfig
 
 provider = MixpanelProvider.from_remote_config(
     "YOUR_PROJECT_TOKEN",
-    RemoteFlagsConfig(token="YOUR_PROJECT_TOKEN"),
+    RemoteFlagsConfig(),
 )
 ```
 
@@ -95,7 +95,7 @@ from mixpanel.flags.types import LocalFlagsConfig
 from mixpanel_openfeature import MixpanelProvider
 
 # Your existing Mixpanel instance
-mp = Mixpanel("YOUR_PROJECT_TOKEN", local_flags_config=LocalFlagsConfig(token="YOUR_PROJECT_TOKEN"))
+mp = Mixpanel("YOUR_PROJECT_TOKEN", local_flags_config=LocalFlagsConfig())
 local_flags = mp.local_flags
 local_flags.start_polling_for_definitions()
 

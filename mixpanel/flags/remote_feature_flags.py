@@ -379,7 +379,7 @@ class RemoteFeatureFlagsProvider:
 
     def _handle_response(self, response: httpx.Response) -> dict[str, SelectedVariant]:
         response.raise_for_status()
-        flags_response = RemoteFlagsResponse.model_validate(response.json())
+        flags_response = RemoteFlagsResponse.from_dict(response.json())
         return flags_response.flags
 
     @staticmethod

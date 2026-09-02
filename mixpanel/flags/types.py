@@ -1,14 +1,30 @@
 from concurrent.futures import Executor
-from typing import Any, Literal, Optional
-
-from pydantic import BaseModel, ConfigDict
+from dataclasses import dataclass, fields, replace
+from typing import Any, Literal, Optional, TypeVar
 
 MIXPANEL_DEFAULT_API_ENDPOINT = "api.mixpanel.com"
 
+_Dataclass = TypeVar("_Dataclass")
 
-class FlagsConfig(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
 
+def _from_payload(
+    cls: type[_Dataclass], payload: dict[str, Any], **parsed_fields: Any
+) -> _Dataclass:
+    """Build a dataclass from an API payload.
+
+    Keys the dataclass does not declare are ignored so that new fields added
+    to the API response never break older SDK versions. Missing required
+    fields raise TypeError from the dataclass constructor. ``parsed_fields``
+    override raw payload values for fields that hold nested models.
+    """
+    declared_fields = {field.name for field in fields(cls)}  # type: ignore[arg-type]
+    kwargs = {key: value for key, value in payload.items() if key in declared_fields}
+    kwargs.update(parsed_fields)
+    return cls(**kwargs)
+
+
+@dataclass
+class FlagsConfig:
     api_host: str = "api.mixpanel.com"
     request_timeout_in_seconds: int = 10
     # Optional executor used to dispatch exposure-event HTTP sends so flag
@@ -17,45 +33,91 @@ class FlagsConfig(BaseModel):
     exposure_executor: Optional[Executor] = None
 
 
+@dataclass
 class LocalFlagsConfig(FlagsConfig):
     enable_polling: bool = True
     polling_interval_in_seconds: int = 60
 
 
+@dataclass
 class RemoteFlagsConfig(FlagsConfig):
     pass
 
 
-class Variant(BaseModel):
+@dataclass
+class Variant:
     key: str
     value: Any
     is_control: bool
     split: Optional[float] = 0.0
 
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "Variant":
+        return _from_payload(cls, payload)
 
-class FlagTestUsers(BaseModel):
+
+@dataclass
+class FlagTestUsers:
     users: dict[str, str]
 
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "FlagTestUsers":
+        return _from_payload(cls, payload)
 
-class VariantOverride(BaseModel):
+
+@dataclass
+class VariantOverride:
     key: str
 
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "VariantOverride":
+        return _from_payload(cls, payload)
 
-class Rollout(BaseModel):
+
+@dataclass
+class Rollout:
     rollout_percentage: float
     runtime_evaluation_definition: Optional[dict[str, str]] = None
     runtime_evaluation_rule: Optional[dict[Any, Any]] = None
     variant_override: Optional[VariantOverride] = None
     variant_splits: Optional[dict[str, float]] = None
 
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "Rollout":
+        variant_override = payload.get("variant_override")
+        return _from_payload(
+            cls,
+            payload,
+            variant_override=(
+                VariantOverride.from_dict(variant_override)
+                if variant_override is not None
+                else None
+            ),
+        )
 
-class RuleSet(BaseModel):
+
+@dataclass
+class RuleSet:
     variants: list[Variant]
     rollout: list[Rollout]
     test: Optional[FlagTestUsers] = None
 
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "RuleSet":
+        test_users = payload.get("test")
+        return _from_payload(
+            cls,
+            payload,
+            variants=[Variant.from_dict(variant) for variant in payload["variants"]],
+            rollout=[Rollout.from_dict(rollout) for rollout in payload["rollout"]],
+            test=(
+                FlagTestUsers.from_dict(test_users) if test_users is not None else None
+            ),
+        )
 
-class ExperimentationFlag(BaseModel):
+
+@dataclass
+class ExperimentationFlag:
     id: str
     name: str
     key: str
@@ -66,6 +128,12 @@ class ExperimentationFlag(BaseModel):
     experiment_id: Optional[str] = None
     is_experiment_active: Optional[bool] = None
     hash_salt: Optional[str] = None
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "ExperimentationFlag":
+        return _from_payload(
+            cls, payload, ruleset=RuleSet.from_dict(payload["ruleset"])
+        )
 
 
 class VariantSource:
@@ -81,7 +149,8 @@ class VariantSource:
     FALLBACK = "fallback"
 
 
-class FallbackReason(BaseModel):
+@dataclass(frozen=True)
+class FallbackReason:
     """Why the SDK returned the developer fallback.
 
     Only meaningful when SelectedVariant.variant_source == VariantSource.FALLBACK.
@@ -92,8 +161,6 @@ class FallbackReason(BaseModel):
     The OpenFeature wrapper dispatches on kind and forwards message into
     FlagResolutionDetails.error_message.
     """
-
-    model_config = ConfigDict(frozen=True)
 
     kind: Literal[
         "FLAG_NOT_FOUND",
@@ -130,10 +197,11 @@ _FLAG_NOT_FOUND = FallbackReason(kind="FLAG_NOT_FOUND")
 _NO_ROLLOUT_MATCH = FallbackReason(kind="NO_ROLLOUT_MATCH")
 
 
-class SelectedVariant(BaseModel):
+@dataclass
+class SelectedVariant:
+    variant_value: Any
     # variant_key can be None if being used as a fallback
     variant_key: Optional[str] = None
-    variant_value: Any
     experiment_id: Optional[str] = None
     is_experiment_active: Optional[bool] = None
     is_qa_tester: Optional[bool] = None
@@ -141,29 +209,55 @@ class SelectedVariant(BaseModel):
     # None on success; set when variant_source == FALLBACK
     fallback_reason: Optional[FallbackReason] = None
 
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "SelectedVariant":
+        fallback_reason = payload.get("fallback_reason")
+        return _from_payload(
+            cls,
+            payload,
+            fallback_reason=(
+                _from_payload(FallbackReason, fallback_reason)
+                if fallback_reason is not None
+                else None
+            ),
+        )
+
     def with_source(self, source: str) -> "SelectedVariant":
         """Return a copy of this variant tagged with the given source.
 
         Clears fallback_reason — use as_fallback() if returning a fallback.
         """
-        return self.model_copy(
-            update={"variant_source": source, "fallback_reason": None}
-        )
+        return replace(self, variant_source=source, fallback_reason=None)
 
     def as_fallback(self, reason: FallbackReason) -> "SelectedVariant":
         """Return a copy of this variant tagged as a fallback with the given reason."""
-        return self.model_copy(
-            update={
-                "variant_source": VariantSource.FALLBACK,
-                "fallback_reason": reason,
-            }
+        return replace(
+            self, variant_source=VariantSource.FALLBACK, fallback_reason=reason
         )
 
 
-class ExperimentationFlags(BaseModel):
+@dataclass
+class ExperimentationFlags:
     flags: list[ExperimentationFlag]
 
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "ExperimentationFlags":
+        return cls(
+            flags=[ExperimentationFlag.from_dict(flag) for flag in payload["flags"]]
+        )
 
-class RemoteFlagsResponse(BaseModel):
+
+@dataclass
+class RemoteFlagsResponse:
     code: int
     flags: dict[str, SelectedVariant]
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "RemoteFlagsResponse":
+        return cls(
+            code=payload["code"],
+            flags={
+                flag_key: SelectedVariant.from_dict(variant)
+                for flag_key, variant in payload["flags"].items()
+            },
+        )

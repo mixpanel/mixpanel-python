@@ -15,7 +15,6 @@ requires-python = ">=3.9"
 dependencies = [
     "requests>=2.4.2, <3",
     "httpx>=0.27.0",
-    "pydantic>=2.0.0, <2.12",  # Pin to <2.12 for PyPy 3.9 compatibility (pydantic 2.12+ uses pydantic-core without PyPy 3.9 wheels)
     "asgiref>=3.0.0",
     "json-logic==0.7.0a0"
 ]
@@ -118,7 +117,7 @@ ignore = [
     # --- Other pragmatic exclusions ---
     "PLR0913", # too-many-arguments (public API signatures)
     "E501",    # line-too-long (formatter handles code; remaining are strings/comments)
-    "FA100",   # future-rewritable-type-annotation (interacts with Pydantic runtime, defer)
+    "FA100",   # future-rewritable-type-annotation (dataclass annotations in types.py are evaluated at runtime, defer)
 ]
 
 [tool.ruff.lint.per-file-ignores]
