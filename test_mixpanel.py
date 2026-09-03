@@ -843,6 +843,30 @@ class TestBufferedConsumer:
             assert excinfo.value.message == f"[{broken_json}]"
             assert excinfo.value.endpoint == "events"
 
+    def test_partial_flush_does_not_resend_delivered_batches(self):
+        """A batch the server accepted must not be re-sent when a later one fails."""
+
+        class FlakyConsumer:
+            def __init__(self):
+                self.log = []
+                self.calls = 0
+
+            def send(self, endpoint, event, api_key=None):
+                self.calls += 1
+                if self.calls == 2:
+                    raise mixpanel.MixpanelException("network error")
+                self.log.append(json.loads(event))
+
+        consumer = mixpanel.BufferedConsumer(2)
+        consumer._consumer = FlakyConsumer()
+        consumer._buffers["events"] = ['"a"', '"b"', '"c"', '"d"']
+
+        with pytest.raises(mixpanel.MixpanelException):
+            consumer.flush()
+
+        assert consumer._consumer.log == [["a", "b"]]
+        assert consumer._buffers["events"] == ['"c"', '"d"']
+
     def test_send_remembers_api_key(self):
         self.consumer.send("imports", '"Event"', api_key="MY_API_KEY")
         assert len(self.log) == 0
