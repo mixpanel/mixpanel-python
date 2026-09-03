@@ -63,8 +63,9 @@ class RemoteFeatureFlagsProvider:
         else:
             auth = httpx.BasicAuth(token, "")
 
+        scheme = "https" if config.use_https else "http"
         httpx_client_parameters = {
-            "base_url": f"https://{config.api_host}",
+            "base_url": f"{scheme}://{config.api_host}",
             "headers": REQUEST_HEADERS,
             "auth": auth,
             "timeout": httpx.Timeout(config.request_timeout_in_seconds),
