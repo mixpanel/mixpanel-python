@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import asdict
 from itertools import chain, repeat
 from typing import Any
 from unittest.mock import Mock, patch
@@ -85,7 +86,7 @@ def create_test_flag(
 def create_flags_response(flags: list[ExperimentationFlag]) -> httpx.Response:
     if flags is None:
         flags = []
-    response_data = ExperimentationFlags(flags=flags).model_dump()
+    response_data = asdict(ExperimentationFlags(flags=flags))
     return httpx.Response(status_code=200, json=response_data)
 
 
@@ -809,7 +810,7 @@ class TestLocalFeatureFlagsProviderAsync:
         flag = create_test_flag()
         await self.setup_flags([flag])
 
-        variant = SelectedVariant(key="treatment", variant_value="treatment")
+        variant = SelectedVariant(variant_key="treatment", variant_value="treatment")
         self._flags.track_exposure_event(TEST_FLAG_KEY, variant, USER_CONTEXT)
 
         self._mock_tracker.assert_called_once()

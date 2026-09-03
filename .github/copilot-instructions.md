@@ -53,7 +53,7 @@ python -m twine upload dist/*  # Publish to PyPI
 
 ### Version & Dependencies Management
 - Version defined in `mixpanel/__init__.py` as `__version__`
-- Uses Pydantic v2+ for data validation (`mixpanel/flags/types.py`)
+- Feature flag types are stdlib dataclasses with `from_dict` parsers (`mixpanel/flags/types.py`); no third-party validation library
 - json-logic library for runtime flag evaluation rules
 
 ## Feature Flag Specifics

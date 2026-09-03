@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 import logging
 import threading
 import time
@@ -322,8 +323,7 @@ class LocalFeatureFlagsProvider:
         variant_hash = normalized_hash(str(context_value), salt)
 
         variants = [
-            variant.model_copy(deep=True)
-            for variant in flag_definition.ruleset.variants
+            copy.deepcopy(variant) for variant in flag_definition.ruleset.variants
         ]
         if rollout.variant_splits:
             for variant in variants:
@@ -501,7 +501,7 @@ class LocalFeatureFlagsProvider:
         flags = {}
         try:
             json_data = response.json()
-            experimentation_flags = ExperimentationFlags.model_validate(json_data)
+            experimentation_flags = ExperimentationFlags.from_dict(json_data)
             for flag in experimentation_flags.flags:
                 flag.ruleset.variants.sort(key=lambda variant: variant.key)
                 flags[flag.key] = flag

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import asdict
 from unittest.mock import Mock
 
 import httpx
@@ -25,9 +26,9 @@ ENDPOINT = "https://api.mixpanel.com/flags"
 def create_success_response(
     assigned_variants_per_flag: dict[str, SelectedVariant],
 ) -> httpx.Response:
-    serialized_response = RemoteFlagsResponse(
-        code=200, flags=assigned_variants_per_flag
-    ).model_dump()
+    serialized_response = asdict(
+        RemoteFlagsResponse(code=200, flags=assigned_variants_per_flag)
+    )
     return httpx.Response(status_code=200, json=serialized_response)
 
 

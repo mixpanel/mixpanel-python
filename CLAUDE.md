@@ -70,7 +70,7 @@ python -m ghp_import -n -p docs/_build/html
 - `LocalFeatureFlagsProvider`: Client-side evaluation with polling (default 60s interval)
 - `RemoteFeatureFlagsProvider`: Server-side evaluation via API calls
 - Both providers support async operations
-- Types defined in `mixpanel/flags/types.py` using Pydantic models
+- Types defined in `mixpanel/flags/types.py` as stdlib dataclasses; API payloads are parsed via each type's `from_dict` classmethod
 
 ### Key Design Patterns
 
@@ -96,7 +96,6 @@ python -m ghp_import -n -p docs/_build/html
 
 - `requests>=2.4.2, <3`: HTTP client (sync)
 - `httpx>=0.27.0`: HTTP client (async)
-- `pydantic>=2.0.0`: Data validation and types
 - `asgiref>=3.0.0`: Async utilities
 - `json-logic>=0.7.0a0`: Runtime rules evaluation
 
