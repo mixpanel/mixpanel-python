@@ -41,6 +41,10 @@ def close_async_client_from_sync(client: httpx.AsyncClient) -> None:
     )
 
 
+# The scheme headers are intentionally always "https", even when a provider is
+# configured with use_https=False. They describe the original request's scheme
+# to the flags backend, whose auth rejects requests not marked as https, so a
+# proxy fronting a plain-HTTP dev endpoint still needs to see https here.
 REQUEST_HEADERS: dict[str, str] = {
     "X-Scheme": "https",
     "X-Forwarded-Proto": "https",

@@ -1094,3 +1094,66 @@ def test_sync_context_manager_exit_closes_both_clients():
 
     assert provider._sync_client.is_closed
     assert provider._async_client.is_closed
+
+
+def _make_provider(**config_kwargs):
+    config = LocalFlagsConfig(enable_polling=False, **config_kwargs)
+    return LocalFeatureFlagsProvider("test-token", config, "1.0.0", Mock())
+
+
+def test_use_https_defaults_to_true():
+    assert LocalFlagsConfig().use_https is True
+
+
+def test_default_config_uses_https_base_url():
+    provider = _make_provider()
+
+    assert str(provider._sync_client.base_url) == "https://api.mixpanel.com"
+    assert str(provider._async_client.base_url) == "https://api.mixpanel.com"
+
+    provider.shutdown()
+
+
+def test_explicit_use_https_true_matches_default():
+    provider = _make_provider(use_https=True)
+
+    assert str(provider._sync_client.base_url) == "https://api.mixpanel.com"
+    assert str(provider._async_client.base_url) == "https://api.mixpanel.com"
+
+    provider.shutdown()
+
+
+def test_use_https_false_uses_http_base_url():
+    provider = _make_provider(use_https=False)
+
+    assert str(provider._sync_client.base_url) == "http://api.mixpanel.com"
+    assert str(provider._async_client.base_url) == "http://api.mixpanel.com"
+
+    provider.shutdown()
+
+
+def test_use_https_false_builds_full_http_definitions_url():
+    provider = _make_provider(api_host="host.minikube.internal/tproxy", use_https=False)
+
+    for client in (provider._sync_client, provider._async_client):
+        request = client.build_request(
+            "GET", LocalFeatureFlagsProvider.FLAGS_DEFINITIONS_URL_PATH
+        )
+        assert (
+            str(request.url) == "http://host.minikube.internal/tproxy/flags/definitions"
+        )
+
+    provider.shutdown()
+
+
+def test_scheme_headers_stay_https_when_use_https_false():
+    """The backend's auth rejects requests not marked as https, so these
+    headers must not follow the transport scheme (see utils.REQUEST_HEADERS).
+    """
+    provider = _make_provider(use_https=False)
+
+    for client in (provider._sync_client, provider._async_client):
+        assert client.headers["X-Forwarded-Proto"] == "https"
+        assert client.headers["X-Scheme"] == "https"
+
+    provider.shutdown()
