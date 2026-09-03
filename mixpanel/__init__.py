@@ -30,7 +30,7 @@ from .flags.local_feature_flags import LocalFeatureFlagsProvider
 from .flags.remote_feature_flags import RemoteFeatureFlagsProvider
 from .flags.types import LocalFlagsConfig, RemoteFlagsConfig
 
-__version__ = "5.4.0"
+__version__ = "5.4.1"
 
 logger = logging.getLogger(__name__)
 
