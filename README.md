@@ -1,6 +1,6 @@
 # mixpanel-python
 
-##### _September 01, 2026_ - [v5.4.0](https://github.com/mixpanel/mixpanel-python/releases/tag/v5.4.0)
+##### _September 03, 2026_ - [v5.4.1](https://github.com/mixpanel/mixpanel-python/releases/tag/v5.4.1)
 
 [![PyPI](https://img.shields.io/pypi/v/mixpanel)](https://pypi.org/project/mixpanel)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/mixpanel)](https://pypi.org/project/mixpanel)
