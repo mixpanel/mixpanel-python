@@ -37,11 +37,12 @@ class FlagsConfig:
 class LocalFlagsConfig(FlagsConfig):
     enable_polling: bool = True
     polling_interval_in_seconds: int = 60
+    use_https: bool = True
 
 
 @dataclass
 class RemoteFlagsConfig(FlagsConfig):
-    pass
+    use_https: bool = True
 
 
 @dataclass
