@@ -10,50 +10,11 @@ import pytest
 
 from .utils import (
     _log_tracker_future_exception,
-    build_base_url,
     close_async_client_from_sync,
     dispatch_exposure,
     generate_traceparent,
     normalized_hash,
 )
-
-
-class TestBuildBaseUrl:
-    @pytest.mark.parametrize("verify_cert", [True, False])
-    def test_bare_host_defaults_to_https(self, verify_cert):
-        # verify_cert relaxes verification only; it never downgrades the scheme.
-        assert build_base_url("api.mixpanel.com", verify_cert) == (
-            "https://api.mixpanel.com"
-        )
-
-    @pytest.mark.parametrize("verify_cert", [True, False])
-    def test_explicit_https_is_preserved(self, verify_cert):
-        assert build_base_url("https://api.mixpanel.com", verify_cert) == (
-            "https://api.mixpanel.com"
-        )
-
-    def test_http_allowed_when_not_verifying(self):
-        assert build_base_url("http://host.minikube.internal/tproxy", False) == (
-            "http://host.minikube.internal/tproxy"
-        )
-
-    def test_http_rejected_when_verifying(self):
-        with pytest.raises(ValueError, match="verify_cert=False"):
-            build_base_url("http://host.minikube.internal/tproxy", True)
-
-    def test_scheme_match_is_case_insensitive(self):
-        assert build_base_url("HTTP://host.internal", False) == "HTTP://host.internal"
-
-    @pytest.mark.parametrize("api_host", ["ftp://host.internal", "ws://host.internal"])
-    def test_other_schemes_rejected(self, api_host):
-        with pytest.raises(ValueError, match="Unsupported scheme"):
-            build_base_url(api_host, False)
-
-    def test_host_with_path_and_port_is_untouched(self):
-        # A bare host may carry a port and path prefix (a dev proxy mount).
-        assert build_base_url("host.internal:8000/tproxy", True) == (
-            "https://host.internal:8000/tproxy"
-        )
 
 
 class TestUtils:

@@ -41,47 +41,8 @@ def close_async_client_from_sync(client: httpx.AsyncClient) -> None:
     )
 
 
-def build_base_url(api_host: str, verify_cert: bool) -> str:
-    """Build the httpx ``base_url`` for ``api_host``.
-
-    A bare host (the default, ``api.mixpanel.com``) is served over https.
-    ``api_host`` may instead carry an explicit scheme; ``http://`` is accepted
-    only when ``verify_cert`` is False, so plaintext is always a deliberate
-    opt-out of transport security rather than something a typo can cause
-    silently.
-
-    :param api_host: Host, optionally prefixed with ``http://``/``https://``
-    :param verify_cert: Whether the caller verifies the server's TLS cert
-    :return: Base URL including scheme
-    :raises ValueError: if ``api_host`` is plain http while ``verify_cert`` is
-        True, or carries a scheme other than http/https
-    """
-    scheme, separator, _ = api_host.partition("://")
-    if not separator:
-        return f"https://{api_host}"
-
-    scheme = scheme.lower()
-    if scheme == "https":
-        return api_host
-    if scheme == "http":
-        if verify_cert:
-            msg = (
-                f"api_host {api_host!r} uses http://, which sends flag "
-                "requests (including the token) in the clear. Pass "
-                "verify_cert=False to acknowledge that, or use https://."
-            )
-            raise ValueError(msg)
-        return api_host
-
-    msg = (
-        f"Unsupported scheme {scheme!r} in api_host {api_host!r}; "
-        "use http:// or https://."
-    )
-    raise ValueError(msg)
-
-
 # The scheme headers are intentionally always "https", even when a provider is
-# reaching a plain-http api_host. They describe the original request's scheme
+# configured with use_https=False. They describe the original request's scheme
 # to the flags backend, whose auth rejects requests not marked as https, so a
 # proxy fronting a plain-HTTP dev endpoint still needs to see https here.
 REQUEST_HEADERS: dict[str, str] = {

@@ -4,7 +4,7 @@ import asyncio
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import httpx
 import pytest
@@ -659,8 +659,8 @@ def _make_provider(**config_kwargs):
     return RemoteFeatureFlagsProvider("test-token", config, "1.0.0", Mock())
 
 
-def test_verify_cert_defaults_to_true():
-    assert RemoteFlagsConfig().verify_cert is True
+def test_use_https_defaults_to_true():
+    assert RemoteFlagsConfig().use_https is True
 
 
 def test_default_config_uses_https_base_url():
@@ -672,9 +672,8 @@ def test_default_config_uses_https_base_url():
     provider.shutdown()
 
 
-def test_bare_api_host_still_https_when_verify_cert_false():
-    """verify_cert only relaxes verification; it does not change the scheme."""
-    provider = _make_provider(verify_cert=False)
+def test_explicit_use_https_true_matches_default():
+    provider = _make_provider(use_https=True)
 
     assert str(provider._sync_client.base_url) == "https://api.mixpanel.com"
     assert str(provider._async_client.base_url) == "https://api.mixpanel.com"
@@ -682,19 +681,17 @@ def test_bare_api_host_still_https_when_verify_cert_false():
     provider.shutdown()
 
 
-def test_explicit_https_api_host_is_preserved():
-    provider = _make_provider(api_host="https://api.mixpanel.com")
+def test_use_https_false_uses_http_base_url():
+    provider = _make_provider(use_https=False)
 
-    assert str(provider._sync_client.base_url) == "https://api.mixpanel.com"
-    assert str(provider._async_client.base_url) == "https://api.mixpanel.com"
+    assert str(provider._sync_client.base_url) == "http://api.mixpanel.com"
+    assert str(provider._async_client.base_url) == "http://api.mixpanel.com"
 
     provider.shutdown()
 
 
-def test_http_api_host_allowed_when_verify_cert_false():
-    provider = _make_provider(
-        api_host="http://host.minikube.internal/tproxy", verify_cert=False
-    )
+def test_use_https_false_builds_full_http_flags_url():
+    provider = _make_provider(api_host="host.minikube.internal/tproxy", use_https=False)
 
     for client in (provider._sync_client, provider._async_client):
         request = client.build_request("GET", RemoteFeatureFlagsProvider.FLAGS_URL_PATH)
@@ -703,41 +700,11 @@ def test_http_api_host_allowed_when_verify_cert_false():
     provider.shutdown()
 
 
-def test_http_api_host_rejected_when_verify_cert_true():
-    with pytest.raises(ValueError, match="verify_cert=False"):
-        _make_provider(api_host="http://host.minikube.internal/tproxy")
-
-
-@patch("mixpanel.flags.remote_feature_flags.httpx.AsyncClient")
-@patch("mixpanel.flags.remote_feature_flags.httpx.Client")
-def test_verify_cert_is_forwarded_to_httpx_clients(sync_client, async_client):
-    _make_provider(verify_cert=False)
-
-    assert sync_client.call_args.kwargs["verify"] is False
-    assert async_client.call_args.kwargs["verify"] is False
-
-
-@patch("mixpanel.flags.remote_feature_flags.httpx.AsyncClient")
-@patch("mixpanel.flags.remote_feature_flags.httpx.Client")
-def test_verify_cert_defaults_to_verifying_httpx_clients(sync_client, async_client):
-    _make_provider()
-
-    assert sync_client.call_args.kwargs["verify"] is True
-    assert async_client.call_args.kwargs["verify"] is True
-
-
-def test_unsupported_scheme_in_api_host_rejected():
-    with pytest.raises(ValueError, match="Unsupported scheme"):
-        _make_provider(api_host="ftp://host.minikube.internal", verify_cert=False)
-
-
-def test_scheme_headers_stay_https_over_plain_http():
+def test_scheme_headers_stay_https_when_use_https_false():
     """The backend's auth rejects requests not marked as https, so these
     headers must not follow the transport scheme (see utils.REQUEST_HEADERS).
     """
-    provider = _make_provider(
-        api_host="http://host.minikube.internal/tproxy", verify_cert=False
-    )
+    provider = _make_provider(use_https=False)
 
     for client in (provider._sync_client, provider._async_client):
         assert client.headers["X-Forwarded-Proto"] == "https"
