@@ -21,6 +21,7 @@ from .types import (
 from .utils import (
     EXPOSURE_EVENT,
     REQUEST_HEADERS,
+    build_base_url,
     close_async_client_from_sync,
     dispatch_exposure,
     generate_traceparent,
@@ -63,12 +64,12 @@ class RemoteFeatureFlagsProvider:
         else:
             auth = httpx.BasicAuth(token, "")
 
-        scheme = "https" if config.use_https else "http"
         httpx_client_parameters = {
-            "base_url": f"{scheme}://{config.api_host}",
+            "base_url": build_base_url(config.api_host, config.verify_cert),
             "headers": REQUEST_HEADERS,
             "auth": auth,
             "timeout": httpx.Timeout(config.request_timeout_in_seconds),
+            "verify": config.verify_cert,
         }
 
         self._async_client: httpx.AsyncClient = httpx.AsyncClient(

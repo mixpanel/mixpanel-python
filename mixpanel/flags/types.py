@@ -31,21 +31,18 @@ class FlagsConfig:
     # evaluation does not block on the network round trip. None (default)
     # preserves the existing inline behavior.
     exposure_executor: Optional[Executor] = None
-    # Scheme used to reach api_host. True (default) uses https. Set to False
-    # only to reach a local/dev endpoint served over plain HTTP (e.g. a development
-    # nginx proxy), which avoids needing a TLS cert the client can verify.
-    use_https: bool = True
 
 
 @dataclass
 class LocalFlagsConfig(FlagsConfig):
     enable_polling: bool = True
     polling_interval_in_seconds: int = 60
+    verify_cert: bool = True
 
 
 @dataclass
 class RemoteFlagsConfig(FlagsConfig):
-    pass
+    verify_cert: bool = True
 
 
 @dataclass
