@@ -1105,6 +1105,20 @@ def test_use_https_defaults_to_true():
     assert LocalFlagsConfig().use_https is True
 
 
+def test_use_https_leaves_positional_args_unshifted():
+    """use_https must stay last so it can't rebind an existing positional.
+
+    Declaring it on FlagsConfig would move enable_polling from the fourth
+    positional slot to the fifth, so a pre-existing
+    ``LocalFlagsConfig(host, timeout, executor, False)`` would silently leave
+    polling enabled and disable HTTPS. See the rationale comment in types.py.
+    """
+    config = LocalFlagsConfig("example.com", 5, None, False)
+
+    assert config.enable_polling is False
+    assert config.use_https is True
+
+
 def test_default_config_uses_https_base_url():
     provider = _make_provider()
 
