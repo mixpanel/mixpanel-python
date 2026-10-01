@@ -779,6 +779,23 @@ class TestConsumer:
 
 
 class TestBufferedConsumer:
+    @pytest.mark.parametrize("max_size", [0, -1, -50, 1.5, "10", None, False, True])
+    def test_invalid_max_size(self, max_size):
+        with pytest.raises(ValueError, match="max_size must be a positive integer"):
+            mixpanel.BufferedConsumer(max_size=max_size)
+
+    @pytest.mark.parametrize(
+        ("max_size", "batch_size"), [(1, 1), (10, 10), (50, 50), (100, 50)]
+    )
+    def test_valid_max_size(self, max_size, batch_size):
+        consumer = mixpanel.BufferedConsumer(max_size=max_size)
+        consumer._consumer = LogConsumer()
+        for _ in range(batch_size):
+            consumer.send("events", '"Event"')
+        assert consumer._consumer.log == [("events", ["Event"] * batch_size)]
+        consumer.flush()
+        assert len(consumer._consumer.log) == 1
+
     @classmethod
     def setup_class(cls):
         cls.MAX_LENGTH = 10
