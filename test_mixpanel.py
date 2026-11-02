@@ -4,6 +4,7 @@ import base64
 import datetime
 import decimal
 import json
+import re
 import time
 from unittest.mock import patch
 from urllib import parse as urllib_parse
@@ -1284,39 +1285,35 @@ class TestHierarchicalGroups:
         with pytest.raises(mixpanel.UnsupportedOperationError):
             self.hg.for_company("acme").people_increment("user_123", {"logins": 1})
 
-    def test_unsupported_group_operation_warns_and_still_sends(self, caplog):
-        self.hg.for_company("acme").group_update(
-            {"$group_key": "company", "$group_id": "acme", "$add": {"seats": 1}}
-        )
+    def test_unsupported_group_operation_raises(self):
+        for operation in ("$add", "$append", "$merge"):
+            with pytest.raises(
+                mixpanel.UnsupportedOperationError, match=re.escape(operation)
+            ):
+                self.hg.for_company("acme").group_update(
+                    {
+                        "$group_key": "company",
+                        "$group_id": "acme",
+                        operation: {"seats": 1},
+                    }
+                )
+        assert self.consumer.log == []
 
-        # Mixpanel decides what it accepts, so the message is still sent, not silently.
-        assert self.last_message()["$add"] == {"seats": 1}
-        warnings = [r for r in caplog.records if r.levelname == "WARNING"]
-        assert len(warnings) == 1
-        assert "$add" in warnings[0].getMessage()
-        assert warnings[0].name == "mixpanel"
+    def test_unsupported_group_operation_raises_before_company_check(self):
+        with pytest.raises(mixpanel.UnsupportedOperationError):
+            self.hg.group_update(
+                {"$group_key": "company", "$group_id": "acme", "$add": {"seats": 1}}
+            )
+        assert self.consumer.log == []
 
-    def test_unsupported_group_operation_does_not_warn_without_hierarchical_groups(
-        self, caplog
-    ):
+    def test_unsupported_group_operation_sent_without_hierarchical_groups(self):
         self.legacy.group_update(
             {"$group_key": "company", "$group_id": "acme", "$add": {"seats": 1}}
         )
 
         assert self.last_message()["$add"] == {"seats": 1}
-        assert [r for r in caplog.records if r.levelname == "WARNING"] == []
 
-    def test_unsupported_group_operation_does_not_warn_when_nothing_was_sent(
-        self, caplog
-    ):
-        # No company raises before a message exists, so nothing was dropped.
-        with pytest.raises(mixpanel.CompanyRequiredError):
-            self.hg.group_update(
-                {"$group_key": "company", "$group_id": "acme", "$add": {"seats": 1}}
-            )
-        assert [r for r in caplog.records if r.levelname == "WARNING"] == []
-
-    def test_supported_group_operations_do_not_warn(self, caplog):
+    def test_supported_group_operations_are_sent(self, caplog):
         acme = self.hg.for_company("acme")
         acme.group_set("department", "finance", {"seats": 1})
         acme.group_set_once("department", "finance", {"seats": 1})

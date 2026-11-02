@@ -940,20 +940,29 @@ class Mixpanel:
         please use the other ``group_*`` methods where possible.
 
         On a client returned by :meth:`for_company`, the bound company is sent
-        as a top-level ``$company_id``. On a hierarchical groups client, an
-        operation ``/groups`` lacks (``$add``, ``$append`` or ``$merge``) is
-        logged as a warning and still sent, since Mixpanel, not this library,
-        decides what it accepts.
+        as a top-level ``$company_id``.
 
+        :raises UnsupportedOperationError: on a hierarchical groups client, if
+            ``message`` carries an operation other than ``$set``,
+            ``$set_once``, ``$unset``, ``$union``, ``$remove`` or ``$delete``
         :raises CompanyRequiredError: on a hierarchical groups client, if no
             company is bound with :meth:`for_company` and neither ``message``
             nor ``meta`` carries a ``$company_id``
 
         .. _`group profiles documentation`: https://developer.mixpanel.com/reference/group-profiles
         """
-        self._send_group_update(message, meta, self._company_id, warn=True)
+        if self._hierarchical_groups:
+            unsupported = _unsupported_operations(message, _GROUP_NON_OPERATION_KEYS)
+            if unsupported:
+                msg = (
+                    f"{unsupported[0]} is not supported for group profiles on "
+                    "hierarchical groups projects. Supported operations are "
+                    f"{', '.join(GROUP_OPERATIONS)}."
+                )
+                raise UnsupportedOperationError(msg)
+        self._send_group_update(message, meta, self._company_id)
 
-    def _send_group_update(self, message, meta, company_id, warn=False):
+    def _send_group_update(self, message, meta, company_id):
         """Send a /groups message, adding ``company_id`` as a top-level key."""
         if (
             self._hierarchical_groups
@@ -978,19 +987,6 @@ class Mixpanel:
         if company_id is not None:
             record["$company_id"] = company_id
         payload = json_dumps(record, cls=self._serializer)
-        # Only the generic entry point can carry an arbitrary operation; the
-        # group_* methods pass constants. Warn once the message exists, so a call
-        # that raised does not claim a dropped update.
-        if warn and self._hierarchical_groups:
-            for operation in _unsupported_operations(
-                message, _GROUP_NON_OPERATION_KEYS
-            ):
-                logger.warning(
-                    "Group profiles do not support %s and Mixpanel will drop the "
-                    "update. Supported operations are %s",
-                    operation,
-                    ", ".join(GROUP_OPERATIONS),
-                )
         self._consumer.send("groups", payload)
 
     def __enter__(self):
