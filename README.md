@@ -66,8 +66,8 @@ acme.group_set('department', 'finance', {'budget': 100000})
 
 On a hierarchical groups project, user profiles support `people_set`,
 `people_set_once`, `people_unset`, `people_union`, `people_remove` and
-`people_delete`; `people_increment`, `people_append`, `people_track_charge`
-and `alias` raise `UnsupportedOperationError`. Group profile updates without a company
+`people_delete`; `people_increment`, `people_append`, `people_track_charge`,
+`alias` and `merge` raise `UnsupportedOperationError`. Group profile updates without a company
 raise `CompanyRequiredError`. A `$user_id` sent without a `$company_id` (and
 without a `$device_id`) names a separate user, so it raises `ValueError`.
 

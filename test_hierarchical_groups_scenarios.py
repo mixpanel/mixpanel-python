@@ -425,13 +425,10 @@ class TestHierarchicalGroupsScenarios:
         self.assert_nothing_sent()
 
     def test_merge(self):
-        self.mp.merge(None, USER_ID, DEVICE_ID)
-
-        self.assert_only_event(
-            "$merge",
-            {"$distinct_ids": [USER_ID, DEVICE_ID], "token": TOKEN},
-            endpoint="imports",
-        )
+        # A user is identified by company and user id, so there is nothing to merge.
+        with pytest.raises(mixpanel.UnsupportedOperationError):
+            self.mp.merge(None, USER_ID, DEVICE_ID)
+        self.assert_nothing_sent()
 
     # Without hierarchical groups
 

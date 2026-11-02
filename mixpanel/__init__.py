@@ -485,7 +485,15 @@ class Mixpanel:
         See our online documentation for `more
         details
         <https://developer.mixpanel.com/reference/identities#identity-merge>`__.
+
+        :raises UnsupportedOperationError: on a hierarchical groups client
         """
+        if self._hierarchical_groups:
+            msg = (
+                "merge is not supported for hierarchical groups projects, which "
+                "identify a user by company and user id."
+            )
+            raise UnsupportedOperationError(msg)
         if api_secret is not None:
             logger.warning(
                 "api_secret is deprecated and will be removed in a future version. "
