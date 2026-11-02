@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
@@ -12,7 +13,9 @@ import httpx
 import pytest
 import respx
 
+from mixpanel import Mixpanel
 from mixpanel.credentials import ServiceAccountCredentials
+from mixpanel.identity import MixpanelIdentity
 
 from .local_feature_flags import LocalFeatureFlagsProvider
 from .types import (
@@ -20,6 +23,7 @@ from .types import (
     ExperimentationFlags,
     FlagTestUsers,
     LocalFlagsConfig,
+    RemoteFlagsConfig,
     Rollout,
     RuleSet,
     SelectedVariant,
@@ -1094,3 +1098,471 @@ def test_sync_context_manager_exit_closes_both_clients():
 
     assert provider._sync_client.is_closed
     assert provider._async_client.is_closed
+
+
+# Hierarchical groups: context_template and exposure attribution.
+
+HG_FLAG_KEY = "hg-test"
+HG_TEMPLATE = "$company:{$company_id}|$user:{$user_id}"
+DEFINITIONS_URL = "https://api.mixpanel.com/flags/definitions"
+
+
+def raw_flag(
+    key: str = HG_FLAG_KEY,
+    context: str = "distinct_id",
+    rollout_percentage: float = 1.0,
+    test_users: dict[str, str] | None = None,
+    **extra: Any,
+) -> dict[str, Any]:
+    """A flag definition as the definitions endpoint sends it."""
+    definition = {
+        "id": "hg-id",
+        "name": "HG Flag",
+        "key": key,
+        "status": "active",
+        "project_id": 1,
+        "context": context,
+        "ruleset": {
+            "variants": [
+                {
+                    "key": "control",
+                    "value": "control-value",
+                    "is_control": True,
+                    "split": 1.0,
+                },
+                {
+                    "key": "treatment",
+                    "value": "treatment-value",
+                    "is_control": False,
+                    "split": 0.0,
+                },
+            ],
+            "rollout": [{"rollout_percentage": rollout_percentage}],
+            "test": {"users": test_users or {}},
+        },
+    }
+    definition.update(extra)
+    return definition
+
+
+# The definition from the hierarchical groups flags contract.
+HG_KEY_TEST_DEFINITION = {
+    "id": "hg-id",
+    "name": "HG Flag",
+    "key": HG_FLAG_KEY,
+    "status": "active",
+    "project_id": 1,
+    "serving_method": "client",
+    "context": "distinct_id",
+    "context_template": HG_TEMPLATE,
+    "hash_salt": "880dc3e584b4452fb769808ca18dc9a6",
+    "ruleset": {
+        "variants": [
+            {"key": "On", "value": True, "is_control": False, "split": 1},
+            {"key": "Off", "value": False, "is_control": True, "split": 0},
+        ],
+        "rollout": [{"rollout_percentage": 0.5, "variant_splits": {"Off": 0, "On": 1}}],
+        "test": {"users": {}},
+    },
+}
+
+
+class TestLocalFlagsHierarchicalGroups:
+    @pytest.fixture(autouse=True)
+    def _providers(self):
+        self._created: list[LocalFeatureFlagsProvider] = []
+        self.tracker = Mock()
+        yield
+        for provider in self._created:
+            provider.shutdown()
+
+    def provider(
+        self,
+        definitions: list[dict[str, Any]],
+        hierarchical_groups: bool = True,
+        tracker: Any = None,
+    ) -> LocalFeatureFlagsProvider:
+        provider = LocalFeatureFlagsProvider(
+            "test-token",
+            LocalFlagsConfig(enable_polling=False),
+            "1.0.0",
+            tracker or self.tracker,
+            hierarchical_groups=hierarchical_groups,
+        )
+        self._created.append(provider)
+        with respx.mock:
+            respx.get(DEFINITIONS_URL).mock(
+                return_value=httpx.Response(200, json={"flags": definitions})
+            )
+            provider.start_polling_for_definitions()
+        return provider
+
+    @staticmethod
+    def hashed_rollout_values(provider, flag_key, context) -> list[str]:
+        """Evaluate and return the keys passed to the rollout hash."""
+        from . import local_feature_flags
+
+        with patch.object(
+            local_feature_flags,
+            "normalized_hash",
+            wraps=local_feature_flags.normalized_hash,
+        ) as hashed:
+            provider.get_variant_value(flag_key, "fallback", context)
+        return [
+            call.args[0]
+            for call in hashed.call_args_list
+            if not call.args[1].endswith("variant")
+        ]
+
+    # Definition parsing
+
+    def test_template_fields_parsed(self):
+        provider = self.provider(
+            [raw_flag(context_template=HG_TEMPLATE, context_template_version=1)]
+        )
+        flag = provider._flag_definitions[HG_FLAG_KEY]
+        assert flag.context_template == HG_TEMPLATE
+        assert flag.context_template_version == 1
+
+    def test_flag_with_newer_template_version_is_dropped(self, caplog):
+        provider = self.provider([raw_flag(context_template_version=99)])
+        variant = provider.get_variant(
+            HG_FLAG_KEY,
+            SelectedVariant(variant_value="fallback"),
+            {"distinct_id": "user-123"},
+        )
+        assert variant.variant_value == "fallback"
+        assert variant.fallback_reason.kind == "FLAG_NOT_FOUND"
+        assert any(
+            HG_FLAG_KEY in r.getMessage()
+            and "context_template_version 99" in r.getMessage()
+            for r in caplog.records
+        )
+
+    @pytest.mark.parametrize(
+        "template",
+        [
+            "$company:no-placeholders",
+            "$company:{}|$user:{$user_id}",
+            "$company:{  }|$user:{$user_id}",
+        ],
+    )
+    def test_flag_with_malformed_template_is_dropped(self, template, caplog):
+        provider = self.provider([raw_flag(context_template=template)])
+        assert HG_FLAG_KEY not in provider._flag_definitions
+        assert any(HG_FLAG_KEY in r.getMessage() for r in caplog.records)
+
+    def test_other_flags_survive_a_dropped_one(self):
+        provider = self.provider(
+            [raw_flag(key="good-flag"), raw_flag(context_template_version=99)]
+        )
+        context = {"distinct_id": "user-123"}
+        assert (
+            provider.get_variant_value("good-flag", "fallback", context)
+            == "control-value"
+        )
+        assert (
+            provider.get_variant_value(HG_FLAG_KEY, "fallback", context) == "fallback"
+        )
+
+    def test_empty_template_is_no_template(self):
+        provider = self.provider([raw_flag(context_template="")])
+        assert HG_FLAG_KEY in provider._flag_definitions
+
+    # Resolving the assignment key
+
+    def test_pair_only_context_without_template_falls_back(self):
+        provider = self.provider([raw_flag()])
+        variant = provider.get_variant(
+            HG_FLAG_KEY,
+            SelectedVariant(variant_value="fallback"),
+            {"$user_id": "user-123", "$company_id": "acme"},
+        )
+        assert variant.variant_value == "fallback"
+        assert variant.fallback_reason.kind == "MISSING_CONTEXT_KEY"
+        self.tracker.assert_not_called()
+
+    def test_template_resolves_the_assignment_key(self):
+        provider = self.provider([raw_flag(context_template=HG_TEMPLATE)])
+        hashed = self.hashed_rollout_values(
+            provider, HG_FLAG_KEY, {"$user_id": "user-123", "$company_id": "acme"}
+        )
+        assert hashed == ["$company:acme|$user:user-123"]
+
+    def test_template_matches_distinct_id_for_many_users(self):
+        provider = self.provider([HG_KEY_TEST_DEFINITION])
+        outcomes = set()
+        for i in range(50):
+            user_id = f"u{i}"
+            from_pair = provider.get_variant(
+                HG_FLAG_KEY,
+                SelectedVariant(variant_value="fallback"),
+                {"$company_id": "acme", "$user_id": user_id},
+                report_exposure=False,
+            )
+            from_distinct_id = provider.get_variant(
+                HG_FLAG_KEY,
+                SelectedVariant(variant_value="fallback"),
+                {"distinct_id": f"$company:acme|$user:{user_id}"},
+                report_exposure=False,
+            )
+            assert from_pair == from_distinct_id
+            outcomes.add(from_pair.variant_value)
+        # The 50% rollout puts some users in and leaves some out.
+        assert outcomes == {True, "fallback"}
+
+    @pytest.mark.parametrize(
+        "context",
+        [
+            {"$user_id": "u1"},
+            {"$company_id": "acme"},
+            {"$company_id": "", "$user_id": "u1"},
+            {"$company_id": None, "$user_id": "u1"},
+        ],
+    )
+    def test_template_needs_every_placeholder(self, context):
+        provider = self.provider([HG_KEY_TEST_DEFINITION])
+        variant = provider.get_variant(
+            HG_FLAG_KEY, SelectedVariant(variant_value="fallback"), context
+        )
+        assert variant.variant_value == "fallback"
+        assert variant.fallback_reason.kind == "MISSING_CONTEXT_KEY"
+
+    def test_template_is_not_gated_on_hierarchical_groups(self):
+        provider = self.provider(
+            [raw_flag(context_template=HG_TEMPLATE)], hierarchical_groups=False
+        )
+        hashed = self.hashed_rollout_values(
+            provider, HG_FLAG_KEY, {"$user_id": "user-123", "$company_id": "acme"}
+        )
+        assert hashed == ["$company:acme|$user:user-123"]
+
+    def test_template_placeholder_name_is_used_verbatim(self):
+        provider = self.provider([raw_flag(context_template="org:{ org }")])
+        assert (
+            provider.get_variant_value(HG_FLAG_KEY, "fallback", {"org": "x"})
+            == "fallback"
+        )
+        hashed = self.hashed_rollout_values(provider, HG_FLAG_KEY, {" org ": "x"})
+        assert hashed == ["org:x"]
+
+    def test_distinct_id_is_hashed_as_sent(self):
+        provider = self.provider([raw_flag(context_template=HG_TEMPLATE)])
+        hashed = self.hashed_rollout_values(
+            provider,
+            HG_FLAG_KEY,
+            {"distinct_id": "other", "$user_id": "user-123", "$company_id": "acme"},
+        )
+        assert hashed == ["other"]
+
+    @pytest.mark.parametrize(
+        ("context_property", "value"), [("department", "finance"), ("device_id", "dev")]
+    )
+    def test_non_distinct_id_flag_hashes_raw_value(self, context_property, value):
+        provider = self.provider([raw_flag(context=context_property)])
+        hashed = self.hashed_rollout_values(
+            provider,
+            HG_FLAG_KEY,
+            {"$user_id": "user-123", "$company_id": "acme", context_property: value},
+        )
+        assert hashed == [value]
+
+    # Test-user overrides
+
+    def test_template_resolves_test_user_overrides(self):
+        provider = self.provider(
+            [
+                raw_flag(
+                    context_template=HG_TEMPLATE,
+                    test_users={"$company:acme|$user:user-123": "treatment"},
+                )
+            ]
+        )
+        result = provider.get_variant_value(
+            HG_FLAG_KEY, "fallback", {"$user_id": "user-123", "$company_id": "acme"}
+        )
+        assert result == "treatment-value"
+
+    def test_test_user_override_matches_distinct_id_as_sent(self):
+        provider = self.provider(
+            [raw_flag(test_users={"$company:acme|$user:user-123": "treatment"})]
+        )
+        result = provider.get_variant_value(
+            HG_FLAG_KEY,
+            "fallback",
+            {
+                "distinct_id": "$company:acme|$user:user-123",
+                "$user_id": "user-123",
+                "$company_id": "acme",
+            },
+        )
+        assert result == "treatment-value"
+
+    def test_template_does_not_resolve_overrides_for_other_context(self):
+        # Overrides are keyed by distinct id; a device-keyed template is not one.
+        provider = self.provider(
+            [
+                raw_flag(
+                    context="device_id",
+                    context_template="dev:{$device_id}",
+                    test_users={"dev:d1": "treatment"},
+                )
+            ]
+        )
+        result = provider.get_variant_value(
+            HG_FLAG_KEY, "fallback", {"$device_id": "d1"}
+        )
+        assert result == "control-value"
+
+    # Exposure
+
+    def test_exposure_carries_user_and_company_without_distinct_id(self):
+        provider = self.provider([raw_flag(context_template=HG_TEMPLATE)])
+        provider.get_variant_value(
+            HG_FLAG_KEY, "fallback", {"$user_id": "user-123", "$company_id": "acme"}
+        )
+        self.tracker.assert_called_once()
+        identity, event, _ = self.tracker.call_args.args
+        assert identity == MixpanelIdentity(user_id="user-123", company_id="acme")
+        assert event == "$experiment_started"
+
+    def test_exposure_carries_distinct_id_user_and_company(self):
+        provider = self.provider([raw_flag()])
+        provider.get_variant_value(
+            HG_FLAG_KEY,
+            "fallback",
+            {
+                "distinct_id": "$company:acme|$user:user-123",
+                "$user_id": "user-123",
+                "$company_id": "acme",
+            },
+        )
+        identity = self.tracker.call_args.args[0]
+        assert identity == MixpanelIdentity(
+            distinct_id="$company:acme|$user:user-123",
+            user_id="user-123",
+            company_id="acme",
+        )
+
+    def test_exposure_attributed_by_distinct_id_alone(self):
+        provider = self.provider([raw_flag()])
+        assert (
+            provider.get_variant_value(
+                HG_FLAG_KEY, "fallback", {"distinct_id": "user-123"}
+            )
+            == "control-value"
+        )
+        identity = self.tracker.call_args.args[0]
+        assert identity == MixpanelIdentity(distinct_id="user-123")
+
+    def test_exposure_omits_user_id_without_company(self):
+        provider = self.provider([raw_flag()])
+        provider.get_variant_value(
+            HG_FLAG_KEY, "fallback", {"distinct_id": "d1", "$user_id": "user-123"}
+        )
+        assert self.tracker.call_args.args[0] == MixpanelIdentity(distinct_id="d1")
+
+    def test_exposure_without_company_or_distinct_id_is_dropped(self, caplog):
+        provider = self.provider([raw_flag(context="device_id")])
+        result = provider.get_variant_value(
+            HG_FLAG_KEY, "fallback", {"device_id": "dev", "$user_id": "user-123"}
+        )
+        assert result == "control-value"
+        self.tracker.assert_not_called()
+        assert any(
+            "without a $company_id in the context" in r.getMessage()
+            for r in caplog.records
+        )
+
+    def test_manual_exposure_uses_identity(self):
+        provider = self.provider([])
+        provider.track_exposure_event(
+            HG_FLAG_KEY,
+            SelectedVariant(variant_key="treatment", variant_value="treatment-value"),
+            {"$user_id": "user-123", "$company_id": "acme"},
+        )
+        assert self.tracker.call_args.args[0] == MixpanelIdentity(
+            user_id="user-123", company_id="acme"
+        )
+
+    def test_exposure_through_client_track_has_no_distinct_id(self):
+        consumer = Mock()
+        mp = Mixpanel("test-token", consumer=consumer, hierarchical_groups=True)
+        provider = self.provider(
+            [raw_flag(context_template=HG_TEMPLATE)], tracker=mp.track
+        )
+        provider.get_variant_value(
+            HG_FLAG_KEY, "fallback", {"$user_id": "user-123", "$company_id": "acme"}
+        )
+        endpoint, message = consumer.send.call_args.args
+        properties = json.loads(message)["properties"]
+        assert endpoint == "events"
+        assert "distinct_id" not in properties
+        assert properties["$user_id"] == "user-123"
+        assert properties["$company_id"] == "acme"
+        assert properties["Experiment name"] == HG_FLAG_KEY
+
+    # Without hierarchical groups, behavior is unchanged
+
+    def test_legacy_project_ignores_company_id_in_context(self):
+        provider = self.provider([raw_flag()], hierarchical_groups=False)
+        hashed = self.hashed_rollout_values(
+            provider,
+            HG_FLAG_KEY,
+            {"distinct_id": "user-123", "$user_id": "user-123", "$company_id": "acme"},
+        )
+        assert hashed == ["user-123"]
+        distinct_id, _, properties = self.tracker.call_args.args
+        assert distinct_id == "user-123"
+        assert "$company_id" not in properties
+        assert "$user_id" not in properties
+
+    def test_legacy_exposure_is_unchanged(self):
+        provider = self.provider([raw_flag()], hierarchical_groups=False)
+        provider.get_variant_value(HG_FLAG_KEY, "fallback", {"distinct_id": "user-123"})
+        distinct_id, event, properties = self.tracker.call_args.args
+        assert distinct_id == "user-123"
+        assert event == "$experiment_started"
+        properties.pop("Variant fetch latency (ms)")
+        assert properties == {
+            "Experiment name": HG_FLAG_KEY,
+            "Variant name": "control",
+            "$experiment_type": "feature_flag",
+            "Flag evaluation mode": "local",
+            "$experiment_id": None,
+            "$is_experiment_active": None,
+            "$is_qa_tester": None,
+        }
+
+    def test_legacy_company_only_context_is_not_attributed(self, caplog):
+        provider = self.provider(
+            [raw_flag(context="device_id")], hierarchical_groups=False
+        )
+        provider.get_variant_value(
+            HG_FLAG_KEY, "fallback", {"device_id": "dev", "$company_id": "acme"}
+        )
+        self.tracker.assert_not_called()
+        assert any(
+            r.getMessage()
+            == "Cannot track exposure event without a distinct_id in the context"
+            for r in caplog.records
+        )
+
+    def test_client_passes_hierarchical_groups_to_providers(self):
+        mp = Mixpanel(
+            "test-token",
+            local_flags_config=LocalFlagsConfig(enable_polling=False),
+            remote_flags_config=RemoteFlagsConfig(),
+            hierarchical_groups=True,
+        )
+        try:
+            assert mp.local_flags._hierarchical_groups is True
+            assert mp.remote_flags._hierarchical_groups is True
+        finally:
+            mp.local_flags.shutdown()
+            mp.remote_flags.shutdown()
+        legacy = Mixpanel(
+            "test-token", local_flags_config=LocalFlagsConfig(enable_polling=False)
+        )
+        assert legacy.local_flags._hierarchical_groups is False
+        legacy.local_flags.shutdown()

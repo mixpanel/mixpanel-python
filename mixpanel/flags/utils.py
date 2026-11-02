@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING, Any, Callable
 
 from asgiref.sync import async_to_sync
 
+from mixpanel.identity import MixpanelIdentity
+
 if TYPE_CHECKING:
     from concurrent.futures import Executor, Future
 
@@ -98,10 +100,51 @@ def prepare_common_query_params(
     return params
 
 
+def _present(value: Any) -> str | None:
+    """Return ``value`` as a string, or None if it is None or empty."""
+    if value is None or str(value) == "":
+        return None
+    return str(value)
+
+
+def exposure_identity(
+    context: dict[str, Any], hierarchical_groups: bool
+) -> str | MixpanelIdentity | None:
+    """Return who an exposure event for ``context`` is attributed to.
+
+    Without hierarchical groups this is the context's ``distinct_id``, passed
+    to the tracker as a plain string exactly as before. With hierarchical
+    groups it is a :class:`~mixpanel.identity.MixpanelIdentity` carrying
+    whichever of ``distinct_id``, ``$user_id`` and ``$company_id`` the context
+    has, attributable by ``$company_id`` or ``distinct_id``. Returns None if the
+    exposure cannot be attributed.
+    """
+    distinct_id = context.get("distinct_id")
+    if not hierarchical_groups:
+        return distinct_id or None
+
+    company_id = _present(context.get("$company_id"))
+    if company_id is None and not distinct_id:
+        return None
+    return MixpanelIdentity(
+        distinct_id=str(distinct_id) if distinct_id else None,
+        # A $user_id without its company names a separate user, which the
+        # client's track() rejects, so it is sent only alongside one.
+        user_id=_present(context.get("$user_id")) if company_id else None,
+        company_id=company_id,
+    )
+
+
+def missing_exposure_identity_message(hierarchical_groups: bool) -> str:
+    """The warning logged when an exposure cannot be attributed."""
+    key = "$company_id" if hierarchical_groups else "distinct_id"
+    return f"Cannot track exposure event without a {key} in the context"
+
+
 def dispatch_exposure(
     tracker: Callable,
     executor: Executor | None,
-    distinct_id: str,
+    distinct_id: str | MixpanelIdentity,
     properties: dict[str, Any],
 ) -> None:
     """Invoke the tracker inline or via the configured executor.

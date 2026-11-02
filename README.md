@@ -40,6 +40,49 @@ mp.people_set(DISTINCT_ID, {'$first_name' : 'Ilya', 'favorite pizza': 'margherit
 You can use an instance of the Mixpanel class for sending all of your events
 and people updates.
 
+## Hierarchical Groups
+
+If your project uses hierarchical groups, create the client with
+`hierarchical_groups=True` and identify users with a `MixpanelIdentity`, which
+sends `$user_id` and `$company_id` so Mixpanel can build the distinct id:
+
+```python
+from mixpanel import Mixpanel, MixpanelIdentity
+
+mp = Mixpanel(YOUR_TOKEN, hierarchical_groups=True)
+user = MixpanelIdentity(user_id='user_123', company_id='acme')
+
+mp.track(user, 'Signup', {'plan': 'enterprise'})
+mp.track(MixpanelIdentity(device_id='device_abc'), 'Page View')  # anonymous
+
+# User profiles are group profiles keyed by $user_id within the company
+mp.people_set(user, {'role': 'admin'})
+
+# Group profile updates need a company: bind one with for_company()
+acme = mp.for_company('acme')
+acme.group_set('$company_id', 'acme', {'tier': 'enterprise'})
+acme.group_set('department', 'finance', {'budget': 100000})
+```
+
+On a hierarchical groups project, user profiles support `people_set`,
+`people_set_once`, `people_unset`, `people_union`, `people_remove` and
+`people_delete`; `people_increment`, `people_append` and `people_track_charge`
+raise `UnsupportedOperationError`. Group profile updates without a company
+raise `CompanyRequiredError`. A `$user_id` sent without a `$company_id` (and
+without a `$device_id`) names a separate user, so it raises `ValueError`.
+
+User profile updates on a hierarchical groups project never go to `/engage`.
+A distinct id of the form `$company:{company}|$user:{user}` is sent to
+`/groups` as that company and user, the same update a
+`MixpanelIdentity(user_id=user, company_id=company)` sends; any other distinct
+id raises `ValueError` and nothing is sent. Events are unaffected: a distinct
+id passed to `track` or `import_data` is sent as is.
+
+```python
+mp.people_set('$company:acme|$user:user_123', {'role': 'admin'})  # /groups
+mp.people_set('user_123', {'role': 'admin'})  # raises ValueError
+```
+
 ## Service Account Authentication
 
 For enhanced security in server-to-server integrations, you can use service account credentials for authentication instead of API secrets:
