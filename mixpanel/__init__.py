@@ -422,7 +422,16 @@ class Mixpanel:
         .. note::
             Calling this method *always* results in a synchronous HTTP request
             to Mixpanel servers, regardless of any custom consumer.
+
+        :raises UnsupportedOperationError: on a hierarchical groups client
         """
+        if self._hierarchical_groups:
+            msg = (
+                "alias is not supported for hierarchical groups projects, which "
+                "identify a user by company and user id. Track with a "
+                "MixpanelIdentity(user_id=..., company_id=...) instead."
+            )
+            raise UnsupportedOperationError(msg)
         event = {
             "event": "$create_alias",
             "properties": {
@@ -1008,7 +1017,7 @@ def _unsupported_people_operation(operation):
 
 
 class UnsupportedOperationError(ValueError):
-    """Raised for a profile operation a hierarchical groups project does not support.
+    """Raised for an operation a hierarchical groups project does not support.
 
     Hierarchical groups user profiles are group profiles, which support only
     ``$set``, ``$set_once``, ``$unset``, ``$union``, ``$remove`` and

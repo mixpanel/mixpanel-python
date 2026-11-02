@@ -867,6 +867,12 @@ class TestHierarchicalGroups:
             self.hg.people_update({"$distinct_id": "user_123", "$merge": {}})
         assert self.consumer.log == []
 
+    def test_alias_raises_on_hierarchical_groups(self):
+        with responses.RequestsMock() as rsps:
+            with pytest.raises(mixpanel.UnsupportedOperationError):
+                self.hg.alias("$company:acme|$user:u2", self.COMBINED_ID)
+            assert len(rsps.calls) == 0
+
     def test_add_and_append_error_names_what_is_supported(self):
         with pytest.raises(mixpanel.UnsupportedOperationError) as excinfo:
             self.hg.people_increment("user_123", {"logins": 1})

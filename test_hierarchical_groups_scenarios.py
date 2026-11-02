@@ -7,7 +7,6 @@ message, the operation value, and the identity keys on events.
 from __future__ import annotations
 
 import json
-from urllib import parse as urllib_parse
 
 import pytest
 import responses
@@ -418,29 +417,11 @@ class TestHierarchicalGroupsScenarios:
         self.assert_nothing_sent()
 
     def test_alias(self):
-        # alias() posts synchronously to /track, bypassing the consumer.
+        # A user is identified by company and user id, so there is nothing to alias.
         with responses.RequestsMock() as rsps:
-            rsps.add(
-                responses.POST,
-                "https://api.mixpanel.com/track",
-                json={"status": 1, "error": None},
-                status=200,
-            )
-
-            self.mp.alias("new_alias", USER_ID)
-
-            body = rsps.calls[0].request.body
-            if not isinstance(body, str):
-                body = body.decode("utf-8")
-            posted = json.loads(dict(urllib_parse.parse_qsl(body))["data"])
-        assert posted == {
-            "event": "$create_alias",
-            "properties": {
-                "distinct_id": USER_ID,
-                "alias": "new_alias",
-                "token": TOKEN,
-            },
-        }
+            with pytest.raises(mixpanel.UnsupportedOperationError):
+                self.mp.alias("new_alias", USER_ID)
+            assert len(rsps.calls) == 0
         self.assert_nothing_sent()
 
     def test_merge(self):
