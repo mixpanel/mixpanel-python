@@ -39,34 +39,18 @@ from .utils import (
 logger = logging.getLogger(__name__)
 logging.getLogger("httpx").setLevel(logging.ERROR)
 
-# The highest context_template_version this SDK knows how to apply.
-SUPPORTED_CONTEXT_TEMPLATE_VERSION = 1
-
-# A {property} placeholder in a context template.
+# A {key} placeholder in a context value template.
 _CONTEXT_PLACEHOLDER = re.compile(r"\{([^}]+)\}")
-# Also matches an empty {} placeholder, which makes a template unusable.
-_ANY_PLACEHOLDER = re.compile(r"\{([^}]*)\}")
 
 
-def _is_usable_context_template(template: str | None) -> bool:
-    """A template is usable if it names at least one property and every placeholder is named.
-
-    No template means the service published none, which is not a defect.
-    """
-    if not template:
-        return True
-    names = _ANY_PLACEHOLDER.findall(template)
-    return bool(names) and all(name.strip() for name in names)
-
-
-def _apply_context_template(
+def _apply_context_value_template(
     template: str | None, context: dict[str, Any]
 ) -> str | None:
-    """Fill a context template the service published from the evaluation context.
+    """Fill a flag's context value template from the evaluation context.
 
-    Returns None if there is no template or any placeholder's property is
-    missing or empty. The template names the properties it needs, so this SDK
-    never composes an identity of its own.
+    Each ``{key}`` placeholder is replaced with the string value of ``key`` from
+    the context; text outside the braces is literal. Returns None if there is no
+    template or any placeholder's key is missing from the context.
     """
     if not template:
         return None
@@ -75,7 +59,7 @@ def _apply_context_template(
     def fill(match: re.Match) -> str:
         nonlocal missing
         value = context.get(match.group(1))
-        if value is None or str(value) == "":
+        if value is None:
             missing = True
             return ""
         return str(value)
@@ -289,14 +273,11 @@ class LocalFeatureFlagsProvider:
             logger.warning("Cannot find flag definition for key: '%s'", flag_key)
             return fallback_value.as_fallback(FallbackReason.flag_not_found())
 
-        # The context value is used as sent. Where the caller did not send it,
-        # the service may publish a template saying how to build it from
-        # properties they did send.
-        resolved_from_template = None
-        if not (context_value := context.get(flag_definition.context)):
-            context_value = resolved_from_template = _apply_context_template(
-                flag_definition.context_template, context
-            )
+        # The flag's template builds the assignment key from the context. Without
+        # one, or with a placeholder missing, the raw context value is used.
+        context_value = _apply_context_value_template(
+            flag_definition.context_value_template, context
+        ) or context.get(flag_definition.context)
 
         if not context_value:
             logger.warning(
@@ -311,7 +292,7 @@ class LocalFeatureFlagsProvider:
         selected_variant: SelectedVariant | None = None
 
         if test_user_variant := self._get_variant_override_for_test_user(
-            flag_definition, context, resolved_from_template
+            flag_definition, context, context_value
         ):
             selected_variant = test_user_variant
         elif rollout := self._get_assigned_rollout(
@@ -354,17 +335,18 @@ class LocalFeatureFlagsProvider:
         self,
         flag_definition: ExperimentationFlag,
         context: dict[str, Any],
-        resolved_from_template: str | None = None,
+        context_value: Any,
     ) -> SelectedVariant | None:
         """Check if user has a test variant override."""
         if not flag_definition.ruleset.test or not flag_definition.ruleset.test.users:
             return None
 
-        distinct_id = context.get("distinct_id")
         # Overrides are keyed by distinct id. A flag assigned on distinct_id
-        # builds exactly that from its template.
-        if not distinct_id and flag_definition.context == "distinct_id":
-            distinct_id = resolved_from_template
+        # looks them up by its resolved assignment key.
+        if flag_definition.context == "distinct_id":
+            distinct_id = context_value
+        else:
+            distinct_id = context.get("distinct_id")
         if not distinct_id:
             return None
 
@@ -574,8 +556,6 @@ class LocalFeatureFlagsProvider:
             json_data = response.json()
             experimentation_flags = ExperimentationFlags.from_dict(json_data)
             for flag in experimentation_flags.flags:
-                if not self._is_supported_definition(flag):
-                    continue
                 flag.ruleset.variants.sort(key=lambda variant: variant.key)
                 flags[flag.key] = flag
         except Exception:
@@ -587,32 +567,6 @@ class LocalFeatureFlagsProvider:
             "Successfully fetched %s flag definitions",
             len(self._flag_definitions),
         )
-
-    @staticmethod
-    def _is_supported_definition(flag: ExperimentationFlag) -> bool:
-        """Return False for a definition this SDK cannot evaluate correctly.
-
-        Such a definition is dropped, and the flag then behaves as not found,
-        rather than assigning a variant the service never chose.
-        """
-        version = flag.context_template_version
-        if version is not None and version > SUPPORTED_CONTEXT_TEMPLATE_VERSION:
-            logger.warning(
-                "Dropping flag '%s': context_template_version %s is newer than this "
-                "SDK understands (%s). Evaluate it remotely, or upgrade the SDK.",
-                flag.key,
-                version,
-                SUPPORTED_CONTEXT_TEMPLATE_VERSION,
-            )
-            return False
-        if not _is_usable_context_template(flag.context_template):
-            logger.warning(
-                "Dropping flag '%s': context_template '%s' has no usable placeholders.",
-                flag.key,
-                flag.context_template,
-            )
-            return False
-        return True
 
     def _track_exposure(
         self,
