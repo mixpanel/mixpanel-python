@@ -129,7 +129,8 @@ class Mixpanel:
     ``people_set`` and its siblings address a profile from an identity without
     needing a distinct id. Group profile updates require a known company,
     either through :meth:`for_company` or a ``$company_id`` in ``meta``, and
-    raise :class:`~.CompanyRequiredError` otherwise.
+    raise :class:`~.CompanyRequiredError` otherwise. A ``$company_id`` group
+    profile is the company's own profile, so its company is its group id.
 
     Events are sent identically in both modes, and so are group profile
     updates that are valid in both.
@@ -194,13 +195,16 @@ class Mixpanel:
         :raises ValueError: if ``company_id`` is empty or None
 
         Hierarchical groups projects require ``$company_id`` on every
-        ``/groups`` write, including the company's own profile and user
-        profiles::
+        ``/groups`` write, including user profiles::
 
             acme = mp.for_company('acme')
-            acme.group_set('$company_id', 'acme', company_properties)
             acme.group_set('$user_id', 'user_123', user_properties)
             acme.group_set('department', 'finance', department_properties)
+
+        The company's own profile needs no :meth:`for_company`, since its
+        company is its own id::
+
+            mp.group_set('$company_id', 'acme', company_properties)
 
         The returned client shares this client's consumer, serializer and flag
         providers; this client is unchanged. The bound company is sent as a
@@ -946,8 +950,11 @@ class Mixpanel:
             ``message`` carries an operation other than ``$set``,
             ``$set_once``, ``$unset``, ``$union``, ``$remove`` or ``$delete``
         :raises CompanyRequiredError: on a hierarchical groups client, if no
-            company is bound with :meth:`for_company` and neither ``message``
-            nor ``meta`` carries a ``$company_id``
+            company is bound with :meth:`for_company`, neither ``message``
+            nor ``meta`` carries a ``$company_id``, and the group key is not
+            ``$company_id``
+        :raises ValueError: on a hierarchical groups client, if the group key
+            is ``$company_id`` and the company is not the group id
 
         .. _`group profiles documentation`: https://developer.mixpanel.com/reference/group-profiles
         """
@@ -964,6 +971,8 @@ class Mixpanel:
 
     def _send_group_update(self, message, meta, company_id):
         """Send a /groups message, adding ``company_id`` as a top-level key."""
+        if self._hierarchical_groups:
+            company_id = _company_profile_company(message, meta, company_id)
         if (
             self._hierarchical_groups
             and company_id is None
@@ -1008,6 +1017,29 @@ class Mixpanel:
             await self._remote_flags_provider.__aexit__(exc_type, exc_val, exc_tb)
 
 
+def _company_profile_company(message, meta, company_id):
+    """Return the company for a hierarchical groups /groups message.
+
+    A ``$company_id`` group profile is the company's own profile, so with no
+    other company its company is its group id, and any other company is an
+    error. Other messages keep ``company_id``.
+    """
+    fields = {**message, **(meta or {})}
+    if fields.get("$group_key") != "$company_id":
+        return company_id
+    group_id = fields.get("$group_id")
+    given = company_id if company_id is not None else fields.get("$company_id")
+    if given is None:
+        return group_id
+    if given != group_id:
+        msg = (
+            f"The company profile $company_id={group_id} belongs to company "
+            f"{group_id}, its own id, not {given}. Nothing sent."
+        )
+        raise ValueError(msg)
+    return company_id
+
+
 def _unsupported_people_operation(operation):
     # A hierarchical groups user profile is a group profile, so it supports what
     # /groups supports. $add and $append have no equivalent there.
@@ -1032,7 +1064,8 @@ class UnsupportedOperationError(ValueError):
 class CompanyRequiredError(ValueError):
     """Raised for a hierarchical groups group profile update with no company.
 
-    Use :meth:`Mixpanel.for_company`, or pass ``$company_id`` in ``meta``.
+    Use :meth:`Mixpanel.for_company`, or pass ``$company_id`` in ``meta``. A
+    ``$company_id`` group profile needs neither, since its company is its own id.
     """
 
 

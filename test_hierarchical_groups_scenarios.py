@@ -293,6 +293,11 @@ class TestHierarchicalGroupsScenarios:
 
         self.assert_only_groups_update(company_update("$set", {"tier": "enterprise"}))
 
+    def test_set_company_property_without_for_company(self):
+        self.mp.group_set("$company_id", COMPANY_ID, {"tier": "enterprise"})
+
+        self.assert_only_groups_update(company_update("$set", {"tier": "enterprise"}))
+
     def test_set_company_properties(self):
         self.company.group_set(
             "$company_id", COMPANY_ID, {"tier": "enterprise", "seats": 100}
@@ -392,9 +397,11 @@ class TestHierarchicalGroupsScenarios:
 
         self.assert_nothing_sent()
 
-    def test_set_company_property_without_company(self):
-        with pytest.raises(mixpanel.CompanyRequiredError):
-            self.mp.group_set("$company_id", COMPANY_ID, {"tier": "enterprise"})
+    def test_set_company_property_for_another_company(self):
+        with pytest.raises(ValueError, match="its own id"):
+            self.mp.for_company("other_company").group_set(
+                "$company_id", COMPANY_ID, {"tier": "enterprise"}
+            )
 
         self.assert_nothing_sent()
 

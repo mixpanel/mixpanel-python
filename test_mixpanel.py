@@ -1268,6 +1268,94 @@ class TestHierarchicalGroups:
 
         assert self.last_message()["$company_id"] == "acme"
 
+    def test_company_profile_infers_company_from_group_id(self):
+        self.hg.group_set("$company_id", "acme", {"tier": "ent"})
+        self.hg.group_set_once("$company_id", "acme", {"tier": "ent"})
+        self.hg.group_union("$company_id", "acme", {"tags": ["a"]})
+        self.hg.group_remove("$company_id", "acme", {"tags": "a"})
+        self.hg.group_unset("$company_id", "acme", ["tier"])
+        self.hg.group_delete("$company_id", "acme")
+        self.hg.group_update(
+            {"$group_key": "$company_id", "$group_id": "acme", "$set": {"a": 1}}
+        )
+
+        assert len(self.consumer.log) == 7
+        for endpoint, message in self.consumer.log:
+            assert endpoint == "groups"
+            assert message["$group_key"] == "$company_id"
+            assert message["$group_id"] == "acme"
+            assert message["$company_id"] == "acme"
+        assert self.consumer.log[0][1] == {
+            "$token": self.TOKEN,
+            "$time": 1000.1,
+            "$group_key": "$company_id",
+            "$group_id": "acme",
+            "$set": {"tier": "ent"},
+            "$company_id": "acme",
+        }
+
+    def test_company_profile_accepts_a_matching_company(self):
+        self.hg.for_company("acme").group_set("$company_id", "acme", {"a": 1})
+        self.hg.group_set("$company_id", "acme", {"a": 1}, meta={"$company_id": "acme"})
+        self.hg.group_update(
+            {
+                "$group_key": "$company_id",
+                "$group_id": "acme",
+                "$company_id": "acme",
+                "$set": {"a": 1},
+            }
+        )
+
+        assert len(self.consumer.log) == 3
+        for _, message in self.consumer.log:
+            assert message["$company_id"] == "acme"
+
+    @pytest.mark.parametrize(
+        "send",
+        [
+            lambda mp, meta: mp.group_set("$company_id", "acme", {"a": 1}, meta),
+            lambda mp, meta: mp.group_set_once("$company_id", "acme", {"a": 1}, meta),
+            lambda mp, meta: mp.group_union("$company_id", "acme", {"t": ["a"]}, meta),
+            lambda mp, meta: mp.group_remove("$company_id", "acme", {"t": "a"}, meta),
+            lambda mp, meta: mp.group_unset("$company_id", "acme", ["a"], meta),
+            lambda mp, meta: mp.group_delete("$company_id", "acme", meta),
+            lambda mp, meta: mp.group_update(
+                {"$group_key": "$company_id", "$group_id": "acme", "$set": {}}, meta
+            ),
+        ],
+    )
+    def test_company_profile_rejects_a_different_company(self, send):
+        with pytest.raises(ValueError, match="its own id") as raised:
+            send(self.hg.for_company("other"), None)
+        assert not isinstance(raised.value, mixpanel.CompanyRequiredError)
+        with pytest.raises(ValueError, match="its own id"):
+            send(self.hg, {"$company_id": "other"})
+        assert self.consumer.log == []
+
+    def test_company_profile_rejects_a_different_company_in_the_message(self):
+        with pytest.raises(ValueError, match="its own id"):
+            self.hg.group_update(
+                {
+                    "$group_key": "$company_id",
+                    "$group_id": "acme",
+                    "$company_id": "other",
+                    "$set": {},
+                }
+            )
+        assert self.consumer.log == []
+
+    def test_custom_group_still_requires_a_company(self):
+        with pytest.raises(mixpanel.CompanyRequiredError):
+            self.hg.group_set("company", "acme", {"a": 1})
+        assert self.consumer.log == []
+
+    def test_legacy_company_profile_infers_nothing(self):
+        self.legacy.group_set("$company_id", "acme", {"a": 1})
+        assert "$company_id" not in self.last_message()
+
+        self.legacy.for_company("other").group_set("$company_id", "acme", {"a": 1})
+        assert self.last_message()["$company_id"] == "other"
+
     def test_legacy_group_unchanged(self):
         self.legacy.group_set("company", "Acme Inc.", {"plan": "x"})
 
