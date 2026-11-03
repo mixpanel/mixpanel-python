@@ -233,23 +233,6 @@ class Mixpanel:
                 "Mixpanel(token, hierarchical_groups=True)"
             )
             raise ValueError(msg)
-        # The company is part of a hierarchical user's identity. A $user_id sent
-        # without one resolves to a separate user that nothing reconciles later.
-        # A device id rescues that case: Mixpanel keeps the event under the
-        # device and links it to the company-scoped user once a later event
-        # carries all three.
-        if (
-            self._hierarchical_groups
-            and identity.user_id is not None
-            and identity.company_id is None
-            and identity.device_id is None
-        ):
-            msg = (
-                f"{identity!r} needs a company on a hierarchical groups project. "
-                "A user id sent without one, and without a device id, names a "
-                "separate user that cannot be merged afterwards."
-            )
-            raise ValueError(msg)
 
     def _event_properties(self, distinct_id, event_time, properties):
         """Build event properties for a distinct id or a MixpanelIdentity."""

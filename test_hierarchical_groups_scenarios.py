@@ -379,12 +379,16 @@ class TestHierarchicalGroupsScenarios:
     def test_identify_without_company(self):
         identity = MixpanelIdentity(user_id=USER_ID)
 
-        with pytest.raises(ValueError, match="needs a company"):
+        # The event is sent as given; a user profile needs the company.
+        with pytest.raises(mixpanel.CompanyRequiredError):
             self.mp.people_set(identity, {"plan": "pro"})
-        with pytest.raises(ValueError, match="needs a company"):
-            self.mp.track(identity, "Signup")
-
         self.assert_nothing_sent()
+
+        self.mp.track(identity, "Signup")
+        endpoint, message = self.only_sent()
+        assert endpoint == "events"
+        assert message["properties"]["$user_id"] == USER_ID
+        assert "$company_id" not in message["properties"]
 
     def test_set_user_property_without_user(self):
         with pytest.raises(ValueError, match="require a user id"):

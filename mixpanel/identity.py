@@ -60,8 +60,10 @@ class MixpanelIdentity:
     :class:`~mixpanel.Mixpanel` rather than this type decides. On a
     hierarchical groups project the company is part of the user's identity: a
     ``$user_id`` sent without a ``$company_id`` resolves to a different user
-    that nothing reconciles later, so the client rejects it. A user who belongs
-    to two companies is two users, by design.
+    that nothing reconciles later, so include the company whenever the user has
+    one. Events still send a user id without one as given; user profile updates
+    need the company. A user who belongs to two companies is two users, by
+    design.
 
     On a hierarchical groups project, set ``distinct_id`` only when it is one
     Mixpanel itself built, of the form ``$company:{company}|$user:{user}``. Any

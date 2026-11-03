@@ -806,10 +806,12 @@ class TestHierarchicalGroups:
         assert "distinct_id" not in props
         assert "$company_id" not in props
 
-    def test_user_without_company_or_device_is_rejected_for_hierarchical_groups(self):
-        with pytest.raises(ValueError, match="cannot be merged"):
-            self.hg.track(mixpanel.MixpanelIdentity(user_id="user_123"), "Signup")
-        assert self.consumer.log == []
+    def test_user_without_company_is_sent_as_given_for_hierarchical_groups(self):
+        self.hg.track(mixpanel.MixpanelIdentity(user_id="user_123"), "Signup")
+
+        props = self.last_properties()
+        assert props["$user_id"] == "user_123"
+        assert "$company_id" not in props
 
     def test_user_with_device_but_no_company_is_allowed_for_hierarchical_groups(self):
         # Mixpanel ignores the user id and keeps the event under the device, which
