@@ -1188,7 +1188,7 @@ class TestHierarchicalGroups:
         assert self.consumer.log == []
 
     def test_company_only_identity_profile_update_is_rejected(self):
-        with pytest.raises(ValueError, match="group_set") as excinfo:
+        with pytest.raises(ValueError, match="company_set") as excinfo:
             self.hg.people_set(
                 mixpanel.MixpanelIdentity(company_id="acme"), {"tier": "ent"}
             )

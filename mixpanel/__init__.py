@@ -807,7 +807,7 @@ class Mixpanel:
                 raise ValueError(msg)
             msg = (
                 f"User profile updates require a user id, and {identity!r} has "
-                "none. Use group_set('$company_id', company_id, properties) to "
+                "none. Use for_company(company_id).company_set(properties) to "
                 "update the company's profile."
             )
             raise ValueError(msg)
