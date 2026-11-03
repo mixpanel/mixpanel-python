@@ -198,9 +198,12 @@ class Mixpanel:
         profiles::
 
             acme = mp.for_company('acme')
-            acme.group_set('$company_id', 'acme', company_properties)
+            acme.company_set(company_properties)
             acme.group_set('$user_id', 'user_123', user_properties)
             acme.group_set('department', 'finance', department_properties)
+
+        The ``company_*`` methods update the bound company's own profile: each
+        is the matching ``group_*`` method with ``('$company_id', company_id)``.
 
         The returned client shares this client's consumer, serializer and flag
         providers; this client is unchanged. The bound company is sent as a
@@ -929,6 +932,88 @@ class Mixpanel:
             meta=meta or None,
         )
 
+    def _bound_company_id(self, method):
+        """Return the bound company, or raise :class:`~.CompanyRequiredError`."""
+        if self._company_id is None:
+            msg = (
+                "Company profile updates require a company. Use "
+                f"for_company(company_id) to send them. Nothing sent for {method}"
+            )
+            raise CompanyRequiredError(msg)
+        return self._company_id
+
+    def company_set(self, properties, meta=None):
+        """Set properties of the bound company's profile.
+
+        :param dict properties: properties to set
+        :param dict meta: overrides Mixpanel special properties. (See also `Mixpanel.people_set`.)
+        :raises CompanyRequiredError: if no company is bound with :meth:`for_company`
+
+        The same as :meth:`group_set` with ``('$company_id', company_id)``::
+
+            mp.for_company('acme').company_set({'tier': 'enterprise'})
+        """
+        company_id = self._bound_company_id("company_set")
+        return self.group_set("$company_id", company_id, properties, meta=meta)
+
+    def company_set_once(self, properties, meta=None):
+        """Set properties of the bound company's profile if they are not already set.
+
+        :param dict properties: properties to set
+        :raises CompanyRequiredError: if no company is bound with :meth:`for_company`
+
+        The same as :meth:`group_set_once` with ``('$company_id', company_id)``.
+        """
+        company_id = self._bound_company_id("company_set_once")
+        return self.group_set_once("$company_id", company_id, properties, meta=meta)
+
+    def company_union(self, properties, meta=None):
+        """Merge the values of a list associated with a property of the bound company.
+
+        :param dict properties: properties to merge
+        :raises CompanyRequiredError: if no company is bound with :meth:`for_company`
+
+        The same as :meth:`group_union` with ``('$company_id', company_id)``::
+
+            mp.for_company('acme').company_union({'Items': ['Super Arm', 'Fire Storm']})
+        """
+        company_id = self._bound_company_id("company_union")
+        return self.group_union("$company_id", company_id, properties, meta=meta)
+
+    def company_unset(self, properties, meta=None):
+        """Permanently remove properties from the bound company's profile.
+
+        :param list properties: property names to remove
+        :raises CompanyRequiredError: if no company is bound with :meth:`for_company`
+
+        The same as :meth:`group_unset` with ``('$company_id', company_id)``.
+        """
+        company_id = self._bound_company_id("company_unset")
+        return self.group_unset("$company_id", company_id, properties, meta=meta)
+
+    def company_remove(self, properties, meta=None):
+        """Permanently remove a value from a list property of the bound company.
+
+        :param dict properties: properties to remove
+        :raises CompanyRequiredError: if no company is bound with :meth:`for_company`
+
+        The same as :meth:`group_remove` with ``('$company_id', company_id)``::
+
+            mp.for_company('acme').company_remove({'Items': 'Super Arm'})
+        """
+        company_id = self._bound_company_id("company_remove")
+        return self.group_remove("$company_id", company_id, properties, meta=meta)
+
+    def company_delete(self, meta=None):
+        """Permanently delete the bound company's profile.
+
+        :raises CompanyRequiredError: if no company is bound with :meth:`for_company`
+
+        The same as :meth:`group_delete` with ``('$company_id', company_id)``.
+        """
+        company_id = self._bound_company_id("company_delete")
+        return self.group_delete("$company_id", company_id, meta=meta)
+
     def group_update(self, message, meta=None):
         """Send a generic group profile update.
 
@@ -1033,6 +1118,8 @@ class CompanyRequiredError(ValueError):
     """Raised for a hierarchical groups group profile update with no company.
 
     Use :meth:`Mixpanel.for_company`, or pass ``$company_id`` in ``meta``.
+    Also raised by the ``company_*`` methods on a client without a bound
+    company.
     """
 
 
