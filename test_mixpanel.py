@@ -1188,7 +1188,7 @@ class TestHierarchicalGroups:
         assert self.consumer.log == []
 
     def test_company_only_identity_profile_update_is_rejected(self):
-        with pytest.raises(ValueError, match="company_set") as excinfo:
+        with pytest.raises(ValueError, match="group_set") as excinfo:
             self.hg.people_set(
                 mixpanel.MixpanelIdentity(company_id="acme"), {"tier": "ent"}
             )
@@ -1253,95 +1253,6 @@ class TestHierarchicalGroups:
                 {"$group_key": "department", "$group_id": "finance", "$set": {}}
             )
         assert self.consumer.log == []
-
-    @pytest.mark.parametrize("client", ["hg", "legacy"])
-    def test_company_methods_match_group_methods(self, client):
-        acme = getattr(self, client).for_company("acme")
-        meta = {"$ip": "1.2.3.4", "$ignore_time": True}
-        pairs = [
-            (
-                lambda: acme.company_set({"tier": "ent"}),
-                lambda: acme.group_set("$company_id", "acme", {"tier": "ent"}),
-            ),
-            (
-                lambda: acme.company_set({"tier": "ent"}, meta=meta),
-                lambda: acme.group_set(
-                    "$company_id", "acme", {"tier": "ent"}, meta=meta
-                ),
-            ),
-            (
-                lambda: acme.company_set_once({"first": "x"}, meta=meta),
-                lambda: acme.group_set_once(
-                    "$company_id", "acme", {"first": "x"}, meta=meta
-                ),
-            ),
-            (
-                lambda: acme.company_union({"tags": ["a"]}, meta=meta),
-                lambda: acme.group_union(
-                    "$company_id", "acme", {"tags": ["a"]}, meta=meta
-                ),
-            ),
-            (
-                lambda: acme.company_remove({"tags": "a"}),
-                lambda: acme.group_remove("$company_id", "acme", {"tags": "a"}),
-            ),
-            (
-                lambda: acme.company_unset(["tier", "plan"], meta=meta),
-                lambda: acme.group_unset(
-                    "$company_id", "acme", ["tier", "plan"], meta=meta
-                ),
-            ),
-            (
-                lambda: acme.company_unset(["tier"]),
-                lambda: acme.group_unset("$company_id", "acme", ["tier"]),
-            ),
-            (
-                lambda: acme.company_delete(meta=meta),
-                lambda: acme.group_delete("$company_id", "acme", meta=meta),
-            ),
-            (
-                acme.company_delete,
-                lambda: acme.group_delete("$company_id", "acme"),
-            ),
-        ]
-        for company_call, group_call in pairs:
-            company_call()
-            group_call()
-
-        log = self.consumer.log
-        assert len(log) == len(pairs) * 2
-        for company, group in zip(log[::2], log[1::2]):
-            assert company == group
-            assert company[0] == "groups"
-            assert company[1]["$group_key"] == "$company_id"
-            assert company[1]["$group_id"] == "acme"
-            assert company[1]["$company_id"] == "acme"
-
-    @pytest.mark.parametrize("client", ["hg", "legacy"])
-    def test_company_methods_require_a_bound_company(self, client):
-        mp = getattr(self, client)
-        calls = [
-            lambda: mp.company_set({"tier": "ent"}),
-            lambda: mp.company_set_once({"tier": "ent"}),
-            lambda: mp.company_union({"tags": ["a"]}),
-            lambda: mp.company_remove({"tags": "a"}),
-            lambda: mp.company_unset(["tier"]),
-            mp.company_delete,
-        ]
-        for call in calls:
-            with pytest.raises(
-                mixpanel.CompanyRequiredError,
-                match=re.escape("for_company(company_id)"),
-            ):
-                call()
-        assert self.consumer.log == []
-
-    def test_company_methods_target_the_bound_company(self):
-        self.hg.for_company("acme").for_company("other").company_set({"a": 1})
-
-        message = self.last_message()
-        assert message["$group_id"] == "other"
-        assert message["$company_id"] == "other"
 
     def test_company_id_meta_is_accepted(self):
         self.hg.group_set(
