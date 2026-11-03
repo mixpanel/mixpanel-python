@@ -1061,7 +1061,7 @@ class TestHierarchicalGroups:
         )
 
     def test_people_update_parsed_company_wins(self):
-        self.hg.for_company("other").people_update(
+        self.hg.people_update(
             {"$distinct_id": self.COMBINED_ID, "$set": {"plan": "pro"}},
             meta={"$company_id": "other"},
         )
@@ -1153,13 +1153,23 @@ class TestHierarchicalGroups:
             assert message["$group_key"] == "$user_id"
             assert message["$group_id"] == "user_123"
 
-    def test_identity_company_wins_over_for_company(self):
-        self.hg.for_company("other").people_set(
+    def test_identity_from_the_bound_company_is_accepted(self):
+        self.hg.for_company("acme").people_set(
             mixpanel.MixpanelIdentity(user_id="user_123", company_id="acme"),
             {"role": "admin"},
         )
 
         assert self.last_message()["$company_id"] == "acme"
+
+    def test_identity_from_another_company_is_refused_on_a_bound_client(self):
+        with pytest.raises(ValueError, match="bound to company 'other'"):
+            self.hg.for_company("other").people_set(
+                mixpanel.MixpanelIdentity(user_id="user_123", company_id="acme"),
+                {"role": "admin"},
+            )
+        with pytest.raises(ValueError, match="belongs to company 'acme'"):
+            self.hg.for_company("other").people_set(self.COMBINED_ID, {"role": "admin"})
+        assert self.consumer.log == []
 
     def test_identity_profile_uses_company_id_meta_when_identity_has_no_company(self):
         identity = mixpanel.MixpanelIdentity(user_id="user_123", device_id="dev")

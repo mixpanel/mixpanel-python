@@ -208,8 +208,9 @@ class Mixpanel:
         The returned client shares this client's consumer, serializer and flag
         providers; this client is unchanged. The bound company is sent as a
         top-level ``$company_id`` and wins over a ``$company_id`` in ``meta``.
-        It does not apply to user profile updates made with a
-        :class:`~.MixpanelIdentity`, which use the identity's own company.
+        User profile updates made with a :class:`~.MixpanelIdentity` use the
+        identity's own company and do not need a bound company; a bound client
+        raises ``ValueError`` for a user from another company.
         """
         if not company_id:
             raise ValueError("company_id must be non-empty")
@@ -755,6 +756,7 @@ class Mixpanel:
             )
             raise ValueError(msg)
         company_id, user_id = parsed
+        self._require_bound_company(company_id, repr(distinct_id))
         group_message = {"$group_key": "$user_id", "$group_id": user_id}
         group_message.update(
             (key, value) for key, value in message.items() if key != "$distinct_id"
@@ -762,6 +764,20 @@ class Mixpanel:
         if meta:
             meta = {key: value for key, value in meta.items() if key != "$distinct_id"}
         self._send_group_update(group_message, meta, company_id)
+
+    def _require_bound_company(self, company_id, described):
+        """Refuse a user from another company on a client bound with for_company."""
+        if (
+            company_id is not None
+            and self._company_id is not None
+            and company_id != self._company_id
+        ):
+            msg = (
+                f"This client is bound to company {self._company_id!r}, but "
+                f"{described} belongs to company {company_id!r}. Update the user "
+                "through a client for that company, or one without for_company."
+            )
+            raise ValueError(msg)
 
     def _require_distinct_id(self, distinct_id, operation, method):
         """Refuse a people operation that has no hierarchical groups form."""
@@ -812,7 +828,8 @@ class Mixpanel:
             )
             raise ValueError(msg)
         # A hierarchical groups user profile is the $user_id group profile within
-        # the identity's company, whatever company this client is bound to.
+        # the identity's company, so a bound client only checks that it matches.
+        self._require_bound_company(identity.company_id, repr(identity))
         return self._send_group_update(
             {"$group_key": "$user_id", "$group_id": identity.user_id, operation: value},
             meta,
