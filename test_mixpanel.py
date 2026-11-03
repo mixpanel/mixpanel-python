@@ -691,6 +691,27 @@ class TestHierarchicalGroups:
             company_id="acme", user_id="user_123"
         )
 
+    def test_identity_builds_a_flag_context(self):
+        identity = mixpanel.MixpanelIdentity(
+            user_id="user_123", company_id="acme", device_id="device_abc"
+        )
+
+        assert identity.to_flag_context(
+            groups={"department": "finance"},
+            custom_properties={"plan": "enterprise"},
+        ) == {
+            "$user_id": "user_123",
+            "$company_id": "acme",
+            "device_id": "device_abc",
+            "department": "finance",
+            "custom_properties": {"plan": "enterprise"},
+        }
+
+    def test_identity_builds_a_flag_context_from_a_plain_distinct_id(self):
+        identity = mixpanel.MixpanelIdentity(distinct_id="user_123")
+
+        assert identity.to_flag_context() == {"distinct_id": "user_123"}
+
     # Events
 
     def test_hierarchical_event_sends_user_and_company_without_distinct_id(self):

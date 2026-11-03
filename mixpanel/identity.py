@@ -11,6 +11,14 @@ _IDENTITY_KEYS = (
     ("device_id", "$device_id"),
 )
 
+# Field name -> key a flag evaluation context reads it from
+_FLAG_CONTEXT_KEYS = (
+    ("distinct_id", "distinct_id"),
+    ("user_id", "$user_id"),
+    ("company_id", "$company_id"),
+    ("device_id", "device_id"),
+)
+
 _COMBINED_COMPANY_PREFIX = "$company:"
 _COMBINED_USER_SEPARATOR = "|$user:"
 
@@ -107,6 +115,36 @@ class MixpanelIdentity:
     def is_hierarchical(self) -> bool:
         """True if this identity names a company, for hierarchical groups."""
         return self.company_id is not None
+
+    def to_flag_context(
+        self,
+        groups: Optional[dict] = None,
+        custom_properties: Optional[dict] = None,
+    ) -> dict:
+        """Build a feature flag evaluation context for this identity.
+
+        Puts the ids under the keys flags read, so callers do not hand-write
+        reserved keys such as ``$company_id``::
+
+            identity.to_flag_context(
+                groups={"department": "finance"},
+                custom_properties={"plan": "enterprise"},
+            )
+            # {"$user_id": "user_123", "$company_id": "acme",
+            #  "department": "finance", "custom_properties": {"plan": "enterprise"}}
+
+        :param dict groups: group keys and values the evaluation is for, such
+            as ``{"department": "finance"}``
+        :param dict custom_properties: properties used by runtime targeting rules
+        """
+        context = dict(groups or {})
+        for name, key in _FLAG_CONTEXT_KEYS:
+            value = getattr(self, name)
+            if value is not None:
+                context[key] = value
+        if custom_properties:
+            context["custom_properties"] = dict(custom_properties)
+        return context
 
     def _apply_to(self, properties: dict) -> None:
         """Write this identity's keys into ``properties``, replacing any there."""
