@@ -509,8 +509,7 @@ class Mixpanel:
     def people_set(self, distinct_id, properties, meta=None):
         """Set properties of a people record.
 
-        :param distinct_id: the profile to update; see :meth:`people_set` for
-            passing a :class:`~.MixpanelIdentity`
+        :param distinct_id: the profile to update
         :type distinct_id: str or MixpanelIdentity
         :param dict properties: properties to set
         :param dict meta: overrides Mixpanel special properties
@@ -539,7 +538,9 @@ class Mixpanel:
     def people_set_once(self, distinct_id, properties, meta=None):
         """Set properties of a people record if they are not already set.
 
-        :param str distinct_id: the profile to update
+        :param distinct_id: the profile to update; see :meth:`people_set` for
+            passing a :class:`~.MixpanelIdentity`
+        :type distinct_id: str or MixpanelIdentity
         :param dict properties: properties to set
 
         Any properties that already exist on the profile will not be
@@ -598,7 +599,9 @@ class Mixpanel:
     def people_union(self, distinct_id, properties, meta=None):
         """Merge the values of a list associated with a property.
 
-        :param str distinct_id: the profile to update
+        :param distinct_id: the profile to update; see :meth:`people_set` for
+            passing a :class:`~.MixpanelIdentity`
+        :type distinct_id: str or MixpanelIdentity
         :param dict properties: properties to merge
 
         Merges list values in ``properties`` with existing list-style
@@ -612,7 +615,9 @@ class Mixpanel:
     def people_unset(self, distinct_id, properties, meta=None):
         """Permanently remove properties from a people record.
 
-        :param str distinct_id: the profile to update
+        :param distinct_id: the profile to update; see :meth:`people_set` for
+            passing a :class:`~.MixpanelIdentity`
+        :type distinct_id: str or MixpanelIdentity
         :param list properties: property names to remove
         """
         return self._profile_update(distinct_id, "$unset", properties, meta)
@@ -620,7 +625,9 @@ class Mixpanel:
     def people_remove(self, distinct_id, properties, meta=None):
         """Permanently remove a value from the list associated with a property.
 
-        :param str distinct_id: the profile to update
+        :param distinct_id: the profile to update; see :meth:`people_set` for
+            passing a :class:`~.MixpanelIdentity`
+        :type distinct_id: str or MixpanelIdentity
         :param dict properties: properties to remove
 
         Removes items from list-style properties of a people record.
@@ -633,7 +640,9 @@ class Mixpanel:
     def people_delete(self, distinct_id, meta=None):
         """Permanently delete a people record.
 
-        :param str distinct_id: the profile to delete
+        :param distinct_id: the profile to delete; see :meth:`people_set` for
+            passing a :class:`~.MixpanelIdentity`
+        :type distinct_id: str or MixpanelIdentity
         """
         return self._profile_update(distinct_id, "$delete", "", meta or None)
 
