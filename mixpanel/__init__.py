@@ -152,6 +152,9 @@ class Mixpanel:
         self._credentials = credentials
         self._hierarchical_groups = hierarchical_groups
         self._company_id = None
+        # A client returned by for_company shares its parent's flag providers,
+        # so only the parent shuts them down.
+        self._owns_flag_providers = True
 
         # Warn if credentials are provided but won't be used due to custom consumer
         if consumer is not None and credentials is not None:
@@ -206,16 +209,19 @@ class Mixpanel:
         is the matching ``group_*`` method with ``('$company_id', company_id)``.
 
         The returned client shares this client's consumer, serializer and flag
-        providers; this client is unchanged. The bound company is sent as a
+        providers, and leaves shutting the providers down to this client; this
+        client is unchanged. The bound company is sent as a
         top-level ``$company_id`` and wins over a ``$company_id`` in ``meta``.
         User profile updates made with a :class:`~.MixpanelIdentity` use the
-        identity's own company and do not need a bound company; a bound client
-        raises ``ValueError`` for a user from another company.
+        identity's own company and do not need a bound company; an identity
+        without a company uses the bound company, and a bound client raises
+        ``ValueError`` for a user from another company.
         """
         if not company_id:
             raise ValueError("company_id must be non-empty")
         bound = copy.copy(self)
         bound._company_id = company_id  # noqa: SLF001
+        bound._owns_flag_providers = False  # noqa: SLF001
         return bound
 
     def _require_identity_matches_project(self, identity):
@@ -518,10 +524,10 @@ class Mixpanel:
         ``distinct_id``, updates that profile through ``/engage``. On a
         hierarchical groups client, nothing is sent to ``/engage``: an
         identity with a user id and no distinct id updates the ``$user_id``
-        group profile within the identity's company (or the ``$company_id``
-        in ``meta``) through ``/groups``, and so does a distinct id of the
-        form ``$company:{company}|$user:{user}``, which is parsed into that
-        company and user. Any other distinct id raises ``ValueError``. The
+        group profile within the identity's company (or else the bound
+        company, or else the ``$company_id`` in ``meta``) through ``/groups``,
+        and so does a distinct id of the form ``$company:{company}|$user:{user}``,
+        which is parsed into that company and user. Any other distinct id raises ``ValueError``. The
         same applies to
         ``people_set_once``, ``people_unset``, ``people_union``,
         ``people_remove`` and ``people_delete``.
@@ -704,7 +710,7 @@ class Mixpanel:
         ``$group_id`` and ``$company_id``.
 
         :raises UnsupportedOperationError: on a hierarchical groups client, if
-            ``message`` carries an operation other than ``$set``,
+            ``message`` or ``meta`` carries an operation other than ``$set``,
             ``$set_once``, ``$unset``, ``$union``, ``$remove`` or ``$delete``
         :raises ValueError: on a hierarchical groups client, if the
             ``$distinct_id`` is missing or not of the form
@@ -755,7 +761,9 @@ class Mixpanel:
         )
         if meta:
             meta = {key: value for key, value in meta.items() if key != "$distinct_id"}
-        self._send_group_update(group_message, meta, company_id)
+        self._send_group_update(
+            group_message, meta, company_id, _unsupported_people_operation
+        )
 
     def _require_bound_company(self, company_id, described):
         """Refuse a user from another company on a client bound with for_company."""
@@ -821,11 +829,17 @@ class Mixpanel:
             raise ValueError(msg)
         # A hierarchical groups user profile is the $user_id group profile within
         # the identity's company, so a bound client only checks that it matches.
+        # An identity without a company uses the bound company. Either wins over
+        # a $company_id in meta.
         self._require_bound_company(identity.company_id, repr(identity))
+        company_id = identity.company_id
+        if company_id is None:
+            company_id = self._company_id
         return self._send_group_update(
             {"$group_key": "$user_id", "$group_id": identity.user_id, operation: value},
             meta,
-            identity.company_id,
+            company_id,
+            _unsupported_people_operation,
         )
 
     def group_set(self, group_key, group_id, properties, meta=None):
@@ -1037,7 +1051,7 @@ class Mixpanel:
         as a top-level ``$company_id``.
 
         :raises UnsupportedOperationError: on a hierarchical groups client, if
-            ``message`` carries an operation other than ``$set``,
+            ``message`` or ``meta`` carries an operation other than ``$set``,
             ``$set_once``, ``$unset``, ``$union``, ``$remove`` or ``$delete``
         :raises CompanyRequiredError: on a hierarchical groups client, if no
             company is bound with :meth:`for_company` and neither ``message``
@@ -1045,31 +1059,17 @@ class Mixpanel:
 
         .. _`group profiles documentation`: https://developer.mixpanel.com/reference/group-profiles
         """
-        if self._hierarchical_groups:
-            unsupported = _unsupported_operations(message, _GROUP_NON_OPERATION_KEYS)
-            if unsupported:
-                msg = (
-                    f"{unsupported[0]} is not supported for group profiles on "
-                    "hierarchical groups projects. Supported operations are "
-                    f"{', '.join(GROUP_OPERATIONS)}."
-                )
-                raise UnsupportedOperationError(msg)
-        self._send_group_update(message, meta, self._company_id)
+        self._send_group_update(
+            message, meta, self._company_id, _unsupported_group_operation
+        )
 
-    def _send_group_update(self, message, meta, company_id):
-        """Send a /groups message, adding ``company_id`` as a top-level key."""
-        if (
-            self._hierarchical_groups
-            and company_id is None
-            and "$company_id" not in message
-            and not (meta and "$company_id" in meta)
-        ):
-            msg = (
-                "Group profile updates for hierarchical groups projects require a "
-                "company. Use for_company(company_id) to send them. Nothing sent for "
-                f"group {message.get('$group_key')}={message.get('$group_id')}"
-            )
-            raise CompanyRequiredError(msg)
+    def _send_group_update(self, message, meta, company_id, unsupported_error):
+        """Send a /groups message, adding ``company_id`` as a top-level key.
+
+        On a hierarchical groups client, the message merged with ``meta`` is
+        checked, so ``meta`` cannot add an operation /groups lacks, and an
+        empty ``$company_id`` does not count as a company.
+        """
         record = {
             "$token": self._token,
             "$time": self._now(),
@@ -1077,6 +1077,21 @@ class Mixpanel:
         record.update(message)
         if meta:
             record.update(meta)
+        if self._hierarchical_groups:
+            unsupported = _unsupported_operations(record, _GROUP_NON_OPERATION_KEYS)
+            if unsupported:
+                raise unsupported_error(unsupported[0])
+        if (
+            self._hierarchical_groups
+            and company_id is None
+            and record.get("$company_id") in (None, "")
+        ):
+            msg = (
+                "Group profile updates for hierarchical groups projects require a "
+                "company. Use for_company(company_id) to send them. Nothing sent for "
+                f"group {message.get('$group_key')}={message.get('$group_id')}"
+            )
+            raise CompanyRequiredError(msg)
         # $company_id must be top-level, not inside the operation payload
         if company_id is not None:
             record["$company_id"] = company_id
@@ -1087,6 +1102,8 @@ class Mixpanel:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        if not self._owns_flag_providers:
+            return
         if self._local_flags_provider is not None:
             self._local_flags_provider.__exit__(exc_type, exc_val, exc_tb)
         if self._remote_flags_provider is not None:
@@ -1096,10 +1113,20 @@ class Mixpanel:
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if not self._owns_flag_providers:
+            return
         if self._local_flags_provider is not None:
             await self._local_flags_provider.__aexit__(exc_type, exc_val, exc_tb)
         if self._remote_flags_provider is not None:
             await self._remote_flags_provider.__aexit__(exc_type, exc_val, exc_tb)
+
+
+def _unsupported_group_operation(operation):
+    msg = (
+        f"{operation} is not supported for group profiles on hierarchical groups "
+        f"projects. Supported operations are {', '.join(GROUP_OPERATIONS)}."
+    )
+    return UnsupportedOperationError(msg)
 
 
 def _unsupported_people_operation(operation):

@@ -6,7 +6,7 @@ import decimal
 import json
 import re
 import time
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from urllib import parse as urllib_parse
 
 import pytest
@@ -1185,6 +1185,72 @@ class TestHierarchicalGroups:
         with pytest.raises(mixpanel.CompanyRequiredError):
             self.hg.people_set(identity, {"role": "admin"})
 
+    def test_identity_without_company_uses_the_bound_company(self):
+        acme = self.hg.for_company("acme")
+        identity = mixpanel.MixpanelIdentity(user_id="user_123")
+
+        acme.people_set(identity, {"role": "admin"})
+        acme.people_set(identity, {"role": "admin"}, meta={"$company_id": "other"})
+
+        for _, message in self.consumer.log:
+            assert message["$group_key"] == "$user_id"
+            assert message["$group_id"] == "user_123"
+            assert message["$company_id"] == "acme"
+
+    def test_identity_company_wins_over_company_id_meta(self):
+        self.hg.people_set(
+            mixpanel.MixpanelIdentity(user_id="user_123", company_id="acme"),
+            {"role": "admin"},
+            meta={"$company_id": "other"},
+        )
+
+        assert self.last_message()["$company_id"] == "acme"
+
+    @pytest.mark.parametrize("company_id", [None, ""])
+    def test_empty_company_id_meta_is_not_a_company(self, company_id):
+        identity = mixpanel.MixpanelIdentity(user_id="user_123")
+        with pytest.raises(mixpanel.CompanyRequiredError):
+            self.hg.people_set(identity, {"a": 1}, meta={"$company_id": company_id})
+        with pytest.raises(mixpanel.CompanyRequiredError):
+            self.hg.group_set(
+                "department", "finance", {"a": 1}, meta={"$company_id": company_id}
+            )
+        with pytest.raises(mixpanel.CompanyRequiredError):
+            self.hg.group_update(
+                {
+                    "$group_key": "department",
+                    "$group_id": "finance",
+                    "$company_id": company_id,
+                    "$set": {"a": 1},
+                }
+            )
+        assert self.consumer.log == []
+
+    def test_unsupported_operation_in_meta_is_rejected(self):
+        identity = mixpanel.MixpanelIdentity(user_id="user_123", company_id="acme")
+        meta = {"$add": {"seats": 1}}
+        error = mixpanel.UnsupportedOperationError
+        with pytest.raises(error, match=re.escape("$add")):
+            self.hg.for_company("acme").group_set(
+                "department", "finance", {"a": 1}, meta=meta
+            )
+        with pytest.raises(error, match=re.escape("$add")):
+            self.hg.for_company("acme").company_set({"a": 1}, meta=meta)
+        with pytest.raises(error, match=re.escape("$add")):
+            self.hg.people_set(identity, {"a": 1}, meta=meta)
+        with pytest.raises(error, match=re.escape("$add")):
+            self.hg.people_update(
+                {"$distinct_id": self.COMBINED_ID, "$set": {"a": 1}}, meta=meta
+            )
+        assert self.consumer.log == []
+
+    def test_unsupported_operation_in_meta_sent_without_hierarchical_groups(self):
+        self.legacy.group_set(
+            "department", "finance", {"a": 1}, meta={"$add": {"seats": 1}}
+        )
+
+        assert self.last_message()["$add"] == {"seats": 1}
+
     def test_legacy_identity_uses_engage(self):
         self.legacy.people_set(
             mixpanel.MixpanelIdentity(distinct_id="user_123"), {"role": "admin"}
@@ -1396,6 +1462,43 @@ class TestHierarchicalGroups:
         message = self.last_message()
         assert "$company_id" not in message
         assert message["$group_key"] == "company"
+
+    def test_for_company_context_manager_keeps_shared_flag_providers_open(self):
+        local, remote = MagicMock(), MagicMock()
+        self.hg._local_flags_provider = local
+        self.hg._remote_flags_provider = remote
+
+        with self.hg.for_company("acme"):
+            pass
+
+        local.__exit__.assert_not_called()
+        remote.__exit__.assert_not_called()
+
+        with self.hg:
+            pass
+
+        local.__exit__.assert_called_once()
+        remote.__exit__.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_for_company_async_context_manager_keeps_shared_flag_providers_open(
+        self,
+    ):
+        local, remote = AsyncMock(), AsyncMock()
+        self.hg._local_flags_provider = local
+        self.hg._remote_flags_provider = remote
+
+        async with self.hg.for_company("acme"):
+            pass
+
+        local.__aexit__.assert_not_called()
+        remote.__aexit__.assert_not_called()
+
+        async with self.hg:
+            pass
+
+        local.__aexit__.assert_called_once()
+        remote.__aexit__.assert_called_once()
 
     def test_for_company_rejects_empty(self):
         with pytest.raises(ValueError, match="company_id"):
