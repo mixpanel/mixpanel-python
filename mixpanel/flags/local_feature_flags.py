@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 logging.getLogger("httpx").setLevel(logging.ERROR)
 
 # A {key} placeholder in a context value template.
-_CONTEXT_PLACEHOLDER = re.compile(r"\{([^}]+)\}")
+_CONTEXT_PLACEHOLDER = re.compile(r"\{([^{}]+)\}")
 
 
 def _apply_context_value_template(

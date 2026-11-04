@@ -17,6 +17,7 @@ from mixpanel import Mixpanel
 from mixpanel.credentials import ServiceAccountCredentials
 from mixpanel.identity import MixpanelIdentity
 
+from . import local_feature_flags
 from .local_feature_flags import LocalFeatureFlagsProvider
 from .types import (
     ExperimentationFlag,
@@ -1208,8 +1209,6 @@ class TestLocalFlagsHierarchicalGroups:
     @staticmethod
     def hashed_values(provider, flag_key, context) -> list[str]:
         """Evaluate and return every key passed to the rollout and variant hashes."""
-        from . import local_feature_flags
-
         with patch.object(
             local_feature_flags,
             "normalized_hash",
