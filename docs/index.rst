@@ -10,6 +10,9 @@ Primary interface
 .. autoclass:: Mixpanel
    :members:
 
+.. autoclass:: MixpanelIdentity
+   :members: is_hierarchical
+
 
 Built-in consumers
 ------------------
@@ -36,3 +39,7 @@ Exceptions
 ----------
 
 .. autoexception:: MixpanelException
+
+.. autoexception:: UnsupportedOperationError
+
+.. autoexception:: CompanyRequiredError
