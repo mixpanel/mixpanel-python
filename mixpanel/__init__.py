@@ -14,6 +14,7 @@ Analytics updates. :class:`~.Consumer` and :class:`~.BufferedConsumer` allow
 callers to customize the IO characteristics of their tracking.
 """
 
+import copy
 import datetime
 import json
 import logging
@@ -29,10 +30,45 @@ from .credentials import ServiceAccountCredentials
 from .flags.local_feature_flags import LocalFeatureFlagsProvider
 from .flags.remote_feature_flags import RemoteFeatureFlagsProvider
 from .flags.types import LocalFlagsConfig, RemoteFlagsConfig
+from .identity import MixpanelIdentity, _is_id, _parse_combined_distinct_id
 
 __version__ = "5.4.1"
 
 logger = logging.getLogger(__name__)
+
+# Hierarchical groups user profiles are group profiles, and /groups has no
+# $add, $append or $merge.
+GROUP_OPERATIONS = ("$set", "$set_once", "$unset", "$union", "$remove", "$delete")
+
+# Keys of a /engage or /groups message that are not operations.
+_NON_OPERATION_KEYS = frozenset(
+    (
+        "$token",
+        "$time",
+        "$distinct_id",
+        "$group_key",
+        "$group_id",
+        "$company_id",
+        "$ip",
+        "$ignore_time",
+        "$ignore_alias",
+        "$mp_metadata",
+        "$latitude",
+        "$longitude",
+    )
+)
+
+
+def _unsupported_operations(message):
+    """Return the $-prefixed operation keys of ``message`` that /groups lacks."""
+    return [
+        key
+        for key in message
+        if isinstance(key, str)
+        and key.startswith("$")
+        and key not in _NON_OPERATION_KEYS
+        and key not in GROUP_OPERATIONS
+    ]
 
 
 class DatetimeSerializer(json.JSONEncoder):
@@ -59,8 +95,34 @@ class Mixpanel:
         JSON serialization (default :class:`~.DatetimeSerializer`)
     :param ServiceAccountCredentials credentials: Optional service account
         credentials for authentication. Recommended for server-side integrations.
+    :param bool hierarchical_groups: True if the project uses hierarchical
+        groups (default False). See below.
 
     See `Built-in consumers`_ for details about the consumer interface.
+
+    **Hierarchical groups.** When ``hierarchical_groups`` is True, Mixpanel
+    builds the distinct id from ``$user_id`` and ``$company_id``. Pass a
+    :class:`~.MixpanelIdentity` wherever a ``distinct_id`` is accepted to send
+    those properties. On events a plain distinct id still works, and Mixpanel
+    accepts a distinct id it built itself (``$company:{company}|$user:{user}``),
+    but any other distinct id names a different user that nothing reconciles
+    later.
+
+    User profiles are group profiles keyed by ``$user_id``, and nothing is sent
+    to ``/engage``. A user profile update takes an identity with a user and a
+    company, or a distinct id of the form ``$company:{company}|$user:{user}``,
+    which is sent to ``/groups`` as that company and user; any other distinct
+    id raises ``ValueError``. User profiles support only what ``/groups``
+    supports: ``people_increment``, ``people_append``,
+    ``people_track_charge`` and ``people_clear_charges`` raise
+    :class:`~.UnsupportedOperationError`, while
+    ``people_set`` and its siblings address a profile from an identity without
+    needing a distinct id. Group profile updates require a known company,
+    either through :meth:`for_company` or a ``$company_id`` in ``meta``, and
+    raise :class:`~.CompanyRequiredError` otherwise.
+
+    Events are sent identically in both modes, and so are group profile
+    updates that are valid in both.
 
     .. versionadded:: 4.2.0
         The *serializer* parameter.
@@ -74,9 +136,15 @@ class Mixpanel:
         local_flags_config: Optional[LocalFlagsConfig] = None,
         remote_flags_config: Optional[RemoteFlagsConfig] = None,
         credentials: Optional[ServiceAccountCredentials] = None,
+        hierarchical_groups: bool = False,
     ):
         self._token = token
         self._credentials = credentials
+        self._hierarchical_groups = hierarchical_groups
+        self._company_id = None
+        # A client returned by for_company shares its parent's flag providers,
+        # so only the parent shuts them down.
+        self._owns_flag_providers = True
 
         # Warn if credentials are provided but won't be used due to custom consumer
         if consumer is not None and credentials is not None:
@@ -94,13 +162,103 @@ class Mixpanel:
 
         if local_flags_config:
             self._local_flags_provider = LocalFeatureFlagsProvider(
-                self._token, local_flags_config, __version__, self.track, credentials
+                self._token,
+                local_flags_config,
+                __version__,
+                self.track,
+                credentials,
+                hierarchical_groups=hierarchical_groups,
             )
 
         if remote_flags_config:
             self._remote_flags_provider = RemoteFeatureFlagsProvider(
-                self._token, remote_flags_config, __version__, self.track, credentials
+                self._token,
+                remote_flags_config,
+                __version__,
+                self.track,
+                credentials,
+                hierarchical_groups=hierarchical_groups,
             )
+
+    def for_company(self, company_id):
+        """Return a client that adds ``$company_id`` to every group profile update.
+
+        :param company_id: the id of the top-level company, sent as given
+        :type company_id: str or int
+        :raises ValueError: if ``company_id`` is empty or None, or not a string
+            or an integer
+
+        Hierarchical groups projects require ``$company_id`` on every
+        ``/groups`` write, including the company's own profile and user
+        profiles::
+
+            acme = mp.for_company('acme')
+            acme.company_set(company_properties)
+            acme.group_set('$user_id', 'user_123', user_properties)
+            acme.group_set('department', 'finance', department_properties)
+
+        The ``company_*`` methods update the bound company's own profile: each
+        is the matching ``group_*`` method with ``('$company_id', company_id)``.
+
+        The returned client shares this client's consumer, serializer and flag
+        providers, and leaves shutting the providers down to this client; this
+        client is unchanged. The bound company is sent as a
+        top-level ``$company_id`` and wins over a ``$company_id`` in ``meta``.
+        User profile updates made with a :class:`~.MixpanelIdentity` use the
+        identity's own company and do not need a bound company; an identity
+        without a company uses the bound company, and a bound client raises
+        ``ValueError`` for a user from another company.
+        """
+        if company_id is None or company_id == "":
+            raise ValueError("company_id must be non-empty")
+        if not _is_id(company_id):
+            msg = f"company_id must be a string or an integer, not {company_id!r}"
+            raise ValueError(msg)
+        bound = copy.copy(self)
+        bound._company_id = company_id  # noqa: SLF001
+        bound._owns_flag_providers = False  # noqa: SLF001
+        return bound
+
+    def _require_identity_matches_project(self, identity):
+        """Reject an identity that this client's project would mis-attribute.
+
+        Hierarchical groups is a project setting, and ingestion accepts the
+        identity keys on any project but ignores them, so a mismatch would be
+        silently mis-attributed.
+        """
+        if identity is None:
+            raise ValueError("identity must not be None")
+        if identity.is_hierarchical and not self._hierarchical_groups:
+            msg = (
+                f"{identity!r} requires a hierarchical groups client: "
+                "Mixpanel(token, hierarchical_groups=True)"
+            )
+            raise ValueError(msg)
+
+    def _event_properties(self, distinct_id, event_time, properties):
+        """Build event properties for a distinct id or a MixpanelIdentity."""
+        identity = None
+        if isinstance(distinct_id, MixpanelIdentity):
+            identity = distinct_id
+            self._require_identity_matches_project(identity)
+            distinct_id = identity.distinct_id
+
+        all_properties = {"token": self._token}
+        if identity is None or distinct_id is not None:
+            all_properties["distinct_id"] = distinct_id
+        all_properties.update(
+            {
+                "time": event_time,
+                "$insert_id": self._make_insert_id(),
+                "mp_lib": "python",
+                "$lib_version": __version__,
+            }
+        )
+        if properties:
+            all_properties.update(properties)
+        if identity is not None:
+            identity._apply_to(all_properties)  # noqa: SLF001
+        return all_properties
 
     def _now(self):
         return time.time()
@@ -129,26 +287,24 @@ class Mixpanel:
     def track(self, distinct_id, event_name, properties=None, meta=None):
         """Record an event.
 
-        :param str distinct_id: identifies the user triggering the event
+        :param distinct_id: identifies the user triggering the event
+        :type distinct_id: str or MixpanelIdentity
         :param str event_name: a name describing the event
         :param dict properties: additional data to record; keys should be
             strings, and values should be strings, numbers, or booleans
         :param dict meta: overrides Mixpanel special properties
+        :raises ValueError: if a :class:`~.MixpanelIdentity` does not suit
+            this project
 
         ``properties`` should describe the circumstances of the event, or
         aspects of the source or user associated with it. ``meta`` is used
         (rarely) to override special values sent in the event object.
+
+        For a :class:`~.MixpanelIdentity`, its keys replace any values for the
+        same keys in ``properties``, and ``distinct_id`` is sent only if the
+        identity has one or ``properties`` carries one.
         """
-        all_properties = {
-            "token": self._token,
-            "distinct_id": distinct_id,
-            "time": self._now(),
-            "$insert_id": self._make_insert_id(),
-            "mp_lib": "python",
-            "$lib_version": __version__,
-        }
-        if properties:
-            all_properties.update(properties)
+        all_properties = self._event_properties(distinct_id, self._now(), properties)
         event = {
             "event": event_name,
             "properties": all_properties,
@@ -170,7 +326,9 @@ class Mixpanel:
         """Record an event that occurred more than 5 days in the past.
 
         :param str api_key: (DEPRECATED) your Mixpanel project's API key
-        :param str distinct_id: identifies the user triggering the event
+        :param distinct_id: identifies the user triggering the event; see
+            :meth:`track` for passing a :class:`~.MixpanelIdentity`
+        :type distinct_id: str or MixpanelIdentity
         :param str event_name: a name describing the event
         :param int timestamp: UTC seconds since epoch
         :param dict properties: additional data to record; keys should be
@@ -223,16 +381,7 @@ class Mixpanel:
                 "Please migrate to ServiceAccountCredentials for enhanced security."
             )
 
-        all_properties = {
-            "token": self._token,
-            "distinct_id": distinct_id,
-            "time": timestamp,
-            "$insert_id": self._make_insert_id(),
-            "mp_lib": "python",
-            "$lib_version": __version__,
-        }
-        if properties:
-            all_properties.update(properties)
+        all_properties = self._event_properties(distinct_id, timestamp, properties)
         event = {
             "event": event_name,
             "properties": all_properties,
@@ -261,7 +410,16 @@ class Mixpanel:
         .. note::
             Calling this method *always* results in a synchronous HTTP request
             to Mixpanel servers, regardless of any custom consumer.
+
+        :raises UnsupportedOperationError: on a hierarchical groups client
         """
+        if self._hierarchical_groups:
+            msg = (
+                "alias is not supported for hierarchical groups projects, which "
+                "identify a user by company and user id. Track with a "
+                "MixpanelIdentity(user_id=..., company_id=...) instead."
+            )
+            raise UnsupportedOperationError(msg)
         event = {
             "event": "$create_alias",
             "properties": {
@@ -315,7 +473,15 @@ class Mixpanel:
         See our online documentation for `more
         details
         <https://developer.mixpanel.com/reference/identities#identity-merge>`__.
+
+        :raises UnsupportedOperationError: on a hierarchical groups client
         """
+        if self._hierarchical_groups:
+            msg = (
+                "merge is not supported for hierarchical groups projects, which "
+                "identify a user by company and user id."
+            )
+            raise UnsupportedOperationError(msg)
         if api_secret is not None:
             logger.warning(
                 "api_secret is deprecated and will be removed in a future version. "
@@ -344,37 +510,45 @@ class Mixpanel:
     def people_set(self, distinct_id, properties, meta=None):
         """Set properties of a people record.
 
-        :param str distinct_id: the profile to update
+        :param distinct_id: the profile to update
+        :type distinct_id: str or MixpanelIdentity
         :param dict properties: properties to set
         :param dict meta: overrides Mixpanel special properties
 
+        A distinct id, or a :class:`~.MixpanelIdentity` with a
+        ``distinct_id``, updates that profile through ``/engage``. On a
+        hierarchical groups client, nothing is sent to ``/engage``: an
+        identity with a user id and no distinct id updates the ``$user_id``
+        group profile within the identity's company (or else the bound
+        company, or else the ``$company_id`` in ``meta``) through ``/groups``,
+        and so does a distinct id of the form ``$company:{company}|$user:{user}``,
+        which is parsed into that company and user. Any other distinct id raises ``ValueError``. The
+        same applies to
+        ``people_set_once``, ``people_unset``, ``people_union``,
+        ``people_remove`` and ``people_delete``.
+
         If the profile does not exist, creates a new profile with these properties.
+
+        :raises ValueError: if a :class:`~.MixpanelIdentity` or distinct id
+            cannot identify a profile on this project
+        :raises CompanyRequiredError: if an identity names a user but no
+            company is known
         """
-        return self.people_update(
-            {
-                "$distinct_id": distinct_id,
-                "$set": properties,
-            },
-            meta=meta or {},
-        )
+        return self._profile_update(distinct_id, "$set", properties, meta or {})
 
     def people_set_once(self, distinct_id, properties, meta=None):
         """Set properties of a people record if they are not already set.
 
-        :param str distinct_id: the profile to update
+        :param distinct_id: the profile to update; see :meth:`people_set` for
+            passing a :class:`~.MixpanelIdentity`
+        :type distinct_id: str or MixpanelIdentity
         :param dict properties: properties to set
 
         Any properties that already exist on the profile will not be
         overwritten. If the profile does not exist, creates a new profile with
         these properties.
         """
-        return self.people_update(
-            {
-                "$distinct_id": distinct_id,
-                "$set_once": properties,
-            },
-            meta=meta or {},
-        )
+        return self._profile_update(distinct_id, "$set_once", properties, meta or {})
 
     def people_increment(self, distinct_id, properties, meta=None):
         """Increment/decrement numerical properties of a people record.
@@ -386,7 +560,11 @@ class Mixpanel:
         Adds numerical values to properties of a people record. Nonexistent
         properties on the record default to zero. Negative values in
         ``properties`` will decrement the given property.
+
+        :raises UnsupportedOperationError: on a hierarchical groups client
+        :raises ValueError: if passed a :class:`~.MixpanelIdentity`
         """
+        self._require_distinct_id(distinct_id, "$add", "people_increment")
         return self.people_update(
             {
                 "$distinct_id": distinct_id,
@@ -406,7 +584,11 @@ class Mixpanel:
         example::
 
             mp.people_append('123', {'Items': 'Super Arm'})
+
+        :raises UnsupportedOperationError: on a hierarchical groups client
+        :raises ValueError: if passed a :class:`~.MixpanelIdentity`
         """
+        self._require_distinct_id(distinct_id, "$append", "people_append")
         return self.people_update(
             {
                 "$distinct_id": distinct_id,
@@ -418,7 +600,9 @@ class Mixpanel:
     def people_union(self, distinct_id, properties, meta=None):
         """Merge the values of a list associated with a property.
 
-        :param str distinct_id: the profile to update
+        :param distinct_id: the profile to update; see :meth:`people_set` for
+            passing a :class:`~.MixpanelIdentity`
+        :type distinct_id: str or MixpanelIdentity
         :param dict properties: properties to merge
 
         Merges list values in ``properties`` with existing list-style
@@ -427,32 +611,24 @@ class Mixpanel:
 
             mp.people_union('123', {'Items': ['Super Arm', 'Fire Storm']})
         """
-        return self.people_update(
-            {
-                "$distinct_id": distinct_id,
-                "$union": properties,
-            },
-            meta=meta or {},
-        )
+        return self._profile_update(distinct_id, "$union", properties, meta or {})
 
     def people_unset(self, distinct_id, properties, meta=None):
         """Permanently remove properties from a people record.
 
-        :param str distinct_id: the profile to update
+        :param distinct_id: the profile to update; see :meth:`people_set` for
+            passing a :class:`~.MixpanelIdentity`
+        :type distinct_id: str or MixpanelIdentity
         :param list properties: property names to remove
         """
-        return self.people_update(
-            {
-                "$distinct_id": distinct_id,
-                "$unset": properties,
-            },
-            meta=meta,
-        )
+        return self._profile_update(distinct_id, "$unset", properties, meta)
 
     def people_remove(self, distinct_id, properties, meta=None):
         """Permanently remove a value from the list associated with a property.
 
-        :param str distinct_id: the profile to update
+        :param distinct_id: the profile to update; see :meth:`people_set` for
+            passing a :class:`~.MixpanelIdentity`
+        :type distinct_id: str or MixpanelIdentity
         :param dict properties: properties to remove
 
         Removes items from list-style properties of a people record.
@@ -460,26 +636,16 @@ class Mixpanel:
 
             mp.people_remove('123', {'Items': 'Super Arm'})
         """
-        return self.people_update(
-            {
-                "$distinct_id": distinct_id,
-                "$remove": properties,
-            },
-            meta=meta or {},
-        )
+        return self._profile_update(distinct_id, "$remove", properties, meta or {})
 
     def people_delete(self, distinct_id, meta=None):
         """Permanently delete a people record.
 
-        :param str distinct_id: the profile to delete
+        :param distinct_id: the profile to delete; see :meth:`people_set` for
+            passing a :class:`~.MixpanelIdentity`
+        :type distinct_id: str or MixpanelIdentity
         """
-        return self.people_update(
-            {
-                "$distinct_id": distinct_id,
-                "$delete": "",
-            },
-            meta=meta or None,
-        )
+        return self._profile_update(distinct_id, "$delete", "", meta or None)
 
     def people_track_charge(self, distinct_id, amount, properties=None, meta=None):
         """Track a charge on a people record.
@@ -491,7 +657,11 @@ class Mixpanel:
         Record that you have charged the current user a certain amount of
         money. Charges recorded with this way will appear in the Mixpanel
         revenue report.
+
+        :raises UnsupportedOperationError: on a hierarchical groups client
+        :raises ValueError: if passed a :class:`~.MixpanelIdentity`
         """
+        self._require_distinct_id(distinct_id, "$append", "people_track_charge")
         if properties is None:
             properties = {}
         properties.update({"$amount": amount})
@@ -503,7 +673,14 @@ class Mixpanel:
         """Permanently clear all charges on a people record.
 
         :param str distinct_id: the profile whose charges will be cleared
+        :raises UnsupportedOperationError: on a hierarchical groups client
         """
+        if self._hierarchical_groups:
+            msg = (
+                "people_clear_charges is not supported for hierarchical groups "
+                "projects, which can't people_track_charge."
+            )
+            raise UnsupportedOperationError(msg)
         return self.people_unset(
             distinct_id,
             ["$transactions"],
@@ -520,8 +697,30 @@ class Mixpanel:
         want to use very new or experimental features of people analytics, but
         please use the other ``people_*`` methods where possible.
 
+        On a hierarchical groups client, nothing is sent to ``/engage``. The
+        ``$distinct_id`` must be one Mixpanel built, of the form
+        ``$company:{company}|$user:{user}``, and the message is sent to
+        ``/groups`` as an update of that user's ``$user_id`` group profile
+        within that company: ``$distinct_id`` is replaced by ``$group_key``,
+        ``$group_id`` and ``$company_id``.
+
+        :raises UnsupportedOperationError: on a hierarchical groups client, if
+            ``message`` or ``meta`` carries an operation other than ``$set``,
+            ``$set_once``, ``$unset``, ``$union``, ``$remove`` or ``$delete``
+        :raises ValueError: on a hierarchical groups client, if the
+            ``$distinct_id`` is missing or not of the form
+            ``$company:{company}|$user:{user}``, or if ``message`` or ``meta``
+            carries a ``$group_key``, ``$group_id`` or ``$company_id`` that
+            differs from the user profile the distinct id names
+
         .. _`user profiles documentation`: https://developer.mixpanel.com/reference/user-profiles
         """
+        if self._hierarchical_groups:
+            unsupported = _unsupported_operations(message)
+            if unsupported:
+                raise _unsupported_people_operation(unsupported[0])
+            self._send_combined_user_update(message, meta)
+            return
         record = {
             "$token": self._token,
             "$time": self._now(),
@@ -530,6 +729,132 @@ class Mixpanel:
         if meta:
             record.update(meta)
         self._consumer.send("people", json_dumps(record, cls=self._serializer))
+
+    def _send_combined_user_update(self, message, meta):
+        """Send a hierarchical groups people message to /groups, never /engage.
+
+        A user profile on a hierarchical groups project is the ``$user_id``
+        group profile within the user's company, so the message's combined
+        ``$distinct_id`` is replaced by the same keys a
+        ``MixpanelIdentity(user_id=..., company_id=...)`` update sends.
+        """
+        distinct_id = message.get("$distinct_id")
+        if meta and "$distinct_id" in meta:
+            distinct_id = meta["$distinct_id"]
+        parsed = _parse_combined_distinct_id(distinct_id)
+        if parsed is None:
+            msg = (
+                "User profile updates on hierarchical groups projects need a user "
+                "and a company. Pass MixpanelIdentity(user_id=..., company_id=...) "
+                "or a distinct id of the form $company:{company}|$user:{user}. "
+                f"Nothing sent for distinct id {distinct_id!r}."
+            )
+            raise ValueError(msg)
+        company_id, user_id = parsed
+        self._require_bound_company(company_id, repr(distinct_id))
+        # The distinct id names the profile, so identity keys in the message or
+        # meta may only repeat it, never retarget the update to another profile.
+        parsed_keys = {
+            "$group_key": "$user_id",
+            "$group_id": user_id,
+            "$company_id": company_id,
+        }
+        for source in (message, meta or {}):
+            for key, expected in parsed_keys.items():
+                if key in source and str(source[key]) != str(expected):
+                    msg = (
+                        f"{key}={source[key]!r} conflicts with distinct id "
+                        f"{distinct_id!r}, which names {key}={expected!r}. "
+                        f"Nothing sent."
+                    )
+                    raise ValueError(msg)
+        replaced = ("$distinct_id", *parsed_keys)
+        group_message = {"$group_key": "$user_id", "$group_id": user_id}
+        group_message.update(
+            (key, value) for key, value in message.items() if key not in replaced
+        )
+        if meta:
+            meta = {key: value for key, value in meta.items() if key not in replaced}
+        self._send_group_update(
+            group_message, meta, company_id, _unsupported_people_operation
+        )
+
+    def _require_bound_company(self, company_id, described):
+        """Refuse a user from another company on a client bound with for_company."""
+        if (
+            company_id is not None
+            and self._company_id is not None
+            and str(company_id) != str(self._company_id)
+        ):
+            msg = (
+                f"This client is bound to company {self._company_id!r}, but "
+                f"{described} belongs to company {company_id!r}. Update the user "
+                "through a client for that company, or one without for_company."
+            )
+            raise ValueError(msg)
+
+    def _require_distinct_id(self, distinct_id, operation, method):
+        """Refuse a people operation that has no hierarchical groups form."""
+        if self._hierarchical_groups:
+            raise _unsupported_people_operation(operation)
+        if isinstance(distinct_id, MixpanelIdentity):
+            msg = (
+                f"{method} does not accept a MixpanelIdentity. Pass a distinct id; "
+                f"{operation} has no group profile equivalent."
+            )
+            # ValueError like the other caller errors this client raises.
+            raise ValueError(msg)  # noqa: TRY004
+
+    def _profile_update(self, distinct_id, operation, value, meta):
+        """Send a people operation for a distinct id or a MixpanelIdentity."""
+        if not isinstance(distinct_id, MixpanelIdentity):
+            return self.people_update(
+                {"$distinct_id": distinct_id, operation: value}, meta=meta
+            )
+
+        identity = distinct_id
+        self._require_identity_matches_project(identity)
+        if identity.distinct_id is not None:
+            # On a hierarchical groups client, people_update sends a combined
+            # distinct id to /groups as its company and user, and rejects any
+            # other distinct id.
+            return self.people_update(
+                {"$distinct_id": identity.distinct_id, operation: value}, meta=meta
+            )
+        if not self._hierarchical_groups:
+            msg = (
+                f"{identity!r} cannot identify a profile on this project. User "
+                "profiles are addressed by distinct id unless the project uses "
+                "hierarchical groups."
+            )
+            raise ValueError(msg)
+        if identity.user_id is None:
+            if identity.company_id is None:
+                msg = (
+                    f"{identity!r} names no user, so it cannot identify a profile. "
+                    "Device ids identify anonymous events, not profiles."
+                )
+                raise ValueError(msg)
+            msg = (
+                f"User profile updates require a user id, and {identity!r} has "
+                "none. Use for_company(company_id).company_set(properties) to "
+                "update the company's profile."
+            )
+            raise ValueError(msg)
+        # A hierarchical groups user profile is the $user_id group profile within
+        # the identity's company, so a bound client only checks that it matches.
+        # An identity without a company uses the bound company. Either wins over
+        # a $company_id in meta.
+        self._require_bound_company(identity.company_id, repr(identity))
+        company_id = identity.company_id
+        if company_id is None:
+            company_id = self._company_id
+        return self._send_group_update(
+            {"$group_key": "$user_id", "$group_id": identity.user_id, operation: value},
+            meta,
+            company_id,
+            _unsupported_people_operation,
+        )
 
     def group_set(self, group_key, group_id, properties, meta=None):
         """Set properties of a group profile.
@@ -644,6 +969,88 @@ class Mixpanel:
             meta=meta or None,
         )
 
+    def _bound_company_id(self, method):
+        """Return the bound company, or raise :class:`~.CompanyRequiredError`."""
+        if self._company_id is None:
+            msg = (
+                "Company profile updates require a company. Use "
+                f"for_company(company_id) to send them. Nothing sent for {method}"
+            )
+            raise CompanyRequiredError(msg)
+        return self._company_id
+
+    def company_set(self, properties, meta=None):
+        """Set properties of the bound company's profile.
+
+        :param dict properties: properties to set
+        :param dict meta: overrides Mixpanel special properties. (See also `Mixpanel.people_set`.)
+        :raises CompanyRequiredError: if no company is bound with :meth:`for_company`
+
+        The same as :meth:`group_set` with ``('$company_id', company_id)``::
+
+            mp.for_company('acme').company_set({'tier': 'enterprise'})
+        """
+        company_id = self._bound_company_id("company_set")
+        return self.group_set("$company_id", company_id, properties, meta=meta)
+
+    def company_set_once(self, properties, meta=None):
+        """Set properties of the bound company's profile if they are not already set.
+
+        :param dict properties: properties to set
+        :raises CompanyRequiredError: if no company is bound with :meth:`for_company`
+
+        The same as :meth:`group_set_once` with ``('$company_id', company_id)``.
+        """
+        company_id = self._bound_company_id("company_set_once")
+        return self.group_set_once("$company_id", company_id, properties, meta=meta)
+
+    def company_union(self, properties, meta=None):
+        """Merge the values of a list associated with a property of the bound company.
+
+        :param dict properties: properties to merge
+        :raises CompanyRequiredError: if no company is bound with :meth:`for_company`
+
+        The same as :meth:`group_union` with ``('$company_id', company_id)``::
+
+            mp.for_company('acme').company_union({'Items': ['Super Arm', 'Fire Storm']})
+        """
+        company_id = self._bound_company_id("company_union")
+        return self.group_union("$company_id", company_id, properties, meta=meta)
+
+    def company_unset(self, properties, meta=None):
+        """Permanently remove properties from the bound company's profile.
+
+        :param list properties: property names to remove
+        :raises CompanyRequiredError: if no company is bound with :meth:`for_company`
+
+        The same as :meth:`group_unset` with ``('$company_id', company_id)``.
+        """
+        company_id = self._bound_company_id("company_unset")
+        return self.group_unset("$company_id", company_id, properties, meta=meta)
+
+    def company_remove(self, properties, meta=None):
+        """Permanently remove a value from a list property of the bound company.
+
+        :param dict properties: properties to remove
+        :raises CompanyRequiredError: if no company is bound with :meth:`for_company`
+
+        The same as :meth:`group_remove` with ``('$company_id', company_id)``::
+
+            mp.for_company('acme').company_remove({'Items': 'Super Arm'})
+        """
+        company_id = self._bound_company_id("company_remove")
+        return self.group_remove("$company_id", company_id, properties, meta=meta)
+
+    def company_delete(self, meta=None):
+        """Permanently delete the bound company's profile.
+
+        :raises CompanyRequiredError: if no company is bound with :meth:`for_company`
+
+        The same as :meth:`group_delete` with ``('$company_id', company_id)``.
+        """
+        company_id = self._bound_company_id("company_delete")
+        return self.group_delete("$company_id", company_id, meta=meta)
+
     def group_update(self, message, meta=None):
         """Send a generic group profile update.
 
@@ -654,7 +1061,28 @@ class Mixpanel:
         want to use very new or experimental features, but
         please use the other ``group_*`` methods where possible.
 
+        On a client returned by :meth:`for_company`, the bound company is sent
+        as a top-level ``$company_id``.
+
+        :raises UnsupportedOperationError: on a hierarchical groups client, if
+            ``message`` or ``meta`` carries an operation other than ``$set``,
+            ``$set_once``, ``$unset``, ``$union``, ``$remove`` or ``$delete``
+        :raises CompanyRequiredError: on a hierarchical groups client, if no
+            company is bound with :meth:`for_company` and neither ``message``
+            nor ``meta`` carries a ``$company_id``
+
         .. _`group profiles documentation`: https://developer.mixpanel.com/reference/group-profiles
+        """
+        self._send_group_update(
+            message, meta, self._company_id, _unsupported_group_operation
+        )
+
+    def _send_group_update(self, message, meta, company_id, unsupported_error):
+        """Send a /groups message, adding ``company_id`` as a top-level key.
+
+        On a hierarchical groups client, the message merged with ``meta`` is
+        checked, so ``meta`` cannot add an operation /groups lacks, and an
+        empty ``$company_id`` does not count as a company.
         """
         record = {
             "$token": self._token,
@@ -663,12 +1091,33 @@ class Mixpanel:
         record.update(message)
         if meta:
             record.update(meta)
-        self._consumer.send("groups", json_dumps(record, cls=self._serializer))
+        if self._hierarchical_groups:
+            unsupported = _unsupported_operations(record)
+            if unsupported:
+                raise unsupported_error(unsupported[0])
+        if (
+            self._hierarchical_groups
+            and company_id is None
+            and record.get("$company_id") in (None, "")
+        ):
+            msg = (
+                "Group profile updates for hierarchical groups projects require a "
+                "company. Use for_company(company_id) to send them. Nothing sent for "
+                f"group {message.get('$group_key')}={message.get('$group_id')}"
+            )
+            raise CompanyRequiredError(msg)
+        # $company_id must be top-level, not inside the operation payload
+        if company_id is not None:
+            record["$company_id"] = company_id
+        payload = json_dumps(record, cls=self._serializer)
+        self._consumer.send("groups", payload)
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        if not self._owns_flag_providers:
+            return
         if self._local_flags_provider is not None:
             self._local_flags_provider.__exit__(exc_type, exc_val, exc_tb)
         if self._remote_flags_provider is not None:
@@ -678,10 +1127,50 @@ class Mixpanel:
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if not self._owns_flag_providers:
+            return
         if self._local_flags_provider is not None:
             await self._local_flags_provider.__aexit__(exc_type, exc_val, exc_tb)
         if self._remote_flags_provider is not None:
             await self._remote_flags_provider.__aexit__(exc_type, exc_val, exc_tb)
+
+
+def _unsupported_group_operation(operation):
+    msg = (
+        f"{operation} is not supported for group profiles on hierarchical groups "
+        f"projects. Supported operations are {', '.join(GROUP_OPERATIONS)}."
+    )
+    return UnsupportedOperationError(msg)
+
+
+def _unsupported_people_operation(operation):
+    # A hierarchical groups user profile is a group profile, so it supports what
+    # /groups supports. $add and $append have no equivalent there.
+    msg = (
+        f"{operation} is not supported for hierarchical groups projects, whose "
+        "user profiles are group profiles keyed by $user_id. Supported operations "
+        f"are {', '.join(GROUP_OPERATIONS)}, so people_increment, people_append "
+        "and people_track_charge have no hierarchical groups equivalent."
+    )
+    return UnsupportedOperationError(msg)
+
+
+class UnsupportedOperationError(ValueError):
+    """Raised for an operation a hierarchical groups project does not support.
+
+    Hierarchical groups user profiles are group profiles, which support only
+    ``$set``, ``$set_once``, ``$unset``, ``$union``, ``$remove`` and
+    ``$delete``.
+    """
+
+
+class CompanyRequiredError(ValueError):
+    """Raised for a hierarchical groups group profile update with no company.
+
+    Use :meth:`Mixpanel.for_company`, or pass ``$company_id`` in ``meta``.
+    Also raised by the ``company_*`` methods on a client without a bound
+    company.
+    """
 
 
 class MixpanelException(Exception):  # noqa: N818

@@ -10,6 +10,7 @@ import httpx
 from asgiref.sync import sync_to_async
 
 from mixpanel.credentials import ServiceAccountCredentials
+from mixpanel.identity import MixpanelIdentity
 
 from .types import (
     FallbackReason,
@@ -23,7 +24,9 @@ from .utils import (
     REQUEST_HEADERS,
     close_async_client_from_sync,
     dispatch_exposure,
+    exposure_identity,
     generate_traceparent,
+    missing_exposure_identity_message,
     prepare_common_query_params,
 )
 
@@ -41,6 +44,7 @@ class RemoteFeatureFlagsProvider:
         version: str,
         tracker: Callable,
         credentials: ServiceAccountCredentials | None = None,
+        hierarchical_groups: bool = False,
     ) -> None:
         """Initialize the RemoteFeatureFlagsProvider.
 
@@ -49,12 +53,17 @@ class RemoteFeatureFlagsProvider:
         :param str version: the version of the Mixpanel library being used, just for tracking
         :param Callable tracker: A function used to track flags exposure events to mixpanel
         :param ServiceAccountCredentials credentials: Optional service account credentials for authentication.
+        :param bool hierarchical_groups: True if the project uses hierarchical groups (default False).
+            Exposure events are then attributed by the context's ``$company_id`` (with ``$user_id``)
+            as well as ``distinct_id``, and the tracker receives a :class:`~mixpanel.identity.MixpanelIdentity`
+            instead of a distinct id string.
         """
         self._token: str = token
         self._config: RemoteFlagsConfig = config
         self._version: str = version
         self._tracker: Callable = tracker
         self._credentials = credentials
+        self._hierarchical_groups = hierarchical_groups
         self._project_id: str | None = credentials.project_id if credentials else None
 
         # Build httpx client parameters
@@ -151,14 +160,15 @@ class RemoteFeatureFlagsProvider:
             if (
                 not is_fallback
                 and reportExposure
-                and (distinct_id := context.get("distinct_id"))
+                and (identity := exposure_identity(context, self._hierarchical_groups))
+                is not None
             ):
                 properties = self._build_tracking_properties(
                     flag_key, selected_variant, start_time, end_time
                 )
                 asyncio.create_task(  # noqa: RUF006 - intentional fire-and-forget for exposure tracking
                     sync_to_async(self._tracker, thread_sensitive=False)(
-                        distinct_id, EXPOSURE_EVENT, properties
+                        identity, EXPOSURE_EVENT, properties
                     )
                 )
         except Exception as exc:
@@ -193,16 +203,16 @@ class RemoteFeatureFlagsProvider:
         :param SelectedVariant variant: The selected variant for the feature flag
         :param Dict[str, Any] context: The user context used to evaluate the feature flag
         """
-        if distinct_id := context.get("distinct_id"):
+        if (
+            identity := exposure_identity(context, self._hierarchical_groups)
+        ) is not None:
             properties = self._build_tracking_properties(flag_key, variant)
 
             await sync_to_async(self._tracker, thread_sensitive=False)(
-                distinct_id, EXPOSURE_EVENT, properties
+                identity, EXPOSURE_EVENT, properties
             )
         else:
-            logger.error(
-                "Cannot track exposure event without a distinct_id in the context"
-            )
+            logger.error(missing_exposure_identity_message(self._hierarchical_groups))
 
     def get_all_variants(
         self, context: dict[str, Any]
@@ -276,12 +286,13 @@ class RemoteFeatureFlagsProvider:
             if (
                 not is_fallback
                 and reportExposure
-                and (distinct_id := context.get("distinct_id"))
+                and (identity := exposure_identity(context, self._hierarchical_groups))
+                is not None
             ):
                 properties = self._build_tracking_properties(
                     flag_key, selected_variant, start_time, end_time
                 )
-                self._dispatch_exposure(distinct_id, properties)
+                self._dispatch_exposure(identity, properties)
 
         except Exception as exc:
             logger.exception("Failed to get remote variant for flag '%s'", flag_key)
@@ -313,15 +324,17 @@ class RemoteFeatureFlagsProvider:
         :param SelectedVariant variant: The selected variant for the feature flag
         :param Dict[str, Any] context: The user context used to evaluate the feature flag
         """
-        if distinct_id := context.get("distinct_id"):
+        if (
+            identity := exposure_identity(context, self._hierarchical_groups)
+        ) is not None:
             properties = self._build_tracking_properties(flag_key, variant)
-            self._dispatch_exposure(distinct_id, properties)
+            self._dispatch_exposure(identity, properties)
         else:
-            logger.error(
-                "Cannot track exposure event without a distinct_id in the context"
-            )
+            logger.error(missing_exposure_identity_message(self._hierarchical_groups))
 
-    def _dispatch_exposure(self, distinct_id: str, properties: dict[str, Any]) -> None:
+    def _dispatch_exposure(
+        self, distinct_id: str | MixpanelIdentity, properties: dict[str, Any]
+    ) -> None:
         dispatch_exposure(
             self._tracker, self._config.exposure_executor, distinct_id, properties
         )

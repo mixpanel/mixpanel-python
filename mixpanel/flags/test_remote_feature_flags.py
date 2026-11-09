@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
@@ -11,6 +12,7 @@ import pytest
 import respx
 
 from mixpanel.credentials import ServiceAccountCredentials
+from mixpanel.identity import MixpanelIdentity
 
 from .remote_feature_flags import RemoteFeatureFlagsProvider
 from .types import (
@@ -652,3 +654,138 @@ def test_sync_context_manager_exit_closes_both_clients():
 
     assert provider._sync_client.is_closed
     assert provider._async_client.is_closed
+
+
+# Hierarchical groups: exposure attribution.
+
+HG_CONTEXT = {"$user_id": "user-123", "$company_id": "acme"}
+HG_IDENTITY = MixpanelIdentity(user_id="user-123", company_id="acme")
+
+
+def mock_treatment_response():
+    return respx.get(ENDPOINT).mock(
+        return_value=create_success_response(
+            {"test_flag": SelectedVariant(variant_key="treatment", variant_value="t")}
+        )
+    )
+
+
+async def drain_pending_tasks():
+    pending = [
+        task
+        for task in asyncio.all_tasks()
+        if not task.done() and task != asyncio.current_task()
+    ]
+    if pending:
+        await asyncio.gather(*pending, return_exceptions=True)
+
+
+class TestRemoteFlagsHierarchicalGroups:
+    @pytest.fixture(autouse=True)
+    async def setup_method(self):
+        self.tracker = Mock()
+        self._flags = RemoteFeatureFlagsProvider(
+            "test-token",
+            RemoteFlagsConfig(),
+            "1.0.0",
+            self.tracker,
+            hierarchical_groups=True,
+        )
+        self._legacy = RemoteFeatureFlagsProvider(
+            "test-token", RemoteFlagsConfig(), "1.0.0", self.tracker
+        )
+        yield
+        await self._flags.__aexit__(None, None, None)
+        await self._legacy.__aexit__(None, None, None)
+
+    @respx.mock
+    def test_context_is_forwarded_and_exposure_carries_user_and_company(self):
+        route = mock_treatment_response()
+        assert self._flags.get_variant_value("test_flag", "fallback", HG_CONTEXT) == "t"
+
+        sent_context = json.loads(route.calls.last.request.url.params["context"])
+        assert sent_context == HG_CONTEXT
+        identity, event, properties = self.tracker.call_args.args
+        assert identity == HG_IDENTITY
+        assert event == "$experiment_started"
+        assert properties["Flag evaluation mode"] == "remote"
+
+    @respx.mock
+    async def test_async_exposure_carries_user_and_company(self):
+        mock_treatment_response()
+        await self._flags.aget_variant_value("test_flag", "fallback", HG_CONTEXT)
+        await drain_pending_tasks()
+        assert self.tracker.call_args.args[0] == HG_IDENTITY
+
+    @respx.mock
+    def test_exposure_carries_distinct_id_when_sent(self):
+        mock_treatment_response()
+        self._flags.get_variant_value(
+            "test_flag", "fallback", {**HG_CONTEXT, "distinct_id": "d1"}
+        )
+        assert self.tracker.call_args.args[0] == MixpanelIdentity(
+            distinct_id="d1", user_id="user-123", company_id="acme"
+        )
+
+    @respx.mock
+    def test_exposure_keeps_user_id_without_company(self):
+        mock_treatment_response()
+        self._flags.get_variant_value(
+            "test_flag", "fallback", {"distinct_id": "d1", "$user_id": "user-123"}
+        )
+        assert self.tracker.call_args.args[0] == MixpanelIdentity(
+            distinct_id="d1", user_id="user-123"
+        )
+
+    @respx.mock
+    def test_exposure_without_company_or_distinct_id_is_not_tracked(self):
+        mock_treatment_response()
+        result = self._flags.get_variant_value(
+            "test_flag", "fallback", {"$user_id": "user-123"}
+        )
+        assert result == "t"
+        self.tracker.assert_not_called()
+
+    def test_manual_exposure_uses_identity(self):
+        variant = SelectedVariant(variant_key="treatment", variant_value="t")
+        self._flags.track_exposure_event("test_flag", variant, HG_CONTEXT)
+        assert self.tracker.call_args.args[0] == HG_IDENTITY
+
+    async def test_async_manual_exposure_uses_identity(self):
+        variant = SelectedVariant(variant_key="treatment", variant_value="t")
+        await self._flags.atrack_exposure_event("test_flag", variant, HG_CONTEXT)
+        assert self.tracker.call_args.args[0] == HG_IDENTITY
+
+    async def test_manual_exposure_names_company_id_when_unattributable(self, caplog):
+        variant = SelectedVariant(variant_key="treatment", variant_value="t")
+        self._flags.track_exposure_event("test_flag", variant, {"$user_id": "u"})
+        await self._flags.atrack_exposure_event("test_flag", variant, {})
+        self.tracker.assert_not_called()
+        messages = [r.getMessage() for r in caplog.records]
+        assert (
+            messages.count(
+                "Cannot track exposure event without a $company_id in the context"
+            )
+            == 2
+        )
+
+    @respx.mock
+    def test_legacy_exposure_is_unchanged(self, caplog):
+        mock_treatment_response()
+        self._legacy.get_variant_value(
+            "test_flag", "fallback", {**HG_CONTEXT, "distinct_id": "user-123"}
+        )
+        distinct_id, _, properties = self.tracker.call_args.args
+        assert distinct_id == "user-123"
+        assert "$company_id" not in properties
+        assert "$user_id" not in properties
+
+        self.tracker.reset_mock()
+        variant = SelectedVariant(variant_key="treatment", variant_value="t")
+        self._legacy.track_exposure_event("test_flag", variant, HG_CONTEXT)
+        self.tracker.assert_not_called()
+        assert any(
+            r.getMessage()
+            == "Cannot track exposure event without a distinct_id in the context"
+            for r in caplog.records
+        )
