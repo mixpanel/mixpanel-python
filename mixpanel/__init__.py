@@ -30,7 +30,7 @@ from .credentials import ServiceAccountCredentials
 from .flags.local_feature_flags import LocalFeatureFlagsProvider
 from .flags.remote_feature_flags import RemoteFeatureFlagsProvider
 from .flags.types import LocalFlagsConfig, RemoteFlagsConfig
-from .identity import MixpanelIdentity, _parse_combined_distinct_id
+from .identity import MixpanelIdentity, _is_id, _parse_combined_distinct_id
 
 __version__ = "5.4.1"
 
@@ -41,42 +41,32 @@ logger = logging.getLogger(__name__)
 GROUP_OPERATIONS = ("$set", "$set_once", "$unset", "$union", "$remove", "$delete")
 
 # Keys of a /engage or /groups message that are not operations.
-_PEOPLE_NON_OPERATION_KEYS = frozenset(
+_NON_OPERATION_KEYS = frozenset(
     (
         "$token",
         "$time",
         "$distinct_id",
-        "$ip",
-        "$ignore_time",
-        "$ignore_alias",
-        "$latitude",
-        "$longitude",
-    )
-)
-_GROUP_NON_OPERATION_KEYS = frozenset(
-    (
-        "$token",
-        "$time",
         "$group_key",
         "$group_id",
         "$company_id",
         "$ip",
         "$ignore_time",
         "$ignore_alias",
+        "$mp_metadata",
         "$latitude",
         "$longitude",
     )
 )
 
 
-def _unsupported_operations(message, non_operation_keys):
+def _unsupported_operations(message):
     """Return the $-prefixed operation keys of ``message`` that /groups lacks."""
     return [
         key
         for key in message
         if isinstance(key, str)
         and key.startswith("$")
-        and key not in non_operation_keys
+        and key not in _NON_OPERATION_KEYS
         and key not in GROUP_OPERATIONS
     ]
 
@@ -193,8 +183,10 @@ class Mixpanel:
     def for_company(self, company_id):
         """Return a client that adds ``$company_id`` to every group profile update.
 
-        :param str company_id: the id of the top-level company
-        :raises ValueError: if ``company_id`` is empty or None
+        :param company_id: the id of the top-level company, sent as given
+        :type company_id: str or int
+        :raises ValueError: if ``company_id`` is empty or None, or not a string
+            or an integer
 
         Hierarchical groups projects require ``$company_id`` on every
         ``/groups`` write, including the company's own profile and user
@@ -217,8 +209,11 @@ class Mixpanel:
         without a company uses the bound company, and a bound client raises
         ``ValueError`` for a user from another company.
         """
-        if not company_id:
+        if company_id is None or company_id == "":
             raise ValueError("company_id must be non-empty")
+        if not _is_id(company_id):
+            msg = f"company_id must be a string or an integer, not {company_id!r}"
+            raise ValueError(msg)
         bound = copy.copy(self)
         bound._company_id = company_id  # noqa: SLF001
         bound._owns_flag_providers = False  # noqa: SLF001
@@ -307,7 +302,7 @@ class Mixpanel:
 
         For a :class:`~.MixpanelIdentity`, its keys replace any values for the
         same keys in ``properties``, and ``distinct_id`` is sent only if the
-        identity has one.
+        identity has one or ``properties`` carries one.
         """
         all_properties = self._event_properties(distinct_id, self._now(), properties)
         event = {
@@ -719,7 +714,7 @@ class Mixpanel:
         .. _`user profiles documentation`: https://developer.mixpanel.com/reference/user-profiles
         """
         if self._hierarchical_groups:
-            unsupported = _unsupported_operations(message, _PEOPLE_NON_OPERATION_KEYS)
+            unsupported = _unsupported_operations(message)
             if unsupported:
                 raise _unsupported_people_operation(unsupported[0])
             self._send_combined_user_update(message, meta)
@@ -770,7 +765,7 @@ class Mixpanel:
         if (
             company_id is not None
             and self._company_id is not None
-            and company_id != self._company_id
+            and str(company_id) != str(self._company_id)
         ):
             msg = (
                 f"This client is bound to company {self._company_id!r}, but "
@@ -1078,7 +1073,7 @@ class Mixpanel:
         if meta:
             record.update(meta)
         if self._hierarchical_groups:
-            unsupported = _unsupported_operations(record, _GROUP_NON_OPERATION_KEYS)
+            unsupported = _unsupported_operations(record)
             if unsupported:
                 raise unsupported_error(unsupported[0])
         if (

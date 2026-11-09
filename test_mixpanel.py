@@ -663,6 +663,28 @@ class TestHierarchicalGroups:
             with pytest.raises(ValueError, match=name):
                 mixpanel.MixpanelIdentity(**{name: ""})
 
+    def test_identity_accepts_string_and_integer_ids_as_given(self):
+        identity = mixpanel.MixpanelIdentity(
+            distinct_id=0, user_id=42, company_id=7, device_id="dev"
+        )
+
+        assert identity.distinct_id == 0
+        assert identity.user_id == 42
+        assert identity.company_id == 7
+        assert identity.device_id == "dev"
+
+        self.hg.track(identity, "event")
+        properties = self.last_properties()
+        assert properties["distinct_id"] == 0
+        assert properties["$user_id"] == 42
+        assert properties["$company_id"] == 7
+
+    def test_identity_rejects_other_id_types(self):
+        for name in ("distinct_id", "user_id", "company_id", "device_id"):
+            for value in (True, False, 1.5, ["a"], {"a": 1}, b"a"):
+                with pytest.raises(ValueError, match=name):
+                    mixpanel.MixpanelIdentity(**{name: value})
+
     def test_identity_needs_at_least_one_value(self):
         with pytest.raises(ValueError, match="at least one"):
             mixpanel.MixpanelIdentity()
@@ -761,6 +783,20 @@ class TestHierarchicalGroups:
         )
 
         assert self.consumer.log[0] == self.consumer.log[1]
+
+    def test_identity_without_distinct_id_keeps_caller_distinct_id(self):
+        self.hg.track(
+            mixpanel.MixpanelIdentity(user_id="user_123", company_id="acme"),
+            "Signup",
+            {"distinct_id": "caller"},
+        )
+        assert self.last_properties()["distinct_id"] == "caller"
+
+        self.hg.track(
+            mixpanel.MixpanelIdentity(user_id="user_123", company_id="acme"),
+            "Signup",
+        )
+        assert "distinct_id" not in self.last_properties()
 
     def test_identity_overrides_caller_supplied_keys_and_keeps_other_properties(self):
         caller = {"$company_id": "wrong", "plan": "enterprise"}
@@ -1505,6 +1541,71 @@ class TestHierarchicalGroups:
             self.hg.for_company("")
         with pytest.raises(ValueError, match="company_id"):
             self.hg.for_company(None)
+
+    def test_for_company_accepts_integers_including_zero(self):
+        for company_id in (0, 7):
+            self.hg.for_company(company_id).company_set({"tier": "pro"})
+            message = self.last_message()
+            assert message["$company_id"] == company_id
+            assert message["$group_id"] == company_id
+
+    def test_for_company_rejects_other_types(self):
+        for company_id in (True, False, 1.5, ["acme"], {"id": "acme"}):
+            with pytest.raises(ValueError, match="company_id"):
+                self.hg.for_company(company_id)
+
+    def test_bound_company_compares_ids_as_strings(self):
+        bound = self.hg.for_company(7)
+        bound.people_set(
+            mixpanel.MixpanelIdentity(user_id="user_123", company_id="7"), {"a": 1}
+        )
+        assert self.last_message()["$company_id"] == "7"
+        bound.people_set("$company:7|$user:user_123", {"a": 1})
+        assert self.last_message()["$company_id"] == "7"
+        self.hg.for_company("7").people_set(
+            mixpanel.MixpanelIdentity(user_id=1, company_id=7), {"a": 1}
+        )
+        assert self.last_message()["$company_id"] == 7
+        with pytest.raises(ValueError, match="bound to company 8"):
+            self.hg.for_company(8).people_set(
+                mixpanel.MixpanelIdentity(user_id=1, company_id=7), {"a": 1}
+            )
+
+    def test_people_update_allows_non_operation_keys(self):
+        self.hg.people_update(
+            {
+                "$distinct_id": self.COMBINED_ID,
+                "$company_id": "acme",
+                "$group_key": "$user_id",
+                "$group_id": "user_123",
+                "$ignore_alias": True,
+                "$mp_metadata": {},
+                "$set": {"plan": "pro"},
+            }
+        )
+
+        endpoint, message = self.last()
+        assert endpoint == "groups"
+        assert message["$company_id"] == "acme"
+        assert message["$group_id"] == "user_123"
+        assert message["$set"] == {"plan": "pro"}
+
+    def test_group_update_allows_non_operation_keys_and_refuses_others(self):
+        acme = self.hg.for_company("acme")
+        acme.group_update(
+            {
+                "$group_key": "company",
+                "$group_id": "acme",
+                "$distinct_id": "x",
+                "$mp_metadata": {},
+                "$set": {"seats": 1},
+            }
+        )
+        assert self.last_message()["$set"] == {"seats": 1}
+        with pytest.raises(mixpanel.UnsupportedOperationError, match=r"\$foo"):
+            acme.group_update({"$group_key": "company", "$group_id": "acme", "$foo": 1})
+        with pytest.raises(mixpanel.UnsupportedOperationError, match=r"\$foo"):
+            self.hg.people_update({"$distinct_id": self.COMBINED_ID, "$foo": 1})
 
     def test_for_company_keeps_add_and_append_rejected(self):
         with pytest.raises(mixpanel.UnsupportedOperationError):

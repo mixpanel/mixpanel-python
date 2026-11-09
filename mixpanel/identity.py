@@ -1,7 +1,7 @@
 """The identity an event or profile update belongs to."""
 
 from dataclasses import dataclass, fields
-from typing import Optional
+from typing import Optional, Union
 
 # Field name -> property key it is sent as
 _IDENTITY_KEYS = (
@@ -21,6 +21,11 @@ _FLAG_CONTEXT_KEYS = (
 
 _COMBINED_COMPANY_PREFIX = "$company:"
 _COMBINED_USER_SEPARATOR = "|$user:"
+
+
+def _is_id(value) -> bool:
+    """True if ``value`` is an id type: a string or an integer, not a bool."""
+    return isinstance(value, (str, int)) and not isinstance(value, bool)
 
 
 def _parse_combined_distinct_id(distinct_id) -> Optional[tuple]:
@@ -72,27 +77,34 @@ class MixpanelIdentity:
 
     Instances are immutable.
 
-    :param str distinct_id: a distinct id Mixpanel resolves directly
-    :param str user_id: the user's id; on a hierarchical groups project it only
+    Each id is a string or an integer and is sent as given.
+
+    :param distinct_id: a distinct id Mixpanel resolves directly
+    :type distinct_id: str or int
+    :param user_id: the user's id; on a hierarchical groups project it only
         needs to be unique within the company
-    :param str company_id: the id of the top-level company, on a hierarchical
+    :type user_id: str or int
+    :param company_id: the id of the top-level company, on a hierarchical
         groups project
-    :param str device_id: the client's device id
-    :raises ValueError: if a value is an empty string, or no value is set
+    :type company_id: str or int
+    :param device_id: the client's device id
+    :type device_id: str or int
+    :raises ValueError: if a value is an empty string or not a string or an
+        integer, or no value is set
     """
 
-    distinct_id: Optional[str]
-    user_id: Optional[str]
-    company_id: Optional[str]
-    device_id: Optional[str]
+    distinct_id: Optional[Union[str, int]]
+    user_id: Optional[Union[str, int]]
+    company_id: Optional[Union[str, int]]
+    device_id: Optional[Union[str, int]]
 
     def __init__(
         self,
         *,
-        distinct_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-        company_id: Optional[str] = None,
-        device_id: Optional[str] = None,
+        distinct_id: Optional[Union[str, int]] = None,
+        user_id: Optional[Union[str, int]] = None,
+        company_id: Optional[Union[str, int]] = None,
+        device_id: Optional[Union[str, int]] = None,
     ):
         values = {
             "distinct_id": distinct_id,
@@ -102,6 +114,9 @@ class MixpanelIdentity:
         }
         for name, value in values.items():
             # None leaves the value unset; an empty string is a caller error.
+            if value is not None and not _is_id(value):
+                msg = f"{name} must be a string or an integer, not {value!r}"
+                raise ValueError(msg)
             if value == "":
                 msg = f"{name} must be non-empty"
                 raise ValueError(msg)

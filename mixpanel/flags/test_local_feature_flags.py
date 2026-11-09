@@ -1465,12 +1465,28 @@ class TestLocalFlagsHierarchicalGroups:
         identity = self.tracker.call_args.args[0]
         assert identity == MixpanelIdentity(distinct_id="user-123")
 
-    def test_exposure_omits_user_id_without_company(self):
+    def test_exposure_keeps_user_id_without_company(self):
         provider = self.provider([raw_flag()])
         provider.get_variant_value(
             HG_FLAG_KEY, "fallback", {"distinct_id": "d1", "$user_id": "user-123"}
         )
-        assert self.tracker.call_args.args[0] == MixpanelIdentity(distinct_id="d1")
+        assert self.tracker.call_args.args[0] == MixpanelIdentity(
+            distinct_id="d1", user_id="user-123"
+        )
+
+    def test_exposure_without_company_through_client_track_keeps_user_id(self):
+        consumer = Mock()
+        mp = Mixpanel("test-token", consumer=consumer, hierarchical_groups=True)
+        provider = self.provider([raw_flag()], tracker=mp.track)
+        provider.get_variant_value(
+            HG_FLAG_KEY, "fallback", {"distinct_id": "d1", "$user_id": "user-123"}
+        )
+        endpoint, message = consumer.send.call_args.args
+        properties = json.loads(message)["properties"]
+        assert endpoint == "events"
+        assert properties["distinct_id"] == "d1"
+        assert properties["$user_id"] == "user-123"
+        assert "$company_id" not in properties
 
     def test_exposure_without_company_or_distinct_id_is_dropped(self, caplog):
         provider = self.provider([raw_flag(context="device_id")])

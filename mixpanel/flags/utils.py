@@ -128,9 +128,7 @@ def exposure_identity(
         return None
     return MixpanelIdentity(
         distinct_id=str(distinct_id) if distinct_id else None,
-        # A $user_id without its company names a separate user, which the
-        # client's track() rejects, so it is sent only alongside one.
-        user_id=_present(context.get("$user_id")) if company_id else None,
+        user_id=_present(context.get("$user_id")),
         company_id=company_id,
     )
 

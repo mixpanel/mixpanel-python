@@ -728,6 +728,16 @@ class TestRemoteFlagsHierarchicalGroups:
         )
 
     @respx.mock
+    def test_exposure_keeps_user_id_without_company(self):
+        mock_treatment_response()
+        self._flags.get_variant_value(
+            "test_flag", "fallback", {"distinct_id": "d1", "$user_id": "user-123"}
+        )
+        assert self.tracker.call_args.args[0] == MixpanelIdentity(
+            distinct_id="d1", user_id="user-123"
+        )
+
+    @respx.mock
     def test_exposure_without_company_or_distinct_id_is_not_tracked(self):
         mock_treatment_response()
         result = self._flags.get_variant_value(
