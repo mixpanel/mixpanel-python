@@ -1098,14 +1098,48 @@ class TestHierarchicalGroups:
             },
         )
 
-    def test_people_update_parsed_company_wins(self):
-        self.hg.people_update(
-            {"$distinct_id": self.COMBINED_ID, "$set": {"plan": "pro"}},
-            meta={"$company_id": "other"},
-        )
+    def test_people_update_refuses_company_conflicting_with_distinct_id(self):
+        with pytest.raises(ValueError, match="conflicts with distinct id"):
+            self.hg.people_update(
+                {"$distinct_id": self.COMBINED_ID, "$set": {"plan": "pro"}},
+                meta={"$company_id": "other"},
+            )
+        assert self.consumer.log == []
 
+    def test_people_update_refuses_profile_keys_conflicting_with_distinct_id(self):
+        conflicts = (
+            {"$group_id": "bob"},
+            {"$group_key": "company"},
+            {"$company_id": "other"},
+        )
+        for conflict in conflicts:
+            with pytest.raises(ValueError, match="conflicts with distinct id"):
+                self.hg.people_update(
+                    {
+                        "$distinct_id": "$company:acme|$user:alice",
+                        "$delete": "",
+                        **conflict,
+                    }
+                )
+            with pytest.raises(ValueError, match="conflicts with distinct id"):
+                self.hg.people_update(
+                    {"$distinct_id": "$company:acme|$user:alice", "$delete": ""},
+                    meta=conflict,
+                )
+        assert self.consumer.log == []
+
+        self.hg.people_update(
+            {
+                "$distinct_id": "$company:acme|$user:alice",
+                "$group_key": "$user_id",
+                "$group_id": "alice",
+                "$delete": "",
+            },
+            meta={"$company_id": "acme"},
+        )
         message = self.last_message()
-        assert message["$group_id"] == "user_123"
+        assert message["$group_key"] == "$user_id"
+        assert message["$group_id"] == "alice"
         assert message["$company_id"] == "acme"
 
     def test_people_update_uses_distinct_id_from_meta(self):

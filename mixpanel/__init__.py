@@ -709,7 +709,9 @@ class Mixpanel:
             ``$set_once``, ``$unset``, ``$union``, ``$remove`` or ``$delete``
         :raises ValueError: on a hierarchical groups client, if the
             ``$distinct_id`` is missing or not of the form
-            ``$company:{company}|$user:{user}``
+            ``$company:{company}|$user:{user}``, or if ``message`` or ``meta``
+            carries a ``$group_key``, ``$group_id`` or ``$company_id`` that
+            differs from the user profile the distinct id names
 
         .. _`user profiles documentation`: https://developer.mixpanel.com/reference/user-profiles
         """
@@ -750,12 +752,29 @@ class Mixpanel:
             raise ValueError(msg)
         company_id, user_id = parsed
         self._require_bound_company(company_id, repr(distinct_id))
+        # The distinct id names the profile, so identity keys in the message or
+        # meta may only repeat it, never retarget the update to another profile.
+        parsed_keys = {
+            "$group_key": "$user_id",
+            "$group_id": user_id,
+            "$company_id": company_id,
+        }
+        for source in (message, meta or {}):
+            for key, expected in parsed_keys.items():
+                if key in source and str(source[key]) != str(expected):
+                    msg = (
+                        f"{key}={source[key]!r} conflicts with distinct id "
+                        f"{distinct_id!r}, which names {key}={expected!r}. "
+                        f"Nothing sent."
+                    )
+                    raise ValueError(msg)
+        replaced = ("$distinct_id", *parsed_keys)
         group_message = {"$group_key": "$user_id", "$group_id": user_id}
         group_message.update(
-            (key, value) for key, value in message.items() if key != "$distinct_id"
+            (key, value) for key, value in message.items() if key not in replaced
         )
         if meta:
-            meta = {key: value for key, value in meta.items() if key != "$distinct_id"}
+            meta = {key: value for key, value in meta.items() if key not in replaced}
         self._send_group_update(
             group_message, meta, company_id, _unsupported_people_operation
         )
