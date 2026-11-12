@@ -137,6 +137,9 @@ class MixpanelProvider(AbstractProvider):
                     user_context[k] = MixpanelProvider._unwrap_value(v)
             if evaluation_context.targeting_key:
                 user_context["targetingKey"] = evaluation_context.targeting_key
+        # SDK-448: marks exposures as coming from this provider. Set after the
+        # attributes so callers can't override it; older SDKs ignore the key.
+        user_context["$openfeature_provider"] = True
         return user_context
 
     def _resolve(  # noqa: C901 — type-coercion branches are intentional

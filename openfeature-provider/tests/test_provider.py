@@ -425,14 +425,40 @@ def test_forwards_full_context(provider, mock_flags):
     assert user_context == {
         "targetingKey": "user-456",
         "tier": "enterprise",
+        "$openfeature_provider": True,
     }
 
 
-def test_no_context_passes_empty_dict(provider, mock_flags):
+def test_no_context_passes_only_provider_marker(provider, mock_flags):
     setup_flag(mock_flags, "flag", "val")
     provider.resolve_string_details("flag", "default")
     _, _, user_context = mock_flags.get_variant.call_args[0]
-    assert user_context == {}
+    assert user_context == {"$openfeature_provider": True}
+
+
+# --- SDK-448: OpenFeature provider marker ---
+
+
+def test_context_includes_openfeature_provider_marker(provider, mock_flags):
+    setup_flag(mock_flags, "flag", "val")
+    ctx = EvaluationContext(targeting_key="user-123", attributes={"plan": "pro"})
+    provider.resolve_string_details("flag", "default", ctx)
+    _, _, user_context = mock_flags.get_variant.call_args[0]
+    assert user_context["$openfeature_provider"] is True
+
+
+@pytest.mark.parametrize("customer_value", [False, "false", None, {"x": 1}])
+def test_customer_attribute_cannot_override_provider_marker(
+    provider, mock_flags, customer_value
+):
+    setup_flag(mock_flags, "flag", "val")
+    ctx = EvaluationContext(
+        targeting_key="user-123",
+        attributes={"$openfeature_provider": customer_value},
+    )
+    provider.resolve_string_details("flag", "default", ctx)
+    _, _, user_context = mock_flags.get_variant.call_args[0]
+    assert user_context["$openfeature_provider"] is True
 
 
 # --- Variant key passthrough ---

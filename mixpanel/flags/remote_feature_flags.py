@@ -24,6 +24,7 @@ from .utils import (
     close_async_client_from_sync,
     dispatch_exposure,
     generate_traceparent,
+    mark_openfeature_exposure,
     prepare_common_query_params,
 )
 
@@ -156,6 +157,7 @@ class RemoteFeatureFlagsProvider:
                 properties = self._build_tracking_properties(
                     flag_key, selected_variant, start_time, end_time
                 )
+                mark_openfeature_exposure(properties, context)
                 asyncio.create_task(  # noqa: RUF006 - intentional fire-and-forget for exposure tracking
                     sync_to_async(self._tracker, thread_sensitive=False)(
                         distinct_id, EXPOSURE_EVENT, properties
@@ -195,6 +197,7 @@ class RemoteFeatureFlagsProvider:
         """
         if distinct_id := context.get("distinct_id"):
             properties = self._build_tracking_properties(flag_key, variant)
+            mark_openfeature_exposure(properties, context)
 
             await sync_to_async(self._tracker, thread_sensitive=False)(
                 distinct_id, EXPOSURE_EVENT, properties
@@ -281,6 +284,7 @@ class RemoteFeatureFlagsProvider:
                 properties = self._build_tracking_properties(
                     flag_key, selected_variant, start_time, end_time
                 )
+                mark_openfeature_exposure(properties, context)
                 self._dispatch_exposure(distinct_id, properties)
 
         except Exception as exc:
@@ -315,6 +319,7 @@ class RemoteFeatureFlagsProvider:
         """
         if distinct_id := context.get("distinct_id"):
             properties = self._build_tracking_properties(flag_key, variant)
+            mark_openfeature_exposure(properties, context)
             self._dispatch_exposure(distinct_id, properties)
         else:
             logger.error(
