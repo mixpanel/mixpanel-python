@@ -115,6 +115,45 @@ class TestRemoteFeatureFlagsProviderAsync:
         self.mock_tracker.assert_called_once()
 
     @respx.mock
+    @pytest.mark.parametrize(
+        ("extra_context", "expect_marker"),
+        [({"$openfeature_provider": True}, True), ({}, False)],
+    )
+    async def test_aget_variant_exposure_openfeature_provider_marker(
+        self, extra_context, expect_marker
+    ):
+        respx.get(ENDPOINT).mock(
+            return_value=create_success_response(
+                {
+                    "test_flag": SelectedVariant(
+                        variant_key="treatment", variant_value="treatment"
+                    )
+                }
+            )
+        )
+
+        await self._flags.aget_variant(
+            "test_flag",
+            SelectedVariant(variant_value="control"),
+            {"distinct_id": "user123", **extra_context},
+        )
+
+        pending = [
+            task
+            for task in asyncio.all_tasks()
+            if not task.done() and task != asyncio.current_task()
+        ]
+        if pending:
+            await asyncio.gather(*pending, return_exceptions=True)
+
+        self.mock_tracker.assert_called_once()
+        properties = self.mock_tracker.call_args[0][2]
+        if expect_marker:
+            assert properties["$openfeature_provider"] is True
+        else:
+            assert "$openfeature_provider" not in properties
+
+    @respx.mock
     async def test_get_variant_value_does_not_track_exposure_event_if_fallback(self):
         respx.get(ENDPOINT).mock(side_effect=httpx.RequestError("Network error"))
         await self._flags.aget_variant_value(
@@ -369,6 +408,37 @@ class TestRemoteFeatureFlagsProviderSync:
             "test_flag", "control", {"distinct_id": "user123"}
         )
         self.mock_tracker.assert_called_once()
+
+    @respx.mock
+    @pytest.mark.parametrize(
+        ("extra_context", "expect_marker"),
+        [({"$openfeature_provider": True}, True), ({}, False)],
+    )
+    def test_get_variant_exposure_openfeature_provider_marker(
+        self, extra_context, expect_marker
+    ):
+        respx.get(ENDPOINT).mock(
+            return_value=create_success_response(
+                {
+                    "test_flag": SelectedVariant(
+                        variant_key="treatment", variant_value="treatment"
+                    )
+                }
+            )
+        )
+
+        self._flags.get_variant(
+            "test_flag",
+            SelectedVariant(variant_value="control"),
+            {"distinct_id": "user123", **extra_context},
+        )
+
+        self.mock_tracker.assert_called_once()
+        properties = self.mock_tracker.call_args[0][2]
+        if expect_marker:
+            assert properties["$openfeature_provider"] is True
+        else:
+            assert "$openfeature_provider" not in properties
 
     @respx.mock
     def test_get_variant_value_does_not_track_exposure_event_if_fallback(self):
