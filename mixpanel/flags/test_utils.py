@@ -10,9 +10,11 @@ import pytest
 
 from .utils import (
     _log_tracker_future_exception,
+    allocation_bucket,
     close_async_client_from_sync,
     dispatch_exposure,
     generate_traceparent,
+    mixed_normalized_hash,
     normalized_hash,
 )
 
@@ -41,6 +43,22 @@ class TestUtils:
         assert result == expected_hash, (
             f"Expected hash of {expected_hash} for '{key}' with salt '{salt}', got {result}"
         )
+
+    @pytest.mark.parametrize(
+        ("key", "salt", "expected_bucket"),
+        [
+            # Matches FnvHashMixed("abc") == 0.37 in the flags Go service.
+            ("abc", "", 37),
+            ("user123", "checkoutsalt1", 32),
+            ("user456", "checkoutsalt1", 58),
+        ],
+    )
+    def test_allocation_bucket_for_known_inputs(self, key, salt, expected_bucket):
+        assert allocation_bucket(key, salt) == expected_bucket
+
+    def test_mixed_normalized_hash_for_known_input(self):
+        # Matches FnvHashMixed("abc") == 0.37 in the flags Go service.
+        assert mixed_normalized_hash("abc", "") == 0.37
 
     def test_dispatch_exposure_runs_inline_when_no_executor(self):
         tracker = MagicMock()

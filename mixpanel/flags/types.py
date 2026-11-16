@@ -74,6 +74,25 @@ class VariantOverride:
         return _from_payload(cls, payload)
 
 
+ROLLOUT_TYPE_EXPERIMENT = "experiment"
+EXPERIMENT_STATUS_DRAFT = "draft"
+
+
+@dataclass
+class AllocationRange:
+    """Half open range of allocation buckets, [start, end)."""
+
+    start: int
+    end: int
+
+    def contains(self, bucket: int) -> bool:
+        return self.start <= bucket < self.end
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "AllocationRange":
+        return _from_payload(cls, payload)
+
+
 @dataclass
 class Rollout:
     rollout_percentage: float
@@ -81,16 +100,38 @@ class Rollout:
     runtime_evaluation_rule: Optional[dict[Any, Any]] = None
     variant_override: Optional[VariantOverride] = None
     variant_splits: Optional[dict[str, float]] = None
+    # Set on the experiment entries of a multi-experiment flag. Those entries
+    # assign subjects by allocation bucket and ignore rollout_percentage.
+    type: Optional[str] = None
+    experiment_id: Optional[str] = None
+    experiment_status: Optional[str] = None
+    is_experiment_active: Optional[bool] = None
+    allocation: Optional[list[AllocationRange]] = None
+
+    def is_experiment(self) -> bool:
+        return self.type == ROLLOUT_TYPE_EXPERIMENT
+
+    def allocation_contains(self, bucket: int) -> bool:
+        return any(
+            allocation_range.contains(bucket)
+            for allocation_range in self.allocation or []
+        )
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "Rollout":
         variant_override = payload.get("variant_override")
+        allocation = payload.get("allocation")
         return _from_payload(
             cls,
             payload,
             variant_override=(
                 VariantOverride.from_dict(variant_override)
                 if variant_override is not None
+                else None
+            ),
+            allocation=(
+                [AllocationRange.from_dict(entry) for entry in allocation]
+                if allocation is not None
                 else None
             ),
         )
