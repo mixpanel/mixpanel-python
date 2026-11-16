@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import pathlib
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from dataclasses import asdict
 from itertools import chain, repeat
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import Mock, patch
 
 import httpx
@@ -16,6 +19,7 @@ from mixpanel.credentials import ServiceAccountCredentials
 
 from .local_feature_flags import LocalFeatureFlagsProvider
 from .types import (
+    AllocationRange,
     ExperimentationFlag,
     ExperimentationFlags,
     FlagTestUsers,
@@ -27,6 +31,9 @@ from .types import (
     VariantOverride,
     VariantSource,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 TEST_FLAG_KEY = "test_flag"
 DISTINCT_ID = "user123"
@@ -1094,3 +1101,239 @@ def test_sync_context_manager_exit_closes_both_clients():
 
     assert provider._sync_client.is_closed
     assert provider._async_client.is_closed
+
+
+# The golden vectors are the cross-SDK contract for multi-experiment flags. The
+# canonical copy lives in the analytics monorepo under
+# go/src/mixpanel.com/flags/api/handlers/testdata/.
+MULTI_EXPERIMENT_CASES = json.loads(
+    (
+        pathlib.Path(__file__).parent
+        / "test-data"
+        / "multi_experiment_flag_test_cases.json"
+    ).read_text()
+)["TestMultiExperimentFlagEvaluationScenarios"]
+
+MULTI_EXPERIMENT_FLAG_KEY = "checkout"
+MULTI_EXPERIMENT_HASH_SALT = "salt1"
+# Allocation buckets for MULTI_EXPERIMENT_FLAG_KEY with MULTI_EXPERIMENT_HASH_SALT.
+DISTINCT_ID_IN_BUCKET_9 = "user23"
+DISTINCT_ID_IN_BUCKET_62 = "user848"
+
+
+@contextmanager
+def provider_with_definitions(
+    flags_payload: list[dict[str, Any]], tracker: Mock | None = None
+) -> Iterator[LocalFeatureFlagsProvider]:
+    respx.get("https://api.mixpanel.com/flags/definitions").mock(
+        return_value=httpx.Response(status_code=200, json={"flags": flags_payload})
+    )
+    config = LocalFlagsConfig(enable_polling=False)
+    with LocalFeatureFlagsProvider(
+        "test-token", config, "1.0.0", tracker or Mock()
+    ) as provider:
+        provider.start_polling_for_definitions()
+        yield provider
+
+
+def get_multi_experiment_variant(
+    flags_payload: list[dict[str, Any]],
+    context: dict[str, Any],
+    tracker: Mock | None = None,
+) -> SelectedVariant:
+    with provider_with_definitions(flags_payload, tracker) as provider:
+        return provider.get_variant(
+            MULTI_EXPERIMENT_FLAG_KEY,
+            SelectedVariant(variant_value="fallback"),
+            context,
+        )
+
+
+def experiment_entry(
+    experiment_id: str,
+    allocation: list[tuple[int, int]],
+    experiment_status: str = "active",
+    **fields: Any,
+) -> dict[str, Any]:
+    return {
+        "type": "experiment",
+        "experiment_id": experiment_id,
+        "experiment_status": experiment_status,
+        "is_experiment_active": experiment_status == "active",
+        "allocation": [{"start": start, "end": end} for start, end in allocation],
+        "rollout_percentage": 0,
+        "variant_splits": {"control": 0.5, "treatment": 0.5},
+        **fields,
+    }
+
+
+def multi_experiment_flag_payload(
+    rollout: list[dict[str, Any]],
+    hash_salt: str | None = MULTI_EXPERIMENT_HASH_SALT,
+) -> dict[str, Any]:
+    return {
+        "id": "multi-experiment-1",
+        "project_id": 31,
+        "name": "Checkout",
+        "key": MULTI_EXPERIMENT_FLAG_KEY,
+        "status": "enabled",
+        "context": "distinct_id",
+        "hash_salt": hash_salt,
+        "ruleset": {
+            "variants": [
+                {"key": "control", "value": "control", "is_control": True},
+                {"key": "treatment", "value": "treatment", "is_control": False},
+            ],
+            "rollout": rollout,
+        },
+    }
+
+
+def without_empty_attribution(variant: SelectedVariant) -> dict[str, Any]:
+    """Shape a variant like the golden vectors, which omit empty experiment fields."""
+    fields = {
+        "variant_key": variant.variant_key,
+        "variant_value": variant.variant_value,
+        "experiment_id": variant.experiment_id,
+        "is_experiment_active": variant.is_experiment_active,
+    }
+    return {key: value for key, value in fields.items() if value not in (None, False)}
+
+
+@respx.mock
+@pytest.mark.parametrize("case", MULTI_EXPERIMENT_CASES, ids=lambda case: case["name"])
+def test_multi_experiment_flag_golden_vectors(case):
+    with provider_with_definitions(case["flags"]) as provider:
+        variants = provider.get_all_variants(case["context"])
+
+    assert {
+        flag_key: without_empty_attribution(variant)
+        for flag_key, variant in variants.items()
+    } == case["expected"]
+
+
+def test_rollout_parses_experiment_entry():
+    rollout = Rollout.from_dict(experiment_entry("e_cta", [(0, 10), (40, 50)]))
+
+    assert rollout.is_experiment()
+    assert rollout.experiment_id == "e_cta"
+    assert rollout.allocation == [
+        AllocationRange(start=0, end=10),
+        AllocationRange(start=40, end=50),
+    ]
+    assert rollout.allocation_contains(45)
+    assert not rollout.allocation_contains(10)
+
+
+@respx.mock
+def test_multi_experiment_flag_skips_draft_experiment():
+    flag = multi_experiment_flag_payload(
+        [experiment_entry("e_cta", [(0, 40)], experiment_status="draft")]
+    )
+
+    variant = get_multi_experiment_variant(
+        [flag], {"distinct_id": DISTINCT_ID_IN_BUCKET_9}
+    )
+
+    assert variant.variant_value == "fallback"
+    assert variant.variant_source == VariantSource.FALLBACK
+
+
+@respx.mock
+def test_multi_experiment_flag_without_hash_salt_serves_fallback():
+    flag = multi_experiment_flag_payload(
+        [experiment_entry("e_cta", [(0, 100)])], hash_salt=None
+    )
+
+    variant = get_multi_experiment_variant(
+        [flag], {"distinct_id": DISTINCT_ID_IN_BUCKET_9}
+    )
+
+    assert variant.variant_value == "fallback"
+
+
+@respx.mock
+def test_multi_experiment_flag_does_not_fall_through_when_runtime_rule_fails():
+    flag = multi_experiment_flag_payload(
+        [
+            experiment_entry(
+                "e_pro_only",
+                [(0, 50)],
+                runtime_evaluation_rule={"==": [{"var": "plan"}, "pro"]},
+            ),
+            experiment_entry("e_everyone", [(50, 100)]),
+        ]
+    )
+    context = {"distinct_id": DISTINCT_ID_IN_BUCKET_9}
+
+    with_matching_plan = get_multi_experiment_variant(
+        [flag], {**context, "custom_properties": {"plan": "Pro"}}
+    )
+    with_other_plan = get_multi_experiment_variant(
+        [flag], {**context, "custom_properties": {"plan": "free"}}
+    )
+
+    assert with_matching_plan.experiment_id == "e_pro_only"
+    assert with_other_plan.variant_value == "fallback"
+
+
+@respx.mock
+def test_multi_experiment_flag_tracks_exposure_with_experiment_entry_attribution():
+    tracker = Mock()
+    flag = multi_experiment_flag_payload(
+        [
+            experiment_entry("e_cta", [(0, 40)]),
+            experiment_entry("e_search", [(40, 65)], experiment_status="concluded"),
+        ]
+    )
+    flag["experiment_id"] = "flag-level-experiment"
+    flag["is_experiment_active"] = True
+
+    get_multi_experiment_variant(
+        [flag], {"distinct_id": DISTINCT_ID_IN_BUCKET_62}, tracker
+    )
+
+    exposure_properties = tracker.call_args.args[2]
+    assert exposure_properties["$experiment_id"] == "e_search"
+    assert exposure_properties["$is_experiment_active"] is False
+
+
+@respx.mock
+def test_multi_experiment_flag_variant_override_uses_experiment_entry_attribution():
+    flag = multi_experiment_flag_payload(
+        [
+            experiment_entry(
+                "e_shipped",
+                [(0, 100)],
+                experiment_status="concluded",
+                variant_override={"key": "treatment"},
+            )
+        ]
+    )
+
+    variant = get_multi_experiment_variant(
+        [flag], {"distinct_id": DISTINCT_ID_IN_BUCKET_9}
+    )
+
+    assert variant.variant_key == "treatment"
+    assert variant.experiment_id == "e_shipped"
+    assert variant.is_experiment_active is False
+
+
+@respx.mock
+def test_multi_experiment_flag_variant_depends_on_experiment_id():
+    # Same subject, flag, salt and allocation: only the experiment_id differs,
+    # and it is part of the variant hash input.
+    context = {"distinct_id": "user-1"}
+
+    first_experiment_variant = get_multi_experiment_variant(
+        [multi_experiment_flag_payload([experiment_entry("e_cta", [(0, 100)])])],
+        context,
+    )
+    second_experiment_variant = get_multi_experiment_variant(
+        [multi_experiment_flag_payload([experiment_entry("e_next", [(0, 100)])])],
+        context,
+    )
+
+    assert first_experiment_variant.variant_key == "treatment"
+    assert second_experiment_variant.variant_key == "control"

@@ -59,6 +59,48 @@ def normalized_hash(key: str, salt: str) -> float:
     return (hash_value % 100) / 100.0
 
 
+def allocation_bucket(key: str, salt: str) -> int:
+    """Compute the allocation bucket, 0 to 99, for a multi-experiment flag.
+
+    Uses the same mixed hash as mixed_normalized_hash, so every bucket bit
+    depends on every input byte.
+
+    :param key: The key to hash
+    :param salt: Salt to add to the hash
+    :return: Allocation bucket between 0 and 99
+    """
+    hash_value = _fmix64(_fnv1a64(key.encode("utf-8") + salt.encode("utf-8")))
+    return hash_value % 100
+
+
+def mixed_normalized_hash(key: str, salt: str) -> float:
+    """Compute a normalized hash from FNV-1a passed through the MurmurHash3 finalizer.
+
+    Every output bit depends on every input byte, so variant assignments for
+    experiments that share an allocation range are independent of each other.
+
+    :param key: The key to hash
+    :param salt: Salt to add to the hash
+    :return: Normalized hash value between 0.0 and 1.0
+    """
+    hash_value = _fmix64(_fnv1a64(key.encode("utf-8") + salt.encode("utf-8")))
+    return (hash_value % 100) / 100.0
+
+
+def _fmix64(hash_value: int) -> int:
+    """MurmurHash3 64-bit finalizer.
+
+    :param hash_value: 64-bit value to mix
+    :return: Mixed 64-bit value
+    """
+    hash_value ^= hash_value >> 33
+    hash_value = (hash_value * 0xFF51AFD7ED558CCD) & 0xFFFFFFFFFFFFFFFF
+    hash_value ^= hash_value >> 33
+    hash_value = (hash_value * 0xC4CEB9FE1A85EC53) & 0xFFFFFFFFFFFFFFFF
+    hash_value ^= hash_value >> 33
+    return hash_value
+
+
 def _fnv1a64(data: bytes) -> int:
     """FNV-1a 64-bit hash function.
 

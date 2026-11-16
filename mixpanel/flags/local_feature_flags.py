@@ -5,6 +5,7 @@ import copy
 import logging
 import threading
 import time
+from dataclasses import replace
 from datetime import datetime, timedelta
 from typing import Any, Callable
 
@@ -15,6 +16,7 @@ from mixpanel.credentials import ServiceAccountCredentials
 
 from . import custom_operators  # noqa: F401  (registers custom JsonLogic operators)
 from .types import (
+    EXPERIMENT_STATUS_DRAFT,
     ExperimentationFlag,
     ExperimentationFlags,
     FallbackReason,
@@ -25,9 +27,11 @@ from .types import (
 )
 from .utils import (
     REQUEST_HEADERS,
+    allocation_bucket,
     close_async_client_from_sync,
     dispatch_exposure,
     generate_traceparent,
+    mixed_normalized_hash,
     normalized_hash,
     prepare_common_query_params,
 )
@@ -309,18 +313,30 @@ class LocalFeatureFlagsProvider:
         flag_name: str,
         rollout: Rollout,
     ) -> SelectedVariant:
+        experiment_id, is_experiment_active = self._experiment_attribution(
+            flag_definition, rollout
+        )
+
         if rollout.variant_override and (
             variant := self._get_matching_variant(
                 rollout.variant_override.key, flag_definition
             )
         ):
-            return variant
+            return replace(
+                variant,
+                experiment_id=experiment_id,
+                is_experiment_active=is_experiment_active,
+            )
 
         stored_salt = (
             flag_definition.hash_salt if flag_definition.hash_salt is not None else ""
         )
-        salt = flag_name + stored_salt + "variant"
-        variant_hash = normalized_hash(str(context_value), salt)
+        if rollout.is_experiment():
+            salt = flag_name + stored_salt + (rollout.experiment_id or "") + "variant"
+            variant_hash = mixed_normalized_hash(str(context_value), salt)
+        else:
+            salt = flag_name + stored_salt + "variant"
+            variant_hash = normalized_hash(str(context_value), salt)
 
         variants = [
             copy.deepcopy(variant) for variant in flag_definition.ruleset.variants
@@ -341,9 +357,16 @@ class LocalFeatureFlagsProvider:
         return SelectedVariant(
             variant_key=selected.key,
             variant_value=selected.value,
-            experiment_id=flag_definition.experiment_id,
-            is_experiment_active=flag_definition.is_experiment_active,
+            experiment_id=experiment_id,
+            is_experiment_active=is_experiment_active,
         )
+
+    def _experiment_attribution(
+        self, flag_definition: ExperimentationFlag, rollout: Rollout
+    ) -> tuple[str | None, bool | None]:
+        if rollout.is_experiment():
+            return rollout.experiment_id, bool(rollout.is_experiment_active)
+        return flag_definition.experiment_id, flag_definition.is_experiment_active
 
     def _get_assigned_rollout(
         self,
@@ -352,20 +375,40 @@ class LocalFeatureFlagsProvider:
         context: dict[str, Any],
     ) -> Rollout | None:
         for index, rollout in enumerate(flag_definition.ruleset.rollout):
-            if flag_definition.hash_salt is not None:
-                salt = flag_definition.key + flag_definition.hash_salt + str(index)
+            if rollout.is_experiment():
+                is_in_rollout = self._is_context_in_experiment_allocation(
+                    flag_definition, context_value, rollout
+                )
             else:
-                salt = flag_definition.key + "rollout"
+                if flag_definition.hash_salt is not None:
+                    salt = flag_definition.key + flag_definition.hash_salt + str(index)
+                else:
+                    salt = flag_definition.key + "rollout"
 
-            rollout_hash = normalized_hash(str(context_value), salt)
+                rollout_hash = normalized_hash(str(context_value), salt)
+                is_in_rollout = rollout_hash < rollout.rollout_percentage
 
-            if (
-                rollout_hash < rollout.rollout_percentage
-                and self._is_runtime_rules_engine_satisfied(rollout, context)
+            if is_in_rollout and self._is_runtime_rules_engine_satisfied(
+                rollout, context
             ):
                 return rollout
 
         return None
+
+    def _is_context_in_experiment_allocation(
+        self,
+        flag_definition: ExperimentationFlag,
+        context_value: Any,
+        rollout: Rollout,
+    ) -> bool:
+        if rollout.experiment_status == EXPERIMENT_STATUS_DRAFT:
+            return False
+        if not flag_definition.hash_salt:
+            return False
+        bucket = allocation_bucket(
+            str(context_value), flag_definition.key + flag_definition.hash_salt
+        )
+        return rollout.allocation_contains(bucket)
 
     def lowercase_keys_and_values(self, val: Any) -> Any:
         if isinstance(val, str):
