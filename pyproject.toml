@@ -130,6 +130,9 @@ ignore = [
     "D",       # all docstring rules
     "PT018",   # pytest-composite-assertion
 ]
+"test_hierarchical_groups_scenarios.py" = [
+    "S101", "S105", "SLF001", "PLR2004", "D", "PT018",
+]
 "mixpanel/flags/test_*.py" = [
     "S101", "S105", "S106", "SLF001", "PLR2004",
     "D", "PT018", "B006",
