@@ -1151,18 +1151,6 @@ wheels = [
 ]
 
 [[package]]
-name = "json-logic"
-version = "0.7.0a0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "six" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/7d/05/5b516986c0706b7ae5f4b2155b1c32979479b378b55c0dd9bcc48e70fc5d/json_logic-0.7.0a0.tar.gz", hash = "sha256:84580b974bcfec7b00d63745f19ca363939fc2b93c579f578d41d7d10c12fe0c", size = 6295, upload-time = "2017-03-31T11:22:51.672Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/47/cc/65de2481a8b7fae1582c564527d47ecae82f9c9e7ba60ad570b012f22634/json_logic-0.7.0a0-py2.py3-none-any.whl", hash = "sha256:a7af2e3673212279b4c7b63d0b0ead5f6b3d89cef8970bdbf60595d3bc9dd819", size = 7552, upload-time = "2017-03-31T11:22:49.634Z" },
-]
-
-[[package]]
 name = "keyring"
 version = "25.7.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1329,7 +1317,6 @@ dependencies = [
     { name = "asgiref", version = "3.11.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "asgiref", version = "3.12.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "httpx" },
-    { name = "json-logic" },
     { name = "requests", version = "2.32.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "requests", version = "2.34.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
 ]
@@ -1366,7 +1353,6 @@ requires-dist = [
     { name = "build", marker = "extra == 'dev'" },
     { name = "ghp-import", marker = "extra == 'dev'" },
     { name = "httpx", specifier = ">=0.27.0" },
-    { name = "json-logic", specifier = "==0.7.0a0" },
     { name = "pre-commit", marker = "extra == 'dev'" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=8.4.1" },
     { name = "pytest-asyncio", marker = "extra == 'test'", specifier = ">=0.23.0" },

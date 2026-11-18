@@ -82,7 +82,7 @@ python -m ghp_import -n -p docs/_build/html
 
 4. **JSON Serialization**: Custom `DatetimeSerializer` handles datetime objects; extensible via `serializer` parameter
 
-5. **Runtime Rules Engine**: Local flags support runtime evaluation using json-logic library for dynamic targeting
+5. **Runtime Rules Engine**: Local flags support runtime evaluation using a vendored copy of json-logic 0.7.0a0 (`mixpanel/flags/_json_logic.py`) for dynamic targeting
 
 ## Testing Patterns
 
@@ -97,7 +97,6 @@ python -m ghp_import -n -p docs/_build/html
 - `requests>=2.4.2, <3`: HTTP client (sync)
 - `httpx>=0.27.0`: HTTP client (async)
 - `asgiref>=3.0.0`: Async utilities
-- `json-logic>=0.7.0a0`: Runtime rules evaluation
 
 ## Version Management
 
