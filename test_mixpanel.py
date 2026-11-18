@@ -4,11 +4,13 @@ import base64
 import datetime
 import decimal
 import json
+import logging
 import time
 from unittest.mock import patch
 from urllib import parse as urllib_parse
 
 import pytest
+import requests
 import responses
 from responses.matchers import urlencoded_params_matcher
 
@@ -854,6 +856,170 @@ class TestBufferedConsumer:
         assert len(self.log) == 0
         self.consumer.flush()
         assert self.log == [("imports", ["Event"], (None, "ZZZZZZ"))]
+
+
+FAILURE_RESPONSES = {
+    "timeout": {"body": requests.exceptions.ConnectTimeout("connect timed out")},
+    "5xx": {"body": "Internal server error", "status": 500},
+    "invalid_json": {"body": "<html>bad gateway</html>", "status": 200},
+}
+
+
+def _mixpanel_logs(caplog):
+    # Filter by logger name: flag-polling threads from other tests can log concurrently.
+    return [r for r in caplog.records if r.name == "mixpanel"]
+
+
+class TestRaiseOnError:
+    @pytest.mark.parametrize("failure", FAILURE_RESPONSES)
+    def test_consumer_raises_by_default(self, failure, caplog):
+        consumer = mixpanel.Consumer()
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.POST,
+                "https://api.mixpanel.com/track",
+                **FAILURE_RESPONSES[failure],
+            )
+            with pytest.raises(mixpanel.MixpanelException):
+                consumer.send("events", '{"foo":"bar"}')
+        assert not _mixpanel_logs(caplog)
+
+    @pytest.mark.parametrize("failure", FAILURE_RESPONSES)
+    def test_consumer_logs_instead_of_raising(self, failure, caplog):
+        consumer = mixpanel.Consumer(raise_on_error=False)
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.POST,
+                "https://api.mixpanel.com/track",
+                **FAILURE_RESPONSES[failure],
+            )
+            with caplog.at_level(logging.WARNING, logger="mixpanel"):
+                assert consumer.send("events", '{"foo":"bar"}') is False
+        [record] = _mixpanel_logs(caplog)
+        assert record.levelno == logging.WARNING
+        assert record.name == "mixpanel"
+        assert "events" in record.getMessage()
+
+    def test_consumer_success_unchanged_when_not_raising(self, caplog):
+        consumer = mixpanel.Consumer(raise_on_error=False)
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.POST,
+                "https://api.mixpanel.com/track",
+                json={"status": 1, "error": None},
+                status=200,
+            )
+            assert consumer.send("events", '{"foo":"bar"}') is None
+        assert not _mixpanel_logs(caplog)
+
+    def test_consumer_unknown_endpoint_still_raises(self):
+        consumer = mixpanel.Consumer(raise_on_error=False)
+        with pytest.raises(mixpanel.MixpanelException):
+            consumer.send("unknown", "1")
+
+    def test_raise_on_error_is_keyword_only(self):
+        with pytest.raises(TypeError):
+            mixpanel.Consumer(
+                *([None] * 5), "api.mixpanel.com", 4, 0.25, True, None, False
+            )
+
+    def test_track_does_not_raise_with_opt_in_consumer(self, caplog):
+        mp = mixpanel.Mixpanel(
+            "12345", consumer=mixpanel.Consumer(raise_on_error=False)
+        )
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.POST,
+                "https://api.mixpanel.com/track",
+                **FAILURE_RESPONSES["5xx"],
+            )
+            with caplog.at_level(logging.WARNING, logger="mixpanel"):
+                mp.track("player1", "button_press")
+        assert len(_mixpanel_logs(caplog)) == 1
+
+    @pytest.mark.parametrize("failure", FAILURE_RESPONSES)
+    def test_buffered_raises_by_default_and_keeps_batch(self, failure):
+        consumer = mixpanel.BufferedConsumer(2)
+        consumer.send("events", '"one"')
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.POST,
+                "https://api.mixpanel.com/track",
+                **FAILURE_RESPONSES[failure],
+            )
+            with pytest.raises(mixpanel.MixpanelException):
+                consumer.send("events", '"two"')
+        # Existing behaviour: the failed batch stays buffered.
+        assert consumer._buffers["events"] == ['"one"', '"two"']
+
+    @pytest.mark.parametrize("failure", FAILURE_RESPONSES)
+    def test_buffered_send_drops_failed_batch_when_not_raising(self, failure, caplog):
+        consumer = mixpanel.BufferedConsumer(2, raise_on_error=False)
+        consumer.send("events", '"one"')
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.POST,
+                "https://api.mixpanel.com/track",
+                **FAILURE_RESPONSES[failure],
+            )
+            with caplog.at_level(logging.WARNING, logger="mixpanel"):
+                assert consumer.send("events", '"two"') is False
+        assert consumer._buffers["events"] == []
+        [record] = _mixpanel_logs(caplog)
+        assert "Dropped 2 message(s)" in record.getMessage()
+
+    def test_buffered_flush_continues_other_endpoints_when_not_raising(self, caplog):
+        consumer = mixpanel.BufferedConsumer(10, retry_limit=0, raise_on_error=False)
+        consumer.send("events", '"event"')
+        consumer.send("people", '"update"')
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.POST,
+                "https://api.mixpanel.com/track",
+                **FAILURE_RESPONSES["5xx"],
+            )
+            rsps.add(
+                responses.POST,
+                "https://api.mixpanel.com/engage",
+                json={"status": 1, "error": None},
+                status=200,
+            )
+            with caplog.at_level(logging.WARNING, logger="mixpanel"):
+                assert consumer.flush() is False
+            assert len(rsps.calls) == 2
+        assert consumer._buffers == {
+            "events": [],
+            "people": [],
+            "groups": [],
+            "imports": [],
+        }
+        assert len(_mixpanel_logs(caplog)) == 1
+
+    def test_buffered_flush_success_when_not_raising(self, caplog):
+        consumer = mixpanel.BufferedConsumer(10, raise_on_error=False)
+        consumer.send("events", '"event"')
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.POST,
+                "https://api.mixpanel.com/track",
+                json={"status": 1, "error": None},
+                status=200,
+            )
+            assert consumer.flush() is None
+        assert not _mixpanel_logs(caplog)
+
+    def test_buffered_buffer_stays_bounded_during_outage(self):
+        consumer = mixpanel.BufferedConsumer(5, retry_limit=0, raise_on_error=False)
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.POST,
+                "https://api.mixpanel.com/track",
+                **FAILURE_RESPONSES["5xx"],
+            )
+            for i in range(100):
+                consumer.send("events", f'"{i}"')
+                assert len(consumer._buffers["events"]) < 5
+            assert len(rsps.calls) == 20
 
 
 class TestFunctional:
