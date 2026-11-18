@@ -732,6 +732,73 @@ class TestHierarchicalGroupsScenarios:
         self.assert_nothing_sent()
 
     @pytest.mark.parametrize(
+        ("distinct_id", "part"),
+        [
+            ("$company: |$user:", "company"),
+            ("$company: |$user:u", "company"),
+            ("$company:c|$user:  ", "user"),
+            ("$company:|$user:u", "company"),
+            ("$company:c|$user:", "user"),
+            ("$company:|$user:", "company"),
+        ],
+    )
+    def test_identity_with_blank_combined_distinct_id_is_rejected(
+        self, distinct_id, part
+    ):
+        message = f"distinct_id {distinct_id!r} names a blank {part}. Nothing sent"
+        identity = MixpanelIdentity(
+            distinct_id=distinct_id, user_id=USER_ID, company_id=COMPANY_ID
+        )
+        for send in (
+            lambda: self.mp.track(identity, "Signup"),
+            lambda: self.mp.import_data(None, identity, "Signup", 1000),
+        ):
+            with pytest.raises(ValueError, match="names a blank") as error:
+                send()
+            assert str(error.value) == message
+
+        self.assert_nothing_sent()
+
+    def test_identity_with_valid_combined_distinct_id_is_sent(self):
+        identity = MixpanelIdentity(
+            distinct_id=COMBINED_DISTINCT_ID, user_id=USER_ID, company_id=COMPANY_ID
+        )
+
+        self.mp.track(identity, "Signup")
+
+        self.assert_only_event(
+            "Signup",
+            event_properties(
+                distinct_id=COMBINED_DISTINCT_ID,
+                **{"$user_id": USER_ID, "$company_id": COMPANY_ID},
+            ),
+        )
+
+    @pytest.mark.parametrize(
+        "distinct_id", ["$company: |$user:", "$company:|$user:u", "$company:c|$user:"]
+    )
+    def test_identity_with_blank_combined_distinct_id_without_hierarchical_groups(
+        self, distinct_id
+    ):
+        mp = make_client(self.consumer, hierarchical_groups=False)
+
+        mp.track(MixpanelIdentity(distinct_id=distinct_id), "Signup")
+
+        self.assert_only_event("Signup", event_properties(distinct_id=distinct_id))
+
+    @pytest.mark.parametrize(
+        "distinct_id", ["$company:|$user:u", "$company:c|$user:", "$company: |$user:u"]
+    )
+    def test_exposure_with_blank_combined_distinct_id_is_dropped(self, distinct_id):
+        context = {
+            "distinct_id": distinct_id,
+            "$user_id": USER_ID,
+            "$company_id": COMPANY_ID,
+        }
+
+        assert exposure_identity(context, True) is None
+
+    @pytest.mark.parametrize(
         "distinct_id", ["user_123", "$device:abc", "$company:acme"]
     )
     def test_non_combined_distinct_id_is_sent_as_given(self, distinct_id):

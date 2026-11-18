@@ -251,6 +251,10 @@ class Mixpanel:
             identity = distinct_id
             self._require_identity_matches_project(identity)
             distinct_id = identity.distinct_id
+            if self._hierarchical_groups:
+                # Refuse a combined distinct id with a blank part, as a plain
+                # distinct id is refused; the identity's keys may differ from it.
+                _parse_combined_distinct_id(distinct_id)
 
         all_properties = {"token": self._token}
         if identity is None or distinct_id is not None:
