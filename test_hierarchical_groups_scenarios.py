@@ -374,6 +374,87 @@ class TestHierarchicalGroupsScenarios:
 
         self.assert_only_groups_update(team_update("$delete", ""))
 
+    # Company group id must match the company
+
+    @pytest.mark.parametrize(
+        "update",
+        [
+            lambda mp: mp.group_set("$company_id", "globex", {"plan": "pro"}),
+            lambda mp: mp.group_set_once("$company_id", "globex", {"plan": "pro"}),
+            lambda mp: mp.group_union("$company_id", "globex", {"regions": ["eu"]}),
+            lambda mp: mp.group_unset("$company_id", "globex", ["plan"]),
+            lambda mp: mp.group_remove("$company_id", "globex", {"regions": "eu"}),
+            lambda mp: mp.group_delete("$company_id", "globex"),
+        ],
+    )
+    def test_company_group_with_other_company_id_is_rejected(self, update):
+        with pytest.raises(ValueError, match="globex") as error:
+            update(self.company)
+
+        assert type(error.value) is ValueError
+        assert COMPANY_ID in str(error.value)
+        self.assert_nothing_sent()
+
+    def test_company_group_with_other_meta_company_is_rejected(self):
+        with pytest.raises(ValueError, match="globex") as error:
+            self.mp.group_set(
+                "$company_id", "globex", {"plan": "pro"}, meta={"$company_id": "acme"}
+            )
+
+        assert type(error.value) is ValueError
+        assert "acme" in str(error.value)
+        self.assert_nothing_sent()
+
+    def test_company_group_update_with_other_company_id_is_rejected(self):
+        message = {"$group_key": "$company_id", "$group_id": "globex", "$set": {}}
+
+        with pytest.raises(ValueError, match="globex"):
+            self.company.group_update(message)
+        with pytest.raises(ValueError, match="globex"):
+            self.mp.group_update({**message, "$company_id": "acme"})
+        with pytest.raises(ValueError, match="globex"):
+            self.mp.group_update(message, meta={"$company_id": "acme"})
+
+        self.assert_nothing_sent()
+
+    def test_company_group_with_matching_company_id_is_sent(self):
+        self.company.group_set("$company_id", COMPANY_ID, {"plan": "pro"})
+        self.company.company_set({"plan": "pro"})
+
+        assert self.consumer.log == [
+            ("groups", company_update("$set", {"plan": "pro"})),
+            ("groups", company_update("$set", {"plan": "pro"})),
+        ]
+
+    def test_company_group_compares_ids_as_strings(self):
+        self.mp.for_company(7).group_set("$company_id", "7", {"plan": "pro"})
+        self.mp.for_company("7").group_set("$company_id", 7, {"plan": "pro"})
+
+        assert self.consumer.log == [
+            (
+                "groups",
+                {
+                    "$token": TOKEN,
+                    "$time": NOW,
+                    "$group_key": "$company_id",
+                    "$group_id": "7",
+                    "$company_id": 7,
+                    "$set": {"plan": "pro"},
+                },
+            ),
+            (
+                "groups",
+                {
+                    "$token": TOKEN,
+                    "$time": NOW,
+                    "$group_key": "$company_id",
+                    "$group_id": 7,
+                    "$company_id": "7",
+                    "$set": {"plan": "pro"},
+                },
+            ),
+        ]
+
     # Unsupported / rejected
 
     def test_identify_without_company(self):
@@ -454,6 +535,22 @@ class TestHierarchicalGroupsScenarios:
             "$token": TOKEN,
             "$time": NOW,
             "$distinct_id": USER_ID,
+            "$set": {"plan": "pro"},
+        }
+
+    def test_company_group_with_other_company_id_without_hierarchical_groups(self):
+        mp = make_client(self.consumer, hierarchical_groups=False)
+
+        mp.for_company("acme").group_set("$company_id", "globex", {"plan": "pro"})
+
+        endpoint, message = self.only_sent()
+        assert endpoint == "groups"
+        assert message == {
+            "$token": TOKEN,
+            "$time": NOW,
+            "$group_key": "$company_id",
+            "$group_id": "globex",
+            "$company_id": "acme",
             "$set": {"plan": "pro"},
         }
 

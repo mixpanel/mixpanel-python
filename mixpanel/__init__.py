@@ -1070,6 +1070,11 @@ class Mixpanel:
         :raises CompanyRequiredError: on a hierarchical groups client, if no
             company is bound with :meth:`for_company` and neither ``message``
             nor ``meta`` carries a ``$company_id``
+        :raises ValueError: on a hierarchical groups client, if the
+            ``$group_key`` is ``$company_id`` and the ``$group_id`` differs
+            from the company (the bound company, else the ``$company_id`` in
+            ``message`` or ``meta``), since that company's profile would be
+            updated instead
 
         .. _`group profiles documentation`: https://developer.mixpanel.com/reference/group-profiles
         """
@@ -1106,6 +1111,21 @@ class Mixpanel:
                 f"group {message.get('$group_key')}={message.get('$group_id')}"
             )
             raise CompanyRequiredError(msg)
+        if self._hierarchical_groups and record.get("$group_key") == "$company_id":
+            # The top-level $company_id wins over $group_id for a company
+            # group, so a different id would update the wrong company.
+            company = company_id
+            if company is None:
+                company = record.get("$company_id")
+            group_id = record.get("$group_id")
+            if company not in (None, "") and str(company) != str(group_id):
+                msg = (
+                    f"Group $company_id={group_id!r} does not match company "
+                    f"{company!r}. A company profile is updated through "
+                    f"for_company({group_id!r}).company_set and the other "
+                    "company_* methods. Nothing sent"
+                )
+                raise ValueError(msg)
         # $company_id must be top-level, not inside the operation payload
         if company_id is not None:
             record["$company_id"] = company_id
