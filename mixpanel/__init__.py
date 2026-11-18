@@ -244,17 +244,37 @@ class Mixpanel:
             )
             raise ValueError(msg)
 
+    def _require_identity_distinct_id_agrees(self, identity):
+        """Refuse an identity whose combined distinct id names another profile.
+
+        On a hierarchical groups client, a ``$company:{company}|$user:{user}``
+        distinct id must not name a blank part, nor a company or user other
+        than the identity's own ``company_id`` or ``user_id``: events resolve
+        by those ids while profile updates follow the distinct id, so neither
+        can be chosen.
+        """
+        if not self._hierarchical_groups:
+            return
+        ids = {
+            name: value
+            for name, value in (
+                ("company_id", identity.company_id),
+                ("user_id", identity.user_id),
+            )
+            if value is not None
+        }
+        _require_matches_combined_distinct_id(
+            identity.distinct_id, (("company_id", ids), ("user_id", ids))
+        )
+
     def _event_properties(self, distinct_id, event_time, properties):
         """Build event properties for a distinct id or a MixpanelIdentity."""
         identity = None
         if isinstance(distinct_id, MixpanelIdentity):
             identity = distinct_id
             self._require_identity_matches_project(identity)
+            self._require_identity_distinct_id_agrees(identity)
             distinct_id = identity.distinct_id
-            if self._hierarchical_groups:
-                # Refuse a combined distinct id with a blank part, as a plain
-                # distinct id is refused; the identity's keys may differ from it.
-                _parse_combined_distinct_id(distinct_id)
 
         all_properties = {"token": self._token}
         if identity is None or distinct_id is not None:
@@ -833,6 +853,7 @@ class Mixpanel:
 
         identity = distinct_id
         self._require_identity_matches_project(identity)
+        self._require_identity_distinct_id_agrees(identity)
         if identity.distinct_id is not None:
             # On a hierarchical groups client, people_update sends a combined
             # distinct id to /groups as its company and user, and rejects any
@@ -1180,6 +1201,8 @@ _COMBINED_ID_PARTS = {
     "$group_id": "user",
     "$company_id": "company",
     "$user_id": "user",
+    "company_id": "company",
+    "user_id": "user",
 }
 # Keys a combined distinct id names on a user profile update
 _COMBINED_PROFILE_KEYS = ("$group_key", "$group_id", "$company_id")

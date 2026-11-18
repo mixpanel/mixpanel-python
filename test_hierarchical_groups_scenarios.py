@@ -775,6 +775,122 @@ class TestHierarchicalGroupsScenarios:
         )
 
     @pytest.mark.parametrize(
+        ("identity", "message"),
+        [
+            (
+                MixpanelIdentity(
+                    distinct_id="$company:acme|$user:old",
+                    user_id="new",
+                    company_id="acme",
+                ),
+                "distinct_id '$company:acme|$user:old' names user 'old', but "
+                "user_id is 'new'. Nothing sent",
+            ),
+            (
+                MixpanelIdentity(
+                    distinct_id="$company:acme|$user:u1",
+                    user_id="u1",
+                    company_id="other",
+                ),
+                "distinct_id '$company:acme|$user:u1' names company 'acme', but "
+                "company_id is 'other'. Nothing sent",
+            ),
+            (
+                MixpanelIdentity(distinct_id="$company:acme|$user:old", user_id="new"),
+                "distinct_id '$company:acme|$user:old' names user 'old', but "
+                "user_id is 'new'. Nothing sent",
+            ),
+            (
+                MixpanelIdentity(distinct_id="$company:1|$user:2", company_id=3),
+                "distinct_id '$company:1|$user:2' names company '1', but "
+                "company_id is 3. Nothing sent",
+            ),
+        ],
+    )
+    def test_identity_whose_combined_distinct_id_disagrees_is_rejected(
+        self, identity, message
+    ):
+        for send in (
+            lambda: self.mp.track(identity, "Signup"),
+            lambda: self.mp.import_data(None, identity, "Signup", 1000),
+            lambda: self.mp.people_set(identity, {"plan": "pro"}),
+            lambda: self.mp.people_set_once(identity, {"plan": "pro"}),
+            lambda: self.mp.people_unset(identity, ["plan"]),
+            lambda: self.mp.people_union(identity, {"tags": ["a"]}),
+            lambda: self.mp.people_remove(identity, {"tags": "a"}),
+            lambda: self.mp.people_delete(identity),
+        ):
+            with pytest.raises(ValueError, match="Nothing sent") as error:
+                send()
+            assert str(error.value) == message
+
+        self.assert_nothing_sent()
+
+    def test_identity_whose_combined_distinct_id_agrees_is_sent(self):
+        identity = MixpanelIdentity(
+            distinct_id="$company:42|$user:7", user_id=7, company_id=42
+        )
+
+        self.mp.track(identity, "Signup")
+        self.mp.people_delete(identity)
+
+        assert self.consumer.log == [
+            (
+                "events",
+                {
+                    "event": "Signup",
+                    "properties": event_properties(
+                        distinct_id="$company:42|$user:7",
+                        **{"$user_id": "7", "$company_id": "42"},
+                    ),
+                },
+            ),
+            (
+                "groups",
+                {
+                    "$token": TOKEN,
+                    "$time": NOW,
+                    "$group_key": "$user_id",
+                    "$group_id": "7",
+                    "$company_id": "42",
+                    "$delete": "",
+                },
+            ),
+        ]
+
+    def test_identity_whose_combined_distinct_id_disagrees_without_hierarchical_groups(
+        self,
+    ):
+        mp = make_client(self.consumer, hierarchical_groups=False)
+        identity = MixpanelIdentity(
+            distinct_id="$company:acme|$user:old", user_id="new"
+        )
+
+        mp.track(identity, "Signup")
+        mp.people_delete(identity)
+
+        assert self.consumer.log == [
+            (
+                "events",
+                {
+                    "event": "Signup",
+                    "properties": event_properties(
+                        distinct_id="$company:acme|$user:old", **{"$user_id": "new"}
+                    ),
+                },
+            ),
+            (
+                "people",
+                {
+                    "$token": TOKEN,
+                    "$time": NOW,
+                    "$distinct_id": "$company:acme|$user:old",
+                    "$delete": "",
+                },
+            ),
+        ]
+
+    @pytest.mark.parametrize(
         "distinct_id", ["$company: |$user:", "$company:|$user:u", "$company:c|$user:"]
     )
     def test_identity_with_blank_combined_distinct_id_without_hierarchical_groups(
