@@ -101,8 +101,8 @@ def prepare_common_query_params(
 
 
 def _present(value: Any) -> str | None:
-    """Return ``value`` as a string, or None if it is None or empty."""
-    if value is None or str(value) == "":
+    """Return ``value`` as a string, or None if it is None, empty or blank."""
+    if value is None or not str(value).strip():
         return None
     return str(value)
 

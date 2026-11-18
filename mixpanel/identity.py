@@ -28,12 +28,19 @@ def _is_id(value) -> bool:
     return isinstance(value, (str, int)) and not isinstance(value, bool)
 
 
+def _is_blank(value) -> bool:
+    """True if ``value`` is a non-empty string of only whitespace."""
+    return isinstance(value, str) and value != "" and not value.strip()
+
+
 def _parse_combined_distinct_id(distinct_id) -> Optional[tuple]:
     """Split a ``$company:{company}|$user:{user}`` distinct id.
 
     The company is the text up to the first ``|$user:`` and the user is
     everything after it. Returns ``(company_id, user_id)``, or None if
     ``distinct_id`` does not have that form or either part is empty.
+
+    :raises ValueError: if the company or the user is only whitespace
     """
     if not isinstance(distinct_id, str) or not distinct_id.startswith(
         _COMBINED_COMPANY_PREFIX
@@ -42,7 +49,13 @@ def _parse_combined_distinct_id(distinct_id) -> Optional[tuple]:
     company_id, separator, user_id = distinct_id[
         len(_COMBINED_COMPANY_PREFIX) :
     ].partition(_COMBINED_USER_SEPARATOR)
-    if not separator or not company_id or not user_id:
+    if not separator:
+        return None
+    for name, value in (("company", company_id), ("user", user_id)):
+        if _is_blank(value):
+            msg = f"distinct_id {distinct_id!r} names a blank {name}. Nothing sent"
+            raise ValueError(msg)
+    if not company_id or not user_id:
         return None
     return company_id, user_id
 
@@ -77,7 +90,9 @@ class MixpanelIdentity:
 
     Instances are immutable.
 
-    Each id is a string or an integer and is sent as given.
+    Each id is a string or an integer. On a hierarchical groups project,
+    ``user_id`` and ``company_id`` are sent as strings; otherwise ids are sent
+    as given.
 
     :param distinct_id: a distinct id Mixpanel resolves directly
     :type distinct_id: str or int
@@ -90,7 +105,8 @@ class MixpanelIdentity:
     :param device_id: the client's device id
     :type device_id: str or int
     :raises ValueError: if a value is an empty string or not a string or an
-        integer, or no value is set
+        integer, ``user_id`` or ``company_id`` is only whitespace, or no value
+        is set
     """
 
     distinct_id: Optional[Union[str, int]]
@@ -119,6 +135,9 @@ class MixpanelIdentity:
                 raise ValueError(msg)
             if value == "":
                 msg = f"{name} must be non-empty"
+                raise ValueError(msg)
+            if name in ("user_id", "company_id") and _is_blank(value):
+                msg = f"{name} must not be only whitespace, not {value!r}"
                 raise ValueError(msg)
             object.__setattr__(self, name, value)
         if all(value is None for value in values.values()):
@@ -163,11 +182,17 @@ class MixpanelIdentity:
             context["custom_properties"] = dict(custom_properties)
         return context
 
-    def _apply_to(self, properties: dict) -> None:
-        """Write this identity's keys into ``properties``, replacing any there."""
+    def _apply_to(self, properties: dict, *, string_ids: bool = False) -> None:
+        """Write this identity's keys into ``properties``, replacing any there.
+
+        With ``string_ids``, ``$user_id`` and ``$company_id`` are written as
+        strings, as hierarchical groups ingestion needs.
+        """
         for name, key in _IDENTITY_KEYS:
             value = getattr(self, name)
             if value is not None:
+                if string_ids and name in ("user_id", "company_id"):
+                    value = str(value)
                 properties[key] = value
 
     def __repr__(self):

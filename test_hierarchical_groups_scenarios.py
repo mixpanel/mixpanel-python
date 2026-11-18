@@ -13,6 +13,7 @@ import responses
 
 import mixpanel
 from mixpanel import MixpanelIdentity
+from mixpanel.flags.utils import exposure_identity
 
 USER_ID = "my_user_id"
 COMPANY_ID = "my_company_id"
@@ -438,7 +439,7 @@ class TestHierarchicalGroupsScenarios:
                     "$time": NOW,
                     "$group_key": "$company_id",
                     "$group_id": "7",
-                    "$company_id": 7,
+                    "$company_id": "7",
                     "$set": {"plan": "pro"},
                 },
             ),
@@ -454,6 +455,294 @@ class TestHierarchicalGroupsScenarios:
                 },
             ),
         ]
+
+    # $company_id in meta or the message must be a non-blank string or integer
+
+    @pytest.mark.parametrize("company", [{"x": 1}, True, 1.5, ["acme"], " ", "  "])
+    def test_invalid_meta_company_id_is_rejected(self, company):
+        with pytest.raises(ValueError, match=r"\$company_id must be") as error:
+            self.mp.group_set(
+                "team_id", TEAM_ID, {"name": "Core"}, meta={"$company_id": company}
+            )
+        assert type(error.value) is ValueError
+        with pytest.raises(ValueError, match=r"\$company_id must be"):
+            self.mp.group_update(
+                {
+                    "$group_key": "team_id",
+                    "$group_id": TEAM_ID,
+                    "$set": {},
+                    "$company_id": company,
+                }
+            )
+        with pytest.raises(ValueError, match=r"\$company_id must be"):
+            self.mp.people_set(
+                MixpanelIdentity(user_id=USER_ID),
+                {"plan": "pro"},
+                meta={"$company_id": company},
+            )
+
+        self.assert_nothing_sent()
+
+    def test_empty_meta_company_id_counts_as_missing(self):
+        with pytest.raises(mixpanel.CompanyRequiredError):
+            self.mp.group_set(
+                "team_id", TEAM_ID, {"name": "Core"}, meta={"$company_id": ""}
+            )
+
+        self.assert_nothing_sent()
+
+    def test_valid_meta_company_id_is_sent_unchanged(self):
+        self.mp.group_set(
+            "team_id", TEAM_ID, {"name": "Core"}, meta={"$company_id": COMPANY_ID}
+        )
+        self.mp.group_set("team_id", TEAM_ID, {"name": "Core"}, meta={"$company_id": 7})
+
+        assert self.consumer.log == [
+            ("groups", team_update("$set", {"name": "Core"})),
+            ("groups", {**team_update("$set", {"name": "Core"}), "$company_id": 7}),
+        ]
+
+    def test_invalid_meta_company_id_without_hierarchical_groups(self):
+        mp = make_client(self.consumer, hierarchical_groups=False)
+
+        mp.group_set(
+            "team_id", TEAM_ID, {"name": "Core"}, meta={"$company_id": {"x": 1}}
+        )
+        mp.group_set("team_id", TEAM_ID, {"name": "Core"}, meta={"$company_id": " "})
+
+        assert self.consumer.log == [
+            (
+                "groups",
+                {**team_update("$set", {"name": "Core"}), "$company_id": {"x": 1}},
+            ),
+            ("groups", {**team_update("$set", {"name": "Core"}), "$company_id": " "}),
+        ]
+
+    # Integer ids are sent as strings
+
+    def test_integer_identity_ids_are_sent_as_strings_on_events(self):
+        identity = MixpanelIdentity(user_id=3190316, company_id=3190317, device_id=5)
+
+        self.mp.track(identity, "Signup", {"count": 3, "$company_id": "ignored"})
+
+        self.assert_only_event(
+            "Signup",
+            event_properties(
+                **{
+                    "count": 3,
+                    "$user_id": "3190316",
+                    "$company_id": "3190317",
+                    "$device_id": 5,
+                }
+            ),
+        )
+
+    def test_integer_identity_ids_are_sent_as_strings_on_profiles(self):
+        self.mp.people_set(
+            MixpanelIdentity(user_id=3190316, company_id=3190317), {"plan": "pro"}
+        )
+        self.mp.for_company(3190317).people_set(
+            MixpanelIdentity(user_id=3190316), {"plan": "pro"}
+        )
+
+        expected = {
+            "$token": TOKEN,
+            "$time": NOW,
+            "$group_key": "$user_id",
+            "$group_id": "3190316",
+            "$company_id": "3190317",
+            "$set": {"plan": "pro"},
+        }
+        assert self.consumer.log == [("groups", expected), ("groups", expected)]
+
+    def test_integer_bound_company_is_sent_as_string(self):
+        company = self.mp.for_company(7)
+
+        company.company_set({"plan": "pro"})
+        company.group_set("team_id", 9, {"name": "Core"})
+
+        assert self.consumer.log == [
+            (
+                "groups",
+                {
+                    "$token": TOKEN,
+                    "$time": NOW,
+                    "$group_key": "$company_id",
+                    "$group_id": "7",
+                    "$company_id": "7",
+                    "$set": {"plan": "pro"},
+                },
+            ),
+            (
+                "groups",
+                {
+                    "$token": TOKEN,
+                    "$time": NOW,
+                    "$group_key": "team_id",
+                    "$group_id": 9,
+                    "$company_id": "7",
+                    "$set": {"name": "Core"},
+                },
+            ),
+        ]
+
+    def test_integer_ids_without_hierarchical_groups(self):
+        mp = make_client(self.consumer, hierarchical_groups=False)
+
+        mp.track(MixpanelIdentity(user_id=42, device_id=5), "Signup")
+        mp.for_company(7).company_set({"plan": "pro"})
+
+        assert self.consumer.log == [
+            (
+                "events",
+                {
+                    "event": "Signup",
+                    "properties": event_properties(**{"$user_id": 42, "$device_id": 5}),
+                },
+            ),
+            (
+                "groups",
+                {
+                    "$token": TOKEN,
+                    "$time": NOW,
+                    "$group_key": "$company_id",
+                    "$group_id": 7,
+                    "$company_id": 7,
+                    "$set": {"plan": "pro"},
+                },
+            ),
+        ]
+
+    # A combined distinct id must agree with the event's $company_id / $user_id
+
+    @pytest.mark.parametrize(
+        ("properties", "message"),
+        [
+            (
+                {"$company_id": "zz6"},
+                "distinct_id '$company:c6|$user:u6' names company 'c6', "
+                "but $company_id is 'zz6'. Nothing sent",
+            ),
+            (
+                {"$user_id": "zz6"},
+                "distinct_id '$company:c6|$user:u6' names user 'u6', "
+                "but $user_id is 'zz6'. Nothing sent",
+            ),
+        ],
+    )
+    def test_event_conflicting_with_combined_distinct_id_is_rejected(
+        self, properties, message
+    ):
+        with pytest.raises(ValueError, match="names") as error:
+            self.mp.track("$company:c6|$user:u6", "Signup", properties)
+        assert str(error.value) == message
+        with pytest.raises(ValueError, match="names"):
+            self.mp.import_data(None, "$company:c6|$user:u6", "Signup", 1, properties)
+
+        self.assert_nothing_sent()
+
+    def test_event_matching_combined_distinct_id_is_sent_unchanged(self):
+        self.mp.track(
+            "$company:7|$user:8", "Signup", {"$company_id": 7, "$user_id": "8"}
+        )
+
+        self.assert_only_event(
+            "Signup",
+            event_properties(
+                **{
+                    "distinct_id": "$company:7|$user:8",
+                    "$company_id": 7,
+                    "$user_id": "8",
+                }
+            ),
+        )
+
+    def test_event_with_plain_distinct_id_and_company_is_sent_unchanged(self):
+        self.mp.track(USER_ID, "Signup", {"$company_id": "zz6"})
+
+        self.assert_only_event(
+            "Signup", event_properties(**{"distinct_id": USER_ID, "$company_id": "zz6"})
+        )
+
+    def test_event_conflicting_with_combined_distinct_id_without_hierarchical_groups(
+        self,
+    ):
+        mp = make_client(self.consumer, hierarchical_groups=False)
+
+        mp.track("$company:c6|$user:u6", "Signup", {"$company_id": "zz6"})
+
+        self.assert_only_event(
+            "Signup",
+            event_properties(
+                **{"distinct_id": "$company:c6|$user:u6", "$company_id": "zz6"}
+            ),
+        )
+
+    def test_profile_conflicting_with_combined_distinct_id_is_rejected(self):
+        with pytest.raises(ValueError, match="names") as error:
+            self.mp.people_set(
+                "$company:c6|$user:u6", {"plan": "pro"}, meta={"$company_id": "zz6"}
+            )
+
+        assert str(error.value) == (
+            "distinct_id '$company:c6|$user:u6' names company 'c6', "
+            "but $company_id is 'zz6'. Nothing sent"
+        )
+        self.assert_nothing_sent()
+
+    # Whitespace-only ids
+
+    @pytest.mark.parametrize("hierarchical_groups", [True, False])
+    @pytest.mark.parametrize("blank", [" ", "  ", "\t"])
+    def test_blank_identity_and_bound_company_are_rejected(
+        self, hierarchical_groups, blank
+    ):
+        mp = make_client(self.consumer, hierarchical_groups=hierarchical_groups)
+
+        with pytest.raises(ValueError, match="user_id"):
+            MixpanelIdentity(user_id=blank)
+        with pytest.raises(ValueError, match="company_id"):
+            MixpanelIdentity(user_id=USER_ID, company_id=blank)
+        with pytest.raises(ValueError, match="company_id"):
+            mp.for_company(blank)
+
+    @pytest.mark.parametrize(
+        "distinct_id",
+        ["$company: |$user:", "$company: |$user:u", "$company:c|$user:  "],
+    )
+    def test_blank_combined_distinct_id_is_rejected(self, distinct_id):
+        with pytest.raises(ValueError, match="blank"):
+            self.mp.track(distinct_id, "Signup")
+        with pytest.raises(ValueError, match="blank"):
+            self.mp.people_set(distinct_id, {"plan": "pro"})
+
+        self.assert_nothing_sent()
+
+    def test_blank_combined_distinct_id_without_hierarchical_groups(self):
+        mp = make_client(self.consumer, hierarchical_groups=False)
+
+        mp.track("$company: |$user:", "Signup")
+
+        self.assert_only_event(
+            "Signup", event_properties(distinct_id="$company: |$user:")
+        )
+
+    def test_ids_with_surrounding_spaces_are_sent_unchanged(self):
+        self.mp.track(MixpanelIdentity(user_id=" u ", company_id=" c "), "Signup")
+        self.mp.track("$company: c |$user: u ", "Signup")
+
+        assert [message["properties"] for _, message in self.consumer.log] == [
+            event_properties(**{"$user_id": " u ", "$company_id": " c "}),
+            event_properties(distinct_id="$company: c |$user: u "),
+        ]
+
+    def test_blank_exposure_company_counts_as_missing(self):
+        assert (
+            exposure_identity({"$company_id": " ", "$user_id": USER_ID}, True) is None
+        )
+        assert exposure_identity(
+            {"$company_id": COMPANY_ID, "$user_id": " "}, True
+        ) == MixpanelIdentity(company_id=COMPANY_ID)
 
     # Unsupported / rejected
 

@@ -663,7 +663,7 @@ class TestHierarchicalGroups:
             with pytest.raises(ValueError, match=name):
                 mixpanel.MixpanelIdentity(**{name: ""})
 
-    def test_identity_accepts_string_and_integer_ids_as_given(self):
+    def test_identity_accepts_string_and_integer_ids(self):
         identity = mixpanel.MixpanelIdentity(
             distinct_id=0, user_id=42, company_id=7, device_id="dev"
         )
@@ -673,11 +673,13 @@ class TestHierarchicalGroups:
         assert identity.company_id == 7
         assert identity.device_id == "dev"
 
+        # Hierarchical groups ingestion drops an integer $user_id, so the user
+        # and company are sent as strings; other ids are sent as given.
         self.hg.track(identity, "event")
         properties = self.last_properties()
         assert properties["distinct_id"] == 0
-        assert properties["$user_id"] == 42
-        assert properties["$company_id"] == 7
+        assert properties["$user_id"] == "42"
+        assert properties["$company_id"] == "7"
 
     def test_identity_rejects_other_id_types(self):
         for name in ("distinct_id", "user_id", "company_id", "device_id"):
@@ -1099,7 +1101,7 @@ class TestHierarchicalGroups:
         )
 
     def test_people_update_refuses_company_conflicting_with_distinct_id(self):
-        with pytest.raises(ValueError, match="conflicts with distinct id"):
+        with pytest.raises(ValueError, match=r"names company 'acme', but \$company_id"):
             self.hg.people_update(
                 {"$distinct_id": self.COMBINED_ID, "$set": {"plan": "pro"}},
                 meta={"$company_id": "other"},
@@ -1113,7 +1115,7 @@ class TestHierarchicalGroups:
             {"$company_id": "other"},
         )
         for conflict in conflicts:
-            with pytest.raises(ValueError, match="conflicts with distinct id"):
+            with pytest.raises(ValueError, match=r"names .*, but \$"):
                 self.hg.people_update(
                     {
                         "$distinct_id": "$company:acme|$user:alice",
@@ -1121,7 +1123,7 @@ class TestHierarchicalGroups:
                         **conflict,
                     }
                 )
-            with pytest.raises(ValueError, match="conflicts with distinct id"):
+            with pytest.raises(ValueError, match=r"names .*, but \$"):
                 self.hg.people_update(
                     {"$distinct_id": "$company:acme|$user:alice", "$delete": ""},
                     meta=conflict,
@@ -1580,8 +1582,8 @@ class TestHierarchicalGroups:
         for company_id in (0, 7):
             self.hg.for_company(company_id).company_set({"tier": "pro"})
             message = self.last_message()
-            assert message["$company_id"] == company_id
-            assert message["$group_id"] == company_id
+            assert message["$company_id"] == str(company_id)
+            assert message["$group_id"] == str(company_id)
 
     def test_for_company_rejects_other_types(self):
         for company_id in (True, False, 1.5, ["acme"], {"id": "acme"}):
@@ -1599,7 +1601,7 @@ class TestHierarchicalGroups:
         self.hg.for_company("7").people_set(
             mixpanel.MixpanelIdentity(user_id=1, company_id=7), {"a": 1}
         )
-        assert self.last_message()["$company_id"] == 7
+        assert self.last_message()["$company_id"] == "7"
         with pytest.raises(ValueError, match="bound to company 8"):
             self.hg.for_company(8).people_set(
                 mixpanel.MixpanelIdentity(user_id=1, company_id=7), {"a": 1}

@@ -30,7 +30,12 @@ from .credentials import ServiceAccountCredentials
 from .flags.local_feature_flags import LocalFeatureFlagsProvider
 from .flags.remote_feature_flags import RemoteFeatureFlagsProvider
 from .flags.types import LocalFlagsConfig, RemoteFlagsConfig
-from .identity import MixpanelIdentity, _is_id, _parse_combined_distinct_id
+from .identity import (
+    MixpanelIdentity,
+    _is_blank,
+    _is_id,
+    _parse_combined_distinct_id,
+)
 
 __version__ = "5.4.1"
 
@@ -183,10 +188,11 @@ class Mixpanel:
     def for_company(self, company_id):
         """Return a client that adds ``$company_id`` to every group profile update.
 
-        :param company_id: the id of the top-level company, sent as given
+        :param company_id: the id of the top-level company, sent as a string
+            on a hierarchical groups client and as given otherwise
         :type company_id: str or int
-        :raises ValueError: if ``company_id`` is empty or None, or not a string
-            or an integer
+        :raises ValueError: if ``company_id`` is empty, only whitespace or
+            None, or not a string or an integer
 
         Hierarchical groups projects require ``$company_id`` on every
         ``/groups`` write, including the company's own profile and user
@@ -213,6 +219,9 @@ class Mixpanel:
             raise ValueError("company_id must be non-empty")
         if not _is_id(company_id):
             msg = f"company_id must be a string or an integer, not {company_id!r}"
+            raise ValueError(msg)
+        if _is_blank(company_id):
+            msg = f"company_id must not be only whitespace, not {company_id!r}"
             raise ValueError(msg)
         bound = copy.copy(self)
         bound._company_id = company_id  # noqa: SLF001
@@ -257,7 +266,14 @@ class Mixpanel:
         if properties:
             all_properties.update(properties)
         if identity is not None:
-            identity._apply_to(all_properties)  # noqa: SLF001
+            identity._apply_to(  # noqa: SLF001
+                all_properties, string_ids=self._hierarchical_groups
+            )
+        elif self._hierarchical_groups:
+            _require_matches_combined_distinct_id(
+                all_properties.get("distinct_id"),
+                (("$company_id", all_properties), ("$user_id", all_properties)),
+            )
         return all_properties
 
     def _now(self):
@@ -294,7 +310,8 @@ class Mixpanel:
             strings, and values should be strings, numbers, or booleans
         :param dict meta: overrides Mixpanel special properties
         :raises ValueError: if a :class:`~.MixpanelIdentity` does not suit
-            this project
+            this project, or a combined distinct id conflicts with
+            ``properties`` (see below)
 
         ``properties`` should describe the circumstances of the event, or
         aspects of the source or user associated with it. ``meta`` is used
@@ -302,7 +319,14 @@ class Mixpanel:
 
         For a :class:`~.MixpanelIdentity`, its keys replace any values for the
         same keys in ``properties``, and ``distinct_id`` is sent only if the
-        identity has one or ``properties`` carries one.
+        identity has one or ``properties`` carries one. On a hierarchical
+        groups client, its ``$user_id`` and ``$company_id`` are sent as
+        strings.
+
+        On a hierarchical groups client, a plain distinct id of the form
+        ``$company:{company}|$user:{user}`` raises ``ValueError`` if
+        ``properties`` carries a ``$company_id`` or ``$user_id`` that differs
+        from the company or user it names, or if either is only whitespace.
         """
         all_properties = self._event_properties(distinct_id, self._now(), properties)
         event = {
@@ -754,21 +778,12 @@ class Mixpanel:
         self._require_bound_company(company_id, repr(distinct_id))
         # The distinct id names the profile, so identity keys in the message or
         # meta may only repeat it, never retarget the update to another profile.
-        parsed_keys = {
-            "$group_key": "$user_id",
-            "$group_id": user_id,
-            "$company_id": company_id,
-        }
-        for source in (message, meta or {}):
-            for key, expected in parsed_keys.items():
-                if key in source and str(source[key]) != str(expected):
-                    msg = (
-                        f"{key}={source[key]!r} conflicts with distinct id "
-                        f"{distinct_id!r}, which names {key}={expected!r}. "
-                        f"Nothing sent."
-                    )
-                    raise ValueError(msg)
-        replaced = ("$distinct_id", *parsed_keys)
+        sources = (message, meta or {})
+        _require_matches_combined_distinct_id(
+            distinct_id,
+            [(key, source) for source in sources for key in _COMBINED_PROFILE_KEYS],
+        )
+        replaced = ("$distinct_id", *_COMBINED_PROFILE_KEYS)
         group_message = {"$group_key": "$user_id", "$group_id": user_id}
         group_message.update(
             (key, value) for key, value in message.items() if key not in replaced
@@ -850,7 +865,11 @@ class Mixpanel:
         if company_id is None:
             company_id = self._company_id
         return self._send_group_update(
-            {"$group_key": "$user_id", "$group_id": identity.user_id, operation: value},
+            {
+                "$group_key": "$user_id",
+                "$group_id": str(identity.user_id),
+                operation: value,
+            },
             meta,
             company_id,
             _unsupported_people_operation,
@@ -977,6 +996,8 @@ class Mixpanel:
                 f"for_company(company_id) to send them. Nothing sent for {method}"
             )
             raise CompanyRequiredError(msg)
+        if self._hierarchical_groups:
+            return str(self._company_id)
         return self._company_id
 
     def company_set(self, properties, meta=None):
@@ -1100,17 +1121,8 @@ class Mixpanel:
             unsupported = _unsupported_operations(record)
             if unsupported:
                 raise unsupported_error(unsupported[0])
-        if (
-            self._hierarchical_groups
-            and company_id is None
-            and record.get("$company_id") in (None, "")
-        ):
-            msg = (
-                "Group profile updates for hierarchical groups projects require a "
-                "company. Use for_company(company_id) to send them. Nothing sent for "
-                f"group {message.get('$group_key')}={message.get('$group_id')}"
-            )
-            raise CompanyRequiredError(msg)
+        if self._hierarchical_groups and company_id is None:
+            _require_given_company(record.get("$company_id"), message)
         if self._hierarchical_groups and record.get("$group_key") == "$company_id":
             # The top-level $company_id wins over $group_id for a company
             # group, so a different id would update the wrong company.
@@ -1128,6 +1140,8 @@ class Mixpanel:
                 raise ValueError(msg)
         # $company_id must be top-level, not inside the operation payload
         if company_id is not None:
+            if self._hierarchical_groups:
+                company_id = str(company_id)
             record["$company_id"] = company_id
         payload = json_dumps(record, cls=self._serializer)
         self._consumer.send("groups", payload)
@@ -1153,6 +1167,70 @@ class Mixpanel:
             await self._local_flags_provider.__aexit__(exc_type, exc_val, exc_tb)
         if self._remote_flags_provider is not None:
             await self._remote_flags_provider.__aexit__(exc_type, exc_val, exc_tb)
+
+
+# Key -> the part of a combined distinct id it must match. "profile" is the
+# $group_key of a user profile update, which must be $user_id.
+_COMBINED_ID_PARTS = {
+    "$group_key": "profile",
+    "$group_id": "user",
+    "$company_id": "company",
+    "$user_id": "user",
+}
+# Keys a combined distinct id names on a user profile update
+_COMBINED_PROFILE_KEYS = ("$group_key", "$group_id", "$company_id")
+
+
+def _require_matches_combined_distinct_id(distinct_id, checks):
+    """Refuse keys that name a different company or user than ``distinct_id``.
+
+    ``checks`` pairs a key with the dict it may appear in. Does nothing unless
+    ``distinct_id`` is of the form ``$company:{company}|$user:{user}``.
+
+    :raises ValueError: if a present key's string value differs from the part
+        of the distinct id it names, or a part is only whitespace
+    """
+    parsed = _parse_combined_distinct_id(distinct_id)
+    if parsed is None:
+        return
+    company_id, user_id = parsed
+    parts = {"company": company_id, "user": user_id, "profile": "$user_id"}
+    for key, source in checks:
+        if key not in source:
+            continue
+        part = _COMBINED_ID_PARTS[key]
+        expected = parts[part]
+        if str(source[key]) != expected:
+            named = (
+                "a $user_id profile" if part == "profile" else f"{part} {expected!r}"
+            )
+            msg = (
+                f"distinct_id {distinct_id!r} names {named}, but {key} is "
+                f"{source[key]!r}. Nothing sent"
+            )
+            raise ValueError(msg)
+
+
+def _require_given_company(company_id, message):
+    """Check a ``$company_id`` given in a hierarchical groups message or meta.
+
+    :raises CompanyRequiredError: if ``company_id`` is None or empty
+    :raises ValueError: if ``company_id`` is not a string or an integer, or is
+        only whitespace
+    """
+    if company_id in (None, ""):
+        msg = (
+            "Group profile updates for hierarchical groups projects require a "
+            "company. Use for_company(company_id) to send them. Nothing sent for "
+            f"group {message.get('$group_key')}={message.get('$group_id')}"
+        )
+        raise CompanyRequiredError(msg)
+    if not _is_id(company_id) or _is_blank(company_id):
+        msg = (
+            "$company_id must be a non-blank string or an integer, not "
+            f"{company_id!r}. Nothing sent"
+        )
+        raise ValueError(msg)
 
 
 def _unsupported_group_operation(operation):
