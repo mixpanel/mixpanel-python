@@ -1454,6 +1454,43 @@ class TestLocalFlagsHierarchicalGroups:
             company_id="acme",
         )
 
+    def test_exposure_with_conflicting_combined_distinct_id_is_dropped(self, caplog):
+        provider = self.provider([raw_flag()])
+        result = provider.get_variant_value(
+            HG_FLAG_KEY,
+            "fallback",
+            {
+                "distinct_id": "$company:acme|$user:user-123",
+                "$user_id": "user-123",
+                "$company_id": "other",
+            },
+        )
+        assert result == "control-value"
+        self.tracker.assert_not_called()
+        messages = [r.getMessage() for r in caplog.records]
+        assert (
+            "distinct_id '$company:acme|$user:user-123' names company 'acme', "
+            "but $company_id is 'other'. Nothing sent"
+        ) in messages
+        assert not any("without a $company_id" in m for m in messages)
+
+    def test_manual_exposure_with_conflicting_user_id_is_dropped(self, caplog):
+        provider = self.provider([])
+        provider.track_exposure_event(
+            HG_FLAG_KEY,
+            SelectedVariant(variant_key="treatment", variant_value="treatment-value"),
+            {
+                "distinct_id": "$company:acme|$user:user-123",
+                "$user_id": "someone",
+                "$company_id": "acme",
+            },
+        )
+        self.tracker.assert_not_called()
+        assert (
+            "distinct_id '$company:acme|$user:user-123' names user 'user-123', "
+            "but $user_id is 'someone'. Nothing sent"
+        ) in [r.getMessage() for r in caplog.records]
+
     def test_exposure_attributed_by_distinct_id_alone(self):
         provider = self.provider([raw_flag()])
         assert (

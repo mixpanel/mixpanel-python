@@ -593,7 +593,9 @@ class LocalFeatureFlagsProvider:
 
             self._dispatch_exposure(identity, properties)
         else:
-            logger.error(missing_exposure_identity_message(self._hierarchical_groups))
+            logger.error(
+                missing_exposure_identity_message(self._hierarchical_groups, context)
+            )
 
     def _dispatch_exposure(
         self, distinct_id: str | MixpanelIdentity, properties: dict[str, Any]

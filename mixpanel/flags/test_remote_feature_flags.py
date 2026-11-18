@@ -770,6 +770,54 @@ class TestRemoteFlagsHierarchicalGroups:
         )
 
     @respx.mock
+    async def test_conflicting_combined_distinct_id_is_not_tracked(self, caplog):
+        mock_treatment_response()
+        context = {
+            "distinct_id": "$company:acme|$user:user-123",
+            "$user_id": "user-123",
+            "$company_id": "other",
+        }
+        conflict = (
+            "distinct_id '$company:acme|$user:user-123' names company 'acme', "
+            "but $company_id is 'other'. Nothing sent"
+        )
+        assert self._flags.get_variant_value("test_flag", "fallback", context) == "t"
+        assert (
+            await self._flags.aget_variant_value("test_flag", "fallback", context)
+            == "t"
+        )
+        await drain_pending_tasks()
+        variant = SelectedVariant(variant_key="treatment", variant_value="t")
+        self._flags.track_exposure_event("test_flag", variant, context)
+        await self._flags.atrack_exposure_event(
+            "test_flag",
+            variant,
+            {**context, "$company_id": "acme", "$user_id": "someone"},
+        )
+        self.tracker.assert_not_called()
+        messages = [r.getMessage() for r in caplog.records]
+        assert messages.count(conflict) == 3
+        assert (
+            "distinct_id '$company:acme|$user:user-123' names user 'user-123', "
+            "but $user_id is 'someone'. Nothing sent"
+        ) in messages
+
+    @respx.mock
+    def test_matching_combined_distinct_id_is_tracked(self):
+        mock_treatment_response()
+        context = {
+            "distinct_id": "$company:acme|$user:user-123",
+            "$user_id": "user-123",
+            "$company_id": "acme",
+        }
+        assert self._flags.get_variant_value("test_flag", "fallback", context) == "t"
+        assert self.tracker.call_args.args[0] == MixpanelIdentity(
+            distinct_id="$company:acme|$user:user-123",
+            user_id="user-123",
+            company_id="acme",
+        )
+
+    @respx.mock
     def test_legacy_exposure_is_unchanged(self, caplog):
         mock_treatment_response()
         self._legacy.get_variant_value(

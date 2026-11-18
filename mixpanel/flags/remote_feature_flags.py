@@ -24,6 +24,7 @@ from .utils import (
     REQUEST_HEADERS,
     close_async_client_from_sync,
     dispatch_exposure,
+    exposure_conflict_message,
     exposure_identity,
     generate_traceparent,
     missing_exposure_identity_message,
@@ -171,6 +172,16 @@ class RemoteFeatureFlagsProvider:
                         identity, EXPOSURE_EVENT, properties
                     )
                 )
+            elif (
+                not is_fallback
+                and reportExposure
+                and (
+                    conflict := exposure_conflict_message(
+                        context, self._hierarchical_groups
+                    )
+                )
+            ):
+                logger.error(conflict)
         except Exception as exc:
             logger.exception("Failed to get remote variant for flag '%s'", flag_key)
             # SDK-83: attach the exception message so the OpenFeature wrapper
@@ -212,7 +223,9 @@ class RemoteFeatureFlagsProvider:
                 identity, EXPOSURE_EVENT, properties
             )
         else:
-            logger.error(missing_exposure_identity_message(self._hierarchical_groups))
+            logger.error(
+                missing_exposure_identity_message(self._hierarchical_groups, context)
+            )
 
     def get_all_variants(
         self, context: dict[str, Any]
@@ -293,6 +306,16 @@ class RemoteFeatureFlagsProvider:
                     flag_key, selected_variant, start_time, end_time
                 )
                 self._dispatch_exposure(identity, properties)
+            elif (
+                not is_fallback
+                and reportExposure
+                and (
+                    conflict := exposure_conflict_message(
+                        context, self._hierarchical_groups
+                    )
+                )
+            ):
+                logger.error(conflict)
 
         except Exception as exc:
             logger.exception("Failed to get remote variant for flag '%s'", flag_key)
@@ -330,7 +353,9 @@ class RemoteFeatureFlagsProvider:
             properties = self._build_tracking_properties(flag_key, variant)
             self._dispatch_exposure(identity, properties)
         else:
-            logger.error(missing_exposure_identity_message(self._hierarchical_groups))
+            logger.error(
+                missing_exposure_identity_message(self._hierarchical_groups, context)
+            )
 
     def _dispatch_exposure(
         self, distinct_id: str | MixpanelIdentity, properties: dict[str, Any]

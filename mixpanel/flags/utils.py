@@ -117,7 +117,9 @@ def exposure_identity(
     groups it is a :class:`~mixpanel.identity.MixpanelIdentity` carrying
     whichever of ``distinct_id``, ``$user_id`` and ``$company_id`` the context
     has, attributable by ``$company_id`` or ``distinct_id``. Returns None if the
-    exposure cannot be attributed.
+    exposure cannot be attributed, including when a combined ``distinct_id``
+    names a different company or user than the context's ``$company_id`` or
+    ``$user_id``.
     """
     distinct_id = context.get("distinct_id")
     if not hierarchical_groups:
@@ -126,6 +128,8 @@ def exposure_identity(
     company_id = _present(context.get("$company_id"))
     if company_id is None and not distinct_id:
         return None
+    if _combined_distinct_id_conflict(context) is not None:
+        return None
     return MixpanelIdentity(
         distinct_id=str(distinct_id) if distinct_id else None,
         user_id=_present(context.get("$user_id")),
@@ -133,8 +137,52 @@ def exposure_identity(
     )
 
 
-def missing_exposure_identity_message(hierarchical_groups: bool) -> str:
+def _combined_distinct_id_conflict(context: dict[str, Any]) -> str | None:
+    """Describe how a combined ``distinct_id`` contradicts ``context``, if it does.
+
+    Compares the ``$company_id`` and ``$user_id`` an exposure would carry with
+    the parts of a ``$company:{company}|$user:{user}`` distinct id, the same
+    check track and import apply. Returns None if they agree.
+    """
+    # Imported here: the mixpanel package imports this module.
+    from mixpanel import _require_matches_combined_distinct_id  # noqa: PLC0415
+
+    present = {
+        key: context[key]
+        for key in ("$company_id", "$user_id")
+        if _present(context.get(key)) is not None
+    }
+    try:
+        _require_matches_combined_distinct_id(
+            context.get("distinct_id"),
+            [("$company_id", present), ("$user_id", present)],
+        )
+    except ValueError as exc:
+        return str(exc)
+    return None
+
+
+def exposure_conflict_message(
+    context: dict[str, Any], hierarchical_groups: bool
+) -> str | None:
+    """The error logged when an exposure's context contradicts itself.
+
+    Only hierarchical groups contexts are checked; returns None otherwise or
+    when the context is consistent.
+    """
+    if not hierarchical_groups:
+        return None
+    return _combined_distinct_id_conflict(context)
+
+
+def missing_exposure_identity_message(
+    hierarchical_groups: bool, context: dict[str, Any] | None = None
+) -> str:
     """The warning logged when an exposure cannot be attributed."""
+    if context is not None and (
+        conflict := exposure_conflict_message(context, hierarchical_groups)
+    ):
+        return conflict
     key = "$company_id" if hierarchical_groups else "distinct_id"
     return f"Cannot track exposure event without a {key} in the context"
 
