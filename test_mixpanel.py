@@ -1040,9 +1040,7 @@ class TestHierarchicalGroups:
     @pytest.mark.parametrize(
         "distinct_id",
         [
-            "$company:acme|$user:",  # missing user
             "$company:acme",  # missing user and separator
-            "$company:|$user:user_123",  # missing company
             "$company:$user:user_123",  # missing separator
             "company:acme|$user:user_123",  # wrong prefix
             "$user:user_123|$company:acme",  # parts reversed

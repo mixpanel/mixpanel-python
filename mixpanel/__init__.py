@@ -1188,7 +1188,7 @@ def _require_matches_combined_distinct_id(distinct_id, checks):
     ``distinct_id`` is of the form ``$company:{company}|$user:{user}``.
 
     :raises ValueError: if a present key's string value differs from the part
-        of the distinct id it names, or a part is only whitespace
+        of the distinct id it names, or a part is empty or only whitespace
     """
     parsed = _parse_combined_distinct_id(distinct_id)
     if parsed is None:

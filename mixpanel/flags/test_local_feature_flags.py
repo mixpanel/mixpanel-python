@@ -1474,6 +1474,29 @@ class TestLocalFlagsHierarchicalGroups:
         ) in messages
         assert not any("without a $company_id" in m for m in messages)
 
+    @pytest.mark.parametrize(
+        ("distinct_id", "part"),
+        [
+            ("$company:|$user:user-123", "company"),
+            ("$company:acme|$user:", "user"),
+            ("$company: |$user:user-123", "company"),
+            ("$company:acme|$user:  ", "user"),
+        ],
+    )
+    def test_exposure_with_blank_combined_distinct_id_is_dropped(
+        self, caplog, distinct_id, part
+    ):
+        provider = self.provider([raw_flag()])
+        result = provider.get_variant_value(
+            HG_FLAG_KEY,
+            "fallback",
+            {"distinct_id": distinct_id, "$company_id": "acme"},
+        )
+        assert result == "control-value"
+        self.tracker.assert_not_called()
+        message = f"distinct_id {distinct_id!r} names a blank {part}. Nothing sent"
+        assert message in [r.getMessage() for r in caplog.records]
+
     def test_manual_exposure_with_conflicting_user_id_is_dropped(self, caplog):
         provider = self.provider([])
         provider.track_exposure_event(

@@ -803,6 +803,38 @@ class TestRemoteFlagsHierarchicalGroups:
         ) in messages
 
     @respx.mock
+    @pytest.mark.parametrize(
+        ("distinct_id", "part"),
+        [
+            ("$company:|$user:user-123", "company"),
+            ("$company:acme|$user:", "user"),
+            ("$company: |$user:user-123", "company"),
+            ("$company:acme|$user:  ", "user"),
+        ],
+    )
+    async def test_blank_combined_distinct_id_is_not_tracked(
+        self, caplog, distinct_id, part
+    ):
+        mock_treatment_response()
+        context = {"distinct_id": distinct_id, "$company_id": "acme"}
+        assert self._flags.get_variant_value("test_flag", "fallback", context) == "t"
+        assert (
+            await self._flags.aget_variant_value("test_flag", "fallback", context)
+            == "t"
+        )
+        await drain_pending_tasks()
+        variant = SelectedVariant(variant_key="treatment", variant_value="t")
+        self._flags.track_exposure_event("test_flag", variant, context)
+        self.tracker.assert_not_called()
+        messages = [r.getMessage() for r in caplog.records]
+        assert (
+            messages.count(
+                f"distinct_id {distinct_id!r} names a blank {part}. Nothing sent"
+            )
+            == 3
+        )
+
+    @respx.mock
     def test_matching_combined_distinct_id_is_tracked(self):
         mock_treatment_response()
         context = {

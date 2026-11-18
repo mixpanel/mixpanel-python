@@ -38,9 +38,9 @@ def _parse_combined_distinct_id(distinct_id) -> Optional[tuple]:
 
     The company is the text up to the first ``|$user:`` and the user is
     everything after it. Returns ``(company_id, user_id)``, or None if
-    ``distinct_id`` does not have that form or either part is empty.
+    ``distinct_id`` does not have that form.
 
-    :raises ValueError: if the company or the user is only whitespace
+    :raises ValueError: if the company or the user is empty or only whitespace
     """
     if not isinstance(distinct_id, str) or not distinct_id.startswith(
         _COMBINED_COMPANY_PREFIX
@@ -52,11 +52,9 @@ def _parse_combined_distinct_id(distinct_id) -> Optional[tuple]:
     if not separator:
         return None
     for name, value in (("company", company_id), ("user", user_id)):
-        if _is_blank(value):
+        if not value.strip():
             msg = f"distinct_id {distinct_id!r} names a blank {name}. Nothing sent"
             raise ValueError(msg)
-    if not company_id or not user_id:
-        return None
     return company_id, user_id
 
 
