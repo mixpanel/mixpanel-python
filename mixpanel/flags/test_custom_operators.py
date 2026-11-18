@@ -1,10 +1,10 @@
 import json
 import pathlib
 
-import json_logic
 import pytest
 
 import mixpanel.flags.custom_operators  # noqa: F401  (registers the operators)
+from mixpanel.flags import _json_logic as json_logic
 from mixpanel.flags.custom_operators import datetime_compare, semver_compare
 
 # The golden vectors are the cross-SDK contract for the custom operators; the canonical copy and its

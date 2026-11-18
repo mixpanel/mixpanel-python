@@ -5,7 +5,7 @@ import math
 import re
 from typing import Any, Callable
 
-import json_logic
+from . import _json_logic as json_logic
 
 _OPERAND_COUNT = 3
 # Epoch milliseconds are compared as int64 elsewhere, so anything at or beyond this is out of range.

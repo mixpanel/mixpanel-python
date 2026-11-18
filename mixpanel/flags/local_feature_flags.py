@@ -9,10 +9,10 @@ from datetime import datetime, timedelta
 from typing import Any, Callable
 
 import httpx
-import json_logic
 
 from mixpanel.credentials import ServiceAccountCredentials
 
+from . import _json_logic as json_logic
 from . import custom_operators  # noqa: F401  (registers custom JsonLogic operators)
 from .types import (
     ExperimentationFlag,
