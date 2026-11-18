@@ -1062,3 +1062,146 @@ class TestHierarchicalGroupsScenarios:
             "$group_id": TEAM_ID,
             "$set": {"name": "Core"},
         }
+
+    # meta may repeat, but never retarget, a hierarchical groups update
+
+    def test_meta_that_retargets_an_update_is_rejected(self):
+        same = MixpanelIdentity(user_id="acme", company_id="acme")
+        combined = COMBINED_DISTINCT_ID
+        identity = MixpanelIdentity(distinct_id=combined, company_id=COMPANY_ID)
+        for send, message in (
+            (
+                lambda: self.mp.people_set(
+                    self.user, {"plan": "pro"}, meta={"$group_id": "u2"}
+                ),
+                f"meta $group_id is 'u2', but the message's $group_id is "
+                f"{USER_ID!r}. Nothing sent",
+            ),
+            (
+                lambda: self.mp.people_set(
+                    self.user, {"plan": "pro"}, meta={"$token": "other"}
+                ),
+                "meta $token is 'other', but this client's token differs. Nothing sent",
+            ),
+            (
+                lambda: self.mp.people_delete(same, meta={"$group_key": "$company_id"}),
+                "meta $group_key is '$company_id', but the message's $group_key "
+                "is '$user_id'. Nothing sent",
+            ),
+            (
+                lambda: self.company.group_set(
+                    "dept", "fin", {"x": 1}, meta={"$group_id": "other"}
+                ),
+                "meta $group_id is 'other', but the message's $group_id is "
+                "'fin'. Nothing sent",
+            ),
+            (
+                lambda: self.company.company_delete(meta={"$group_key": "team_id"}),
+                "meta $group_key is 'team_id', but the message's $group_key is "
+                "'$company_id'. Nothing sent",
+            ),
+            (
+                lambda: self.mp.people_set(
+                    combined, {"plan": "pro"}, meta={"$token": "other"}
+                ),
+                "meta $token is 'other', but this client's token differs. Nothing sent",
+            ),
+            (
+                lambda: self.mp.group_update(
+                    {
+                        "$token": "other",
+                        "$group_key": "dept",
+                        "$group_id": "fin",
+                        "$company_id": COMPANY_ID,
+                        "$set": {},
+                    }
+                ),
+                "message $token is 'other', but this client's token differs. "
+                "Nothing sent",
+            ),
+            (
+                lambda: self.mp.people_set(
+                    identity,
+                    {"plan": "pro"},
+                    meta={"$distinct_id": "$company:other|$user:u2"},
+                ),
+                "meta $distinct_id is '$company:other|$user:u2', but the "
+                f"identity's distinct_id is {combined!r}. Nothing sent",
+            ),
+            (
+                lambda: self.mp.people_set(
+                    self.user, {"plan": "pro"}, meta={"$distinct_id": "u2"}
+                ),
+                "meta $distinct_id is 'u2', but the identity's distinct_id is "
+                "None. Nothing sent",
+            ),
+        ):
+            with pytest.raises(ValueError, match="Nothing sent") as error:
+                send()
+            assert str(error.value) == message
+
+        self.assert_nothing_sent()
+
+    def test_meta_that_repeats_an_update_is_sent(self):
+        meta = {
+            "$token": TOKEN,
+            "$group_key": "$user_id",
+            "$group_id": USER_ID,
+            "$ip": "1.2.3.4",
+            "$ignore_time": True,
+            "$time": 5,
+        }
+
+        self.mp.people_set(self.user, {"plan": "pro"}, meta=meta)
+
+        expected = user_update("$set", {"plan": "pro"})
+        expected.update({"$ip": "1.2.3.4", "$ignore_time": True, "$time": 5})
+        self.assert_only_groups_update(expected)
+
+    def test_meta_that_repeats_an_integer_id_keeps_the_string_id(self):
+        user = MixpanelIdentity(user_id=42, company_id=COMPANY_ID)
+
+        self.mp.people_set(user, {"plan": "pro"}, meta={"$group_id": 42})
+
+        _, message = self.only_sent()
+        assert message["$group_id"] == "42"
+        assert message["$company_id"] == COMPANY_ID
+
+    def test_meta_that_repeats_a_group_update_is_sent(self):
+        self.company.group_set(
+            "team_id",
+            TEAM_ID,
+            {"name": "Core"},
+            meta={"$group_id": TEAM_ID, "$token": TOKEN, "$ip": "1.2.3.4"},
+        )
+
+        expected = team_update("$set", {"name": "Core"})
+        expected["$ip"] = "1.2.3.4"
+        self.assert_only_groups_update(expected)
+
+    def test_meta_that_repeats_an_identity_distinct_id_is_sent(self):
+        identity = MixpanelIdentity(
+            distinct_id=COMBINED_DISTINCT_ID, user_id=USER_ID, company_id=COMPANY_ID
+        )
+
+        self.mp.people_set(
+            identity, {"plan": "pro"}, meta={"$distinct_id": COMBINED_DISTINCT_ID}
+        )
+
+        self.assert_only_groups_update(user_update("$set", {"plan": "pro"}))
+
+    def test_meta_retargets_without_hierarchical_groups(self):
+        mp = make_client(self.consumer, hierarchical_groups=False)
+
+        mp.group_set("dept", "fin", {"x": 1}, meta={"$group_id": "other"})
+
+        assert self.only_sent() == (
+            "groups",
+            {
+                "$token": TOKEN,
+                "$time": NOW,
+                "$group_key": "dept",
+                "$group_id": "other",
+                "$set": {"x": 1},
+            },
+        )

@@ -854,6 +854,14 @@ class Mixpanel:
         identity = distinct_id
         self._require_identity_matches_project(identity)
         self._require_identity_distinct_id_agrees(identity)
+        if self._hierarchical_groups and meta and "$distinct_id" in meta:
+            given = meta["$distinct_id"]
+            if not _same_id(given, identity.distinct_id):
+                msg = (
+                    f"meta $distinct_id is {given!r}, but the identity's "
+                    f"distinct_id is {identity.distinct_id!r}. Nothing sent"
+                )
+                raise ValueError(msg)
         if identity.distinct_id is not None:
             # On a hierarchical groups client, people_update sends a combined
             # distinct id to /groups as its company and user, and rejects any
@@ -1146,6 +1154,8 @@ class Mixpanel:
             unsupported = _unsupported_operations(record)
             if unsupported:
                 raise unsupported_error(unsupported[0])
+            _require_same_target(message, meta, self._token)
+            _keep_message_target(record, message, self._token)
         if self._hierarchical_groups and company_id is None:
             _require_given_company(record.get("$company_id"), message)
         if self._hierarchical_groups and record.get("$group_key") == "$company_id":
@@ -1235,6 +1245,60 @@ def _require_matches_combined_distinct_id(distinct_id, checks):
                 f"distinct_id {distinct_id!r} names {named}, but {key} is "
                 f"{source[key]!r}. Nothing sent"
             )
+            raise ValueError(msg)
+
+
+def _same_id(given, expected):
+    """True if two ids are equal compared as strings; None equals only None."""
+    if given is None or expected is None:
+        return given is expected
+    return str(given) == str(expected)
+
+
+def _keep_message_target(record, message, token):
+    """Put back the message's own target after ``meta`` was merged over it.
+
+    ``_require_same_target`` lets meta repeat these values, which can differ
+    only in type (42 for "42"); the message's string ids are what is sent.
+    """
+    record["$token"] = token
+    for key in ("$group_key", "$group_id"):
+        if key in message:
+            record[key] = message[key]
+
+
+def _require_same_target(message, meta, token):
+    """Refuse a hierarchical groups /groups message that meta would retarget.
+
+    ``$token``, ``$group_key`` and ``$group_id`` in ``meta`` may only repeat
+    what the message writes, and a ``$token`` in ``message`` only the
+    client's own, so neither can send the update to another profile or project.
+
+    :raises ValueError: if such a value differs, compared as strings
+    """
+    if "$token" in message and not _same_id(message["$token"], token):
+        msg = (
+            f"message $token is {message['$token']!r}, but this client's token "
+            "differs. Nothing sent"
+        )
+        raise ValueError(msg)
+    if not meta:
+        return
+    written = {"$token": token, **message}
+    for key in ("$token", "$group_key", "$group_id"):
+        if key not in meta or key not in written:
+            continue
+        if not _same_id(meta[key], written[key]):
+            if key == "$token":
+                msg = (
+                    f"meta $token is {meta[key]!r}, but this client's token "
+                    "differs. Nothing sent"
+                )
+            else:
+                msg = (
+                    f"meta {key} is {meta[key]!r}, but the message's {key} is "
+                    f"{written[key]!r}. Nothing sent"
+                )
             raise ValueError(msg)
 
 
