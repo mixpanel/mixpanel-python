@@ -711,11 +711,18 @@ class Consumer:
     :param bool verify_cert: whether to verify the server certificate.
     :param ServiceAccountCredentials credentials: optional service account
         credentials for authentication. Only used for /import endpoint.
+    :param bool raise_on_error: if ``True`` (the default), :meth:`~.send`
+        raises :class:`MixpanelException` when a message cannot be delivered.
+        If ``False``, delivery failures are logged as warnings on the
+        ``mixpanel`` logger instead, and :meth:`~.send` returns ``False``.
+        An unknown endpoint name always raises.
 
     .. versionadded:: 4.6.0
         The *api_host* parameter.
     .. versionadded:: 4.8.0
         The *verify_cert* parameter.
+    .. versionadded:: 5.5.0
+        The *raise_on_error* parameter.
     """
 
     def __init__(
@@ -730,6 +737,8 @@ class Consumer:
         retry_backoff_factor=0.25,
         verify_cert=True,
         credentials=None,
+        *,
+        raise_on_error=True,
     ):
         # TODO: With next major version, make the above args kwarg-only, and reorder them.
         self._endpoints = {
@@ -742,6 +751,7 @@ class Consumer:
         self._verify_cert = verify_cert
         self._request_timeout = request_timeout
         self._credentials = credentials
+        self._raise_on_error = raise_on_error
 
         # Work around renamed argument in urllib3.
         if hasattr(urllib3.util.Retry.DEFAULT, "allowed_methods"):
@@ -770,8 +780,11 @@ class Consumer:
         :param str json_message: a JSON message formatted for the endpoint
         :param str api_key: your Mixpanel project's API key
         :param str api_secret: your Mixpanel project's API secret
-        :raises MixpanelException: if the endpoint doesn't exist, the server is
-            unreachable, or the message cannot be processed
+        :raises MixpanelException: if the endpoint doesn't exist, or (unless
+            *raise_on_error* is ``False``) if the server is unreachable or the
+            message cannot be processed
+        :return: ``False`` if the message could not be delivered and
+            *raise_on_error* is ``False``
 
         .. versionadded:: 4.8.0
             The *api_secret* parameter.
@@ -780,9 +793,18 @@ class Consumer:
             msg = f'No such endpoint "{endpoint}". Valid endpoints are one of {self._endpoints.keys()}'
             raise MixpanelException(msg)
 
-        self._write_request(
-            self._endpoints[endpoint], json_message, api_key, api_secret, endpoint
-        )
+        try:
+            self._write_request(
+                self._endpoints[endpoint], json_message, api_key, api_secret, endpoint
+            )
+        except Exception as e:
+            if self._raise_on_error:
+                raise
+            logger.warning(
+                "Failed to send message to Mixpanel %s endpoint: %s", endpoint, e
+            )
+            return False
+        return None
 
     def _write_request(
         self, request_url, json_message, api_key=None, api_secret=None, endpoint=None
@@ -862,11 +884,19 @@ class BufferedConsumer:
     :param bool verify_cert: whether to verify the server certificate.
     :param ServiceAccountCredentials credentials: optional service account
         credentials for authentication. Only used for /import endpoint.
+    :param bool raise_on_error: if ``True`` (the default), :meth:`~.send` and
+        :meth:`~.flush` raise :class:`MixpanelException` when a batch cannot
+        be delivered, and the batch stays buffered. If ``False``, the failure
+        is logged as a warning on the ``mixpanel`` logger, the failed batch is
+        dropped so the buffer cannot grow without bound, and the method
+        returns ``False``. An unknown endpoint name always raises.
 
     .. versionadded:: 4.6.0
         The *api_host* parameter.
     .. versionadded:: 4.8.0
         The *verify_cert* parameter.
+    .. versionadded:: 5.5.0
+        The *raise_on_error* parameter.
 
     .. note::
         Because :class:`~.BufferedConsumer` holds events, you need to call
@@ -888,6 +918,8 @@ class BufferedConsumer:
         retry_backoff_factor=0.25,
         verify_cert=True,
         credentials=None,
+        *,
+        raise_on_error=True,
     ):
         self._consumer = Consumer(
             events_url,
@@ -901,6 +933,7 @@ class BufferedConsumer:
             verify_cert,
             credentials,
         )
+        self._raise_on_error = raise_on_error
         self._buffers = {
             "events": [],
             "people": [],
@@ -924,8 +957,11 @@ class BufferedConsumer:
         :param str json_message: a JSON message formatted for the endpoint
         :param str api_key: your Mixpanel project's API key
         :param str api_secret: your Mixpanel project's API secret
-        :raises MixpanelException: if the endpoint doesn't exist, the server is
-            unreachable, or any buffered message cannot be processed
+        :raises MixpanelException: if the endpoint doesn't exist, or (unless
+            *raise_on_error* is ``False``) if the server is unreachable or any
+            buffered message cannot be processed
+        :return: ``False`` if a flush triggered by this call failed and
+            *raise_on_error* is ``False``
 
         .. versionadded:: 4.3.2
             The *api_key* parameter.
@@ -943,19 +979,25 @@ class BufferedConsumer:
         self._api_key = api_key
         self._api_secret = api_secret
         if len(buf) >= self._max_size:
-            self._flush_endpoint(endpoint)
+            return self._flush_endpoint(endpoint)
+        return None
 
     def flush(self):
         """Immediately send all buffered messages to Mixpanel.
 
-        :raises MixpanelException: if the server is unreachable or any buffered
-            message cannot be processed
+        :raises MixpanelException: unless *raise_on_error* is ``False``, if the
+            server is unreachable or any buffered message cannot be processed
+        :return: ``False`` if any batch could not be delivered and
+            *raise_on_error* is ``False``
         """
-        for endpoint in self._buffers:
-            self._flush_endpoint(endpoint)
+        results = [self._flush_endpoint(endpoint) for endpoint in self._buffers]
+        if False in results:
+            return False
+        return None
 
     def _flush_endpoint(self, endpoint):
         buf = self._buffers[endpoint]
+        all_sent = True
 
         while buf:
             batch = buf[: self._max_size]
@@ -963,10 +1005,25 @@ class BufferedConsumer:
             try:
                 # Credentials are passed via Consumer constructor, not send()
                 self._consumer.send(endpoint, batch_json, api_key=self._api_key)
-            except MixpanelException as orig_e:
-                mp_e = MixpanelException(orig_e)
-                mp_e.message = batch_json
-                mp_e.endpoint = endpoint
-                raise mp_e from orig_e
+            except Exception as orig_e:
+                if not self._raise_on_error:
+                    # Drop the failed batch so the buffer stays bounded during an outage.
+                    logger.warning(
+                        "Dropped %d message(s) for Mixpanel %s endpoint after failed send: %s",
+                        len(batch),
+                        endpoint,
+                        orig_e,
+                    )
+                    all_sent = False
+                elif isinstance(orig_e, MixpanelException):
+                    mp_e = MixpanelException(orig_e)
+                    mp_e.message = batch_json
+                    mp_e.endpoint = endpoint
+                    raise mp_e from orig_e
+                else:
+                    raise
             buf = buf[self._max_size :]
         self._buffers[endpoint] = buf
+        if not all_sent:
+            return False
+        return None
