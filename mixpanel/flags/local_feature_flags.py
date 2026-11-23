@@ -28,6 +28,7 @@ from .utils import (
     close_async_client_from_sync,
     dispatch_exposure,
     generate_traceparent,
+    mark_openfeature_exposure,
     normalized_hash,
     prepare_common_query_params,
 )
@@ -536,6 +537,7 @@ class LocalFeatureFlagsProvider:
             if latency_in_seconds is not None:
                 properties["Variant fetch latency (ms)"] = latency_in_seconds * 1000
 
+            mark_openfeature_exposure(properties, context)
             self._dispatch_exposure(distinct_id, properties)
         else:
             logger.error(

@@ -689,6 +689,29 @@ class TestLocalFeatureFlagsProviderAsync:
         self._mock_tracker.assert_not_called()
 
     @respx.mock
+    async def test_exposure_includes_openfeature_provider_marker_from_context(self):
+        flag = create_test_flag()
+        await self.setup_flags([flag])
+        context = {**USER_CONTEXT, "$openfeature_provider": True}
+        with patch("mixpanel.flags.utils.normalized_hash") as mock_hash:
+            mock_hash.return_value = 0.5
+            _ = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", context)
+        self._mock_tracker.assert_called_once()
+        properties = self._mock_tracker.call_args[0][2]
+        assert properties["$openfeature_provider"] is True
+
+    @respx.mock
+    async def test_exposure_omits_openfeature_provider_marker_by_default(self):
+        flag = create_test_flag()
+        await self.setup_flags([flag])
+        with patch("mixpanel.flags.utils.normalized_hash") as mock_hash:
+            mock_hash.return_value = 0.5
+            _ = self._flags.get_variant_value(TEST_FLAG_KEY, "fallback", USER_CONTEXT)
+        self._mock_tracker.assert_called_once()
+        properties = self._mock_tracker.call_args[0][2]
+        assert "$openfeature_provider" not in properties
+
+    @respx.mock
     async def test_default_exposure_runs_inline_on_calling_thread(self):
         """Smoke test: exposure_executor defaults to None, tracker runs inline."""
         flag = create_test_flag(rollout_percentage=100.0)
