@@ -207,8 +207,12 @@ class Mixpanel:
 
             acme = mp.for_company('acme')
             acme.company_set(company_properties)
-            acme.group_set('$user_id', 'user_123', user_properties)
             acme.group_set('department', 'finance', department_properties)
+
+        ``for_company`` is meant for writes that carry no identity: the
+        company's own profile and custom group profiles. Send events and user
+        profiles with a :class:`~.MixpanelIdentity` that names the company.
+        Events from a bound client don't add the bound company.
 
         The ``company_*`` methods update the bound company's own profile: each
         is the matching ``group_*`` method with ``('$company_id', company_id)``.
