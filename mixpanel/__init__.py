@@ -1179,6 +1179,9 @@ class Mixpanel:
             _keep_message_target(record, message, self._token)
         if self._hierarchical_groups and company_id is None:
             _require_given_company(record.get("$company_id"), message)
+            # Mixpanel reads $company_id only as a string, so an integer
+            # company given in the message or meta is sent as one.
+            record["$company_id"] = str(record["$company_id"])
         if self._hierarchical_groups and record.get("$group_key") == "$company_id":
             # The top-level $company_id wins over $group_id for a company
             # group, so a different id would update the wrong company.

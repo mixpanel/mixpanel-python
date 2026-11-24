@@ -2352,16 +2352,22 @@ class TestHierarchicalGroupsScenarios(TestMixpanelBase):
 
         self.assert_nothing_sent()
 
-    def test_valid_meta_company_id_is_sent_unchanged(self):
+    def test_valid_meta_company_id_is_sent_as_a_string(self):
         self.mp.group_set(
             "team_id", TEAM_ID, {"name": "Core"}, meta={"$company_id": COMPANY_ID}
         )
         self.mp.group_set("team_id", TEAM_ID, {"name": "Core"}, meta={"$company_id": 7})
+        self.mp.people_set(
+            MixpanelIdentity(user_id=USER_ID), {"plan": "pro"}, meta={"$company_id": 7}
+        )
 
-        assert self.consumer.log == [
+        assert self.consumer.log[:2] == [
             ("groups", team_update("$set", {"name": "Core"})),
-            ("groups", {**team_update("$set", {"name": "Core"}), "$company_id": 7}),
+            ("groups", {**team_update("$set", {"name": "Core"}), "$company_id": "7"}),
         ]
+        endpoint, message = self.consumer.log[2]
+        assert endpoint == "groups"
+        assert message["$company_id"] == "7"
 
     def test_invalid_meta_company_id_without_hierarchical_groups(self):
         mp = make_client(self.consumer, hierarchical_groups=False)
