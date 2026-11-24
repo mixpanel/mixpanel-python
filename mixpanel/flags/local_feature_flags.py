@@ -48,9 +48,10 @@ def _apply_context_value_template(
 ) -> str | None:
     """Fill a flag's context value template from the evaluation context.
 
-    Each ``{key}`` placeholder is replaced with the string value of ``key`` from
-    the context; text outside the braces is literal. Returns None if there is no
-    template or any placeholder's key is missing from the context.
+    Each ``{key}`` placeholder is replaced with the value of ``key`` from the
+    context; text outside the braces is literal. Only a non-empty string value
+    counts, as on the server. Returns None if there is no template or any
+    placeholder's key is missing or not a non-empty string.
     """
     if not template:
         return None
@@ -59,13 +60,18 @@ def _apply_context_value_template(
     def fill(match: re.Match) -> str:
         nonlocal missing
         value = context.get(match.group(1))
-        if value is None:
+        if not _is_present_string(value):
             missing = True
             return ""
-        return str(value)
+        return value
 
     resolved = _CONTEXT_PLACEHOLDER.sub(fill, template)
     return None if missing else resolved
+
+
+def _is_present_string(value: Any) -> bool:
+    """True if ``value`` is a non-empty string."""
+    return isinstance(value, str) and value != ""
 
 
 class LocalFeatureFlagsProvider:
@@ -341,9 +347,15 @@ class LocalFeatureFlagsProvider:
         if not flag_definition.ruleset.test or not flag_definition.ruleset.test.users:
             return None
 
-        # Overrides are keyed by distinct id. A flag assigned on distinct_id
-        # looks them up by its resolved assignment key.
-        if flag_definition.context == "distinct_id":
+        # Overrides are keyed by distinct id. As on the server, a context with a
+        # user and a company looks them up by the combined distinct id for every
+        # flag; otherwise a flag assigned on distinct_id looks them up by its
+        # resolved assignment key.
+        user_id = context.get("$user_id")
+        company_id = context.get("$company_id")
+        if _is_present_string(user_id) and _is_present_string(company_id):
+            distinct_id = f"$company:{company_id}|$user:{user_id}"
+        elif flag_definition.context == "distinct_id":
             distinct_id = context_value
         else:
             distinct_id = context.get("distinct_id")

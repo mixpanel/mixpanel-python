@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Callable
 
 from asgiref.sync import async_to_sync
 
-from mixpanel.identity import MixpanelIdentity
+from mixpanel.identity import MixpanelIdentity, _require_no_pipe
 
 if TYPE_CHECKING:
     from concurrent.futures import Executor, Future
@@ -142,7 +142,8 @@ def _combined_distinct_id_conflict(context: dict[str, Any]) -> str | None:
 
     Compares the ``$company_id`` and ``$user_id`` an exposure would carry with
     the parts of a ``$company:{company}|$user:{user}`` distinct id, the same
-    check track and import apply. Returns None if they agree.
+    check track and import apply, and refuses a ``$company_id`` or ``$user_id``
+    containing ``|``. Returns None if they agree.
     """
     # Imported here: the mixpanel package imports this module.
     from mixpanel import _require_matches_combined_distinct_id  # noqa: PLC0415
@@ -153,6 +154,8 @@ def _combined_distinct_id_conflict(context: dict[str, Any]) -> str | None:
         if _present(context.get(key)) is not None
     }
     try:
+        for key, value in present.items():
+            _require_no_pipe(key, value)
         _require_matches_combined_distinct_id(
             context.get("distinct_id"),
             [("$company_id", present), ("$user_id", present)],

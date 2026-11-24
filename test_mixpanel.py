@@ -673,13 +673,13 @@ class TestHierarchicalGroups:
         assert identity.company_id == 7
         assert identity.device_id == "dev"
 
-        # Hierarchical groups ingestion drops an integer $user_id, so the user
-        # and company are sent as strings; other ids are sent as given.
+        # Ingestion drops integer ids, so every identity id is sent as a string.
         self.hg.track(identity, "event")
         properties = self.last_properties()
-        assert properties["distinct_id"] == 0
+        assert properties["distinct_id"] == "0"
         assert properties["$user_id"] == "42"
         assert properties["$company_id"] == "7"
+        assert properties["$device_id"] == "dev"
 
     def test_identity_rejects_other_id_types(self):
         for name in ("distinct_id", "user_id", "company_id", "device_id"):
@@ -735,6 +735,37 @@ class TestHierarchicalGroups:
         identity = mixpanel.MixpanelIdentity(distinct_id="user_123")
 
         assert identity.to_flag_context() == {"distinct_id": "user_123"}
+
+    def test_identity_flag_context_ids_are_strings(self):
+        # Flags read ids only as strings; group values and custom properties
+        # are passed through as given.
+        identity = mixpanel.MixpanelIdentity(
+            distinct_id=1, user_id=42, company_id=7, device_id=5
+        )
+
+        assert identity.to_flag_context(
+            groups={"team_id": 9}, custom_properties={"seats": 3}
+        ) == {
+            "distinct_id": "1",
+            "$user_id": "42",
+            "$company_id": "7",
+            "device_id": "5",
+            "team_id": 9,
+            "custom_properties": {"seats": 3},
+        }
+
+    def test_identity_ids_are_strings_without_hierarchical_groups(self):
+        self.legacy.track(
+            mixpanel.MixpanelIdentity(distinct_id=1, user_id=42, device_id=5),
+            "event",
+            {"$user_id": 3, "count": 4},
+        )
+
+        properties = self.last_properties()
+        assert properties["distinct_id"] == "1"
+        assert properties["$user_id"] == "42"
+        assert properties["$device_id"] == "5"
+        assert properties["count"] == 4
 
     # Events
 
@@ -1055,12 +1086,23 @@ class TestHierarchicalGroups:
             self.hg.people_update({"$distinct_id": distinct_id, "$set": {"a": 1}})
         assert self.consumer.log == []
 
-    def test_combined_distinct_id_splits_at_first_user_separator(self):
-        self.hg.people_set("$company:a|b|$user:u|$user:v", {"plan": "pro"})
-
-        message = self.last_message()
-        assert message["$company_id"] == "a|b"
-        assert message["$group_id"] == "u|$user:v"
+    def test_combined_distinct_id_with_pipe_in_a_part_is_rejected(self):
+        # The company is the text up to the first |$user:, so either part may
+        # come out containing "|", which /groups cannot split again.
+        for distinct_id, part in (
+            ("$company:a|b|$user:u", "company"),
+            ("$company:a|$user:u|$user:v", "user"),
+            ("$company:a|$user:u|v", "user"),
+        ):
+            with pytest.raises(ValueError, match=f"names a {part} containing"):
+                self.hg.people_set(distinct_id, {"plan": "pro"})
+            with pytest.raises(ValueError, match=f"names a {part} containing"):
+                self.hg.track(distinct_id, "event")
+            with pytest.raises(ValueError, match=f"names a {part} containing"):
+                self.hg.track(
+                    mixpanel.MixpanelIdentity(distinct_id=distinct_id), "event"
+                )
+        assert self.consumer.log == []
 
     def test_combined_distinct_id_identity_with_device_goes_to_groups(self):
         identity = mixpanel.MixpanelIdentity(
@@ -1612,7 +1654,6 @@ class TestHierarchicalGroups:
                 "$company_id": "acme",
                 "$group_key": "$user_id",
                 "$group_id": "user_123",
-                "$ignore_alias": True,
                 "$mp_metadata": {},
                 "$set": {"plan": "pro"},
             }
@@ -1623,6 +1664,58 @@ class TestHierarchicalGroups:
         assert message["$company_id"] == "acme"
         assert message["$group_id"] == "user_123"
         assert message["$set"] == {"plan": "pro"}
+        assert "$distinct_id" not in message
+
+    def test_user_profile_update_refuses_ignore_alias(self):
+        # /groups rejects the whole record when it carries $ignore_alias.
+        identity = mixpanel.MixpanelIdentity(user_id="user_123", company_id="acme")
+        for send in (
+            lambda: self.hg.people_update(
+                {
+                    "$distinct_id": self.COMBINED_ID,
+                    "$ignore_alias": True,
+                    "$set": {"plan": "pro"},
+                }
+            ),
+            lambda: self.hg.people_set(
+                self.COMBINED_ID, {"plan": "pro"}, meta={"$ignore_alias": True}
+            ),
+            lambda: self.hg.people_set(
+                identity, {"plan": "pro"}, meta={"$ignore_alias": False}
+            ),
+            lambda: self.hg.people_delete(identity, meta={"$ignore_alias": True}),
+        ):
+            with pytest.raises(ValueError, match=r"\$ignore_alias is not supported"):
+                send()
+        assert self.consumer.log == []
+
+    def test_user_profile_meta_distinct_id_is_never_sent(self):
+        # It names the target, so it is consumed rather than sent to /groups.
+        identity = mixpanel.MixpanelIdentity(user_id="user_123", company_id="acme")
+        self.hg.people_set(identity, {"plan": "pro"}, meta={"$distinct_id": None})
+        self.hg.people_set(
+            self.COMBINED_ID, {"plan": "pro"}, meta={"$distinct_id": self.COMBINED_ID}
+        )
+
+        for _endpoint, message in self.consumer.log:
+            assert "$distinct_id" not in message
+            assert message["$group_id"] == "user_123"
+
+    def test_ignore_alias_without_hierarchical_groups_is_unchanged(self):
+        self.legacy.people_set("user_123", {"a": 1}, meta={"$ignore_alias": True})
+        self.legacy.group_update(
+            {
+                "$group_key": "company",
+                "$group_id": "acme",
+                "$distinct_id": "x",
+                "$ignore_alias": True,
+                "$set": {"a": 1},
+            }
+        )
+
+        assert self.consumer.log[0][1]["$ignore_alias"] is True
+        assert self.consumer.log[1][1]["$distinct_id"] == "x"
+        assert self.consumer.log[1][1]["$ignore_alias"] is True
 
     def test_group_update_allows_non_operation_keys_and_refuses_others(self):
         acme = self.hg.for_company("acme")
@@ -1630,12 +1723,34 @@ class TestHierarchicalGroups:
             {
                 "$group_key": "company",
                 "$group_id": "acme",
-                "$distinct_id": "x",
                 "$mp_metadata": {},
                 "$set": {"seats": 1},
             }
         )
         assert self.last_message()["$set"] == {"seats": 1}
+        # /groups rejects the whole record when it carries either key.
+        for key in ("$distinct_id", "$ignore_alias"):
+            for message, meta in (
+                ({key: "x"}, None),
+                ({}, {key: "x"}),
+            ):
+                with pytest.raises(ValueError, match=rf"\{key} is not supported"):
+                    acme.group_update(
+                        {
+                            "$group_key": "company",
+                            "$group_id": "acme",
+                            "$set": {"seats": 1},
+                            **message,
+                        },
+                        meta=meta,
+                    )
+            with pytest.raises(ValueError, match=rf"\{key} is not supported"):
+                acme.company_set({"seats": 1}, meta={key: "x"})
+            with pytest.raises(ValueError, match=rf"\{key} is not supported"):
+                self.hg.group_set(
+                    "company", "acme", {"seats": 1}, meta={"$company_id": "a", key: 1}
+                )
+        assert len(self.consumer.log) == 1
         with pytest.raises(mixpanel.UnsupportedOperationError, match=r"\$foo"):
             acme.group_update({"$group_key": "company", "$group_id": "acme", "$foo": 1})
         with pytest.raises(mixpanel.UnsupportedOperationError, match=r"\$foo"):

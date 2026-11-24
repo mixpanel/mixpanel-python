@@ -1259,8 +1259,31 @@ class TestLocalFlagsHierarchicalGroups:
         provider = self.provider(
             [raw_flag(context_value_template="org:{org}/team {team}!")]
         )
-        hashed = self.hashed_values(provider, HG_FLAG_KEY, {"org": "acme", "team": 7})
+        hashed = self.hashed_values(provider, HG_FLAG_KEY, {"org": "acme", "team": "7"})
         assert set(hashed) == {"org:acme/team 7!"}
+
+    @pytest.mark.parametrize("company_id", ["", 7, 0, True, ["acme"], {"id": "acme"}])
+    def test_placeholder_counts_only_a_non_empty_string(self, company_id):
+        # As on the server: anything else leaves the template unresolved, so
+        # the raw context value is used.
+        provider = self.provider([raw_flag(context_value_template=HG_TEMPLATE)])
+        context = {
+            "distinct_id": "raw_id",
+            "$user_id": "user_123",
+            "$company_id": company_id,
+        }
+        hashed = self.hashed_values(provider, HG_FLAG_KEY, context)
+        assert set(hashed) == {"raw_id"}
+
+    def test_unresolved_template_without_raw_value_returns_fallback(self):
+        provider = self.provider([raw_flag(context_value_template=HG_TEMPLATE)])
+        variant = provider.get_variant(
+            HG_FLAG_KEY,
+            SelectedVariant(variant_value="fallback"),
+            {"$user_id": "", "$company_id": "company_123"},
+        )
+        assert variant.variant_value == "fallback"
+        assert variant.fallback_reason.kind == "MISSING_CONTEXT_KEY"
 
     @pytest.mark.parametrize(
         "context",
@@ -1391,21 +1414,71 @@ class TestLocalFlagsHierarchicalGroups:
             == "control-value"
         )
 
-    def test_other_flag_override_uses_raw_distinct_id(self):
+    @pytest.mark.parametrize("flag_context", ["department", "device_id", "$user_id"])
+    def test_other_flag_override_uses_combined_key_with_user_and_company(
+        self, flag_context
+    ):
+        # As on the server, a context with a user and a company looks test users
+        # up by the combined distinct id whatever the flag's context.
         provider = self.provider(
             [
                 raw_flag(
-                    context="department",
-                    context_value_template="$company:{$company_id}|department:{department}",
+                    context=flag_context,
                     test_users={
-                        "user_123": "treatment",
+                        "user_123": "control",
                         "$company:company_123|department:finance": "control",
+                        "$company:company_123|$user:user_123": "treatment",
                     },
                 )
             ]
         )
         assert (
             provider.get_variant_value(HG_FLAG_KEY, "fallback", SPEC_CONTEXT)
+            == "treatment-value"
+        )
+
+    def test_distinct_id_flag_override_uses_combined_key_over_distinct_id(self):
+        provider = self.provider(
+            [
+                raw_flag(
+                    test_users={
+                        "user_123": "control",
+                        "$company:company_123|$user:user_123": "treatment",
+                    },
+                )
+            ]
+        )
+        assert (
+            provider.get_variant_value(HG_FLAG_KEY, "fallback", SPEC_CONTEXT)
+            == "treatment-value"
+        )
+
+    @pytest.mark.parametrize(
+        "ids",
+        [
+            {"$user_id": "user_123"},
+            {"$company_id": "company_123"},
+            {"$user_id": "", "$company_id": "company_123"},
+            {"$user_id": 42, "$company_id": "company_123"},
+        ],
+    )
+    def test_other_flag_override_uses_raw_distinct_id_without_user_and_company(
+        self, ids
+    ):
+        provider = self.provider(
+            [
+                raw_flag(
+                    context="department",
+                    test_users={
+                        "user_123": "treatment",
+                        "$company:company_123|$user:user_123": "control",
+                    },
+                )
+            ]
+        )
+        context = {"distinct_id": "user_123", "department": "finance", **ids}
+        assert (
+            provider.get_variant_value(HG_FLAG_KEY, "fallback", context)
             == "treatment-value"
         )
 
@@ -1496,6 +1569,19 @@ class TestLocalFlagsHierarchicalGroups:
         self.tracker.assert_not_called()
         message = f"distinct_id {distinct_id!r} names a blank {part}. Nothing sent"
         assert message in [r.getMessage() for r in caplog.records]
+
+    @pytest.mark.parametrize("key", ["$user_id", "$company_id"])
+    def test_exposure_with_pipe_in_ids_is_dropped(self, caplog, key):
+        provider = self.provider([raw_flag()])
+        context = {"distinct_id": "user-123", "$user_id": "u", "$company_id": "c"}
+        context[key] = "a|b"
+        result = provider.get_variant_value(HG_FLAG_KEY, "fallback", context)
+        assert result == "control-value"
+        self.tracker.assert_not_called()
+        assert (
+            f"{key} must not contain '|' on a hierarchical groups project, "
+            "not 'a|b'. Nothing sent"
+        ) in [r.getMessage() for r in caplog.records]
 
     def test_manual_exposure_with_conflicting_user_id_is_dropped(self, caplog):
         provider = self.provider([])

@@ -7,6 +7,7 @@ message, the operation value, and the identity keys on events.
 from __future__ import annotations
 
 import json
+import re
 
 import pytest
 import responses
@@ -532,7 +533,7 @@ class TestHierarchicalGroupsScenarios:
                     "count": 3,
                     "$user_id": "3190316",
                     "$company_id": "3190317",
-                    "$device_id": 5,
+                    "$device_id": "5",
                 }
             ),
         )
@@ -597,7 +598,9 @@ class TestHierarchicalGroupsScenarios:
                 "events",
                 {
                     "event": "Signup",
-                    "properties": event_properties(**{"$user_id": 42, "$device_id": 5}),
+                    "properties": event_properties(
+                        **{"$user_id": "42", "$device_id": "5"}
+                    ),
                 },
             ),
             (
@@ -606,8 +609,8 @@ class TestHierarchicalGroupsScenarios:
                     "$token": TOKEN,
                     "$time": NOW,
                     "$group_key": "$company_id",
-                    "$group_id": 7,
-                    "$company_id": 7,
+                    "$group_id": "7",
+                    "$company_id": "7",
                     "$set": {"plan": "pro"},
                 },
             ),
@@ -941,6 +944,109 @@ class TestHierarchicalGroupsScenarios:
             event_properties(distinct_id="$company: c |$user: u "),
         ]
 
+    # "|" in user and company ids
+
+    @pytest.mark.parametrize(
+        ("identity", "name"),
+        [
+            (MixpanelIdentity(user_id="u|1", company_id=COMPANY_ID), "user_id"),
+            (MixpanelIdentity(user_id=USER_ID, company_id="c|1"), "company_id"),
+            (MixpanelIdentity(user_id="u|1"), "user_id"),
+            (MixpanelIdentity(company_id="c|1"), "company_id"),
+        ],
+    )
+    def test_identity_with_pipe_is_rejected(self, identity, name):
+        message = f"{name} must not contain '|' on a hierarchical groups project"
+        for send in (
+            lambda: self.mp.track(identity, "Signup"),
+            lambda: self.mp.import_data(None, identity, "Signup", 1000),
+            lambda: self.mp.people_set(identity, {"plan": "pro"}),
+            lambda: self.mp.people_delete(identity),
+        ):
+            with pytest.raises(ValueError, match=re.escape(message)):
+                send()
+
+        self.assert_nothing_sent()
+
+    def test_company_with_pipe_is_rejected(self):
+        message = "must not contain '|' on a hierarchical groups project"
+        with pytest.raises(ValueError, match=f"company_id {message}"):
+            self.mp.for_company("c|1")
+        for meta in ({"$company_id": "c|1"}, {"$company_id": "c|"}):
+            with pytest.raises(ValueError, match=re.escape(f"$company_id {message}")):
+                self.mp.group_set(TEAM_ID, "t", {"name": "Core"}, meta=meta)
+            with pytest.raises(ValueError, match=re.escape(f"$company_id {message}")):
+                self.mp.people_set(
+                    MixpanelIdentity(user_id=USER_ID), {"plan": "pro"}, meta=meta
+                )
+        with pytest.raises(ValueError, match=re.escape(f"$company_id {message}")):
+            self.mp.group_update(
+                {
+                    "$group_key": "team_id",
+                    "$group_id": "t",
+                    "$company_id": "c|1",
+                    "$set": {},
+                }
+            )
+
+        self.assert_nothing_sent()
+
+    def test_pipe_in_custom_group_id_and_raw_properties_is_sent(self):
+        self.company.group_set("team_id", "t|1", {"name": "Core"})
+        self.mp.track(self.user, "Signup", {"note": "a|b"})
+
+        assert [message for _, message in self.consumer.log] == [
+            {
+                **team_update("$set", {"name": "Core"}),
+                "$group_id": "t|1",
+            },
+            {
+                "event": "Signup",
+                "properties": event_properties(
+                    **{
+                        "note": "a|b",
+                        "$user_id": USER_ID,
+                        "$company_id": COMPANY_ID,
+                        "$device_id": DEVICE_ID,
+                    }
+                ),
+            },
+        ]
+
+    def test_pipe_in_ids_without_hierarchical_groups_is_sent(self):
+        mp = make_client(self.consumer, hierarchical_groups=False)
+
+        mp.track(MixpanelIdentity(user_id="u|1", device_id="d|1"), "Signup")
+        mp.for_company("c|1").company_set({"plan": "pro"})
+
+        assert [message for _, message in self.consumer.log] == [
+            {
+                "event": "Signup",
+                "properties": event_properties(
+                    **{"$user_id": "u|1", "$device_id": "d|1"}
+                ),
+            },
+            {
+                "$token": TOKEN,
+                "$time": NOW,
+                "$group_key": "$company_id",
+                "$group_id": "c|1",
+                "$company_id": "c|1",
+                "$set": {"plan": "pro"},
+            },
+        ]
+
+    @pytest.mark.parametrize(
+        "context",
+        [
+            {"$user_id": "u|1", "$company_id": COMPANY_ID},
+            {"$user_id": USER_ID, "$company_id": "c|1"},
+            {"distinct_id": "$company:a|b|$user:u"},
+        ],
+    )
+    def test_exposure_with_pipe_in_ids_is_dropped(self, context):
+        assert exposure_identity(context, True) is None
+
     def test_blank_exposure_company_counts_as_missing(self):
         assert (
             exposure_identity({"$company_id": " ", "$user_id": USER_ID}, True) is None
@@ -1125,15 +1231,16 @@ class TestHierarchicalGroupsScenarios:
                     {"plan": "pro"},
                     meta={"$distinct_id": "$company:other|$user:u2"},
                 ),
-                "meta $distinct_id is '$company:other|$user:u2', but the "
-                f"identity's distinct_id is {combined!r}. Nothing sent",
+                "meta $distinct_id is '$company:other|$user:u2', but an "
+                "identity names the profile. Pass either an identity or a "
+                "$distinct_id, not both. Nothing sent",
             ),
             (
                 lambda: self.mp.people_set(
                     self.user, {"plan": "pro"}, meta={"$distinct_id": "u2"}
                 ),
-                "meta $distinct_id is 'u2', but the identity's distinct_id is "
-                "None. Nothing sent",
+                "meta $distinct_id is 'u2', but an identity names the profile. "
+                "Pass either an identity or a $distinct_id, not both. Nothing sent",
             ),
         ):
             with pytest.raises(ValueError, match="Nothing sent") as error:

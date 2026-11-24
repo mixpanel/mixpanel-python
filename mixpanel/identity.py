@@ -33,6 +33,22 @@ def _is_blank(value) -> bool:
     return isinstance(value, str) and value != "" and not value.strip()
 
 
+def _require_no_pipe(name, value) -> None:
+    """Refuse a hierarchical groups user or company id containing ``|``.
+
+    Mixpanel builds the distinct id ``$company:{company}|$user:{user}`` from
+    them, which cannot be split again if either contains ``|``.
+
+    :raises ValueError: if ``value`` is a string containing ``|``
+    """
+    if isinstance(value, str) and "|" in value:
+        msg = (
+            f"{name} must not contain '|' on a hierarchical groups project, "
+            f"not {value!r}. Nothing sent"
+        )
+        raise ValueError(msg)
+
+
 def _parse_combined_distinct_id(distinct_id) -> Optional[tuple]:
     """Split a ``$company:{company}|$user:{user}`` distinct id.
 
@@ -40,7 +56,8 @@ def _parse_combined_distinct_id(distinct_id) -> Optional[tuple]:
     everything after it. Returns ``(company_id, user_id)``, or None if
     ``distinct_id`` does not have that form.
 
-    :raises ValueError: if the company or the user is empty or only whitespace
+    :raises ValueError: if the company or the user is empty, only whitespace
+        or contains ``|``
     """
     if not isinstance(distinct_id, str) or not distinct_id.startswith(
         _COMBINED_COMPANY_PREFIX
@@ -54,6 +71,12 @@ def _parse_combined_distinct_id(distinct_id) -> Optional[tuple]:
     for name, value in (("company", company_id), ("user", user_id)):
         if not value.strip():
             msg = f"distinct_id {distinct_id!r} names a blank {name}. Nothing sent"
+            raise ValueError(msg)
+        if "|" in value:
+            msg = (
+                f"distinct_id {distinct_id!r} names a {name} containing '|'. "
+                "Nothing sent"
+            )
             raise ValueError(msg)
     return company_id, user_id
 
@@ -88,9 +111,7 @@ class MixpanelIdentity:
 
     Instances are immutable.
 
-    Each id is a string or an integer. On a hierarchical groups project,
-    ``user_id`` and ``company_id`` are sent as strings; otherwise ids are sent
-    as given.
+    Each id is a string or an integer, and is sent as a string.
 
     :param distinct_id: a distinct id Mixpanel resolves directly
     :type distinct_id: str or int
@@ -157,8 +178,8 @@ class MixpanelIdentity:
     ) -> dict:
         """Build a feature flag evaluation context for this identity.
 
-        Puts the ids under the keys flags read, so callers do not hand-write
-        reserved keys such as ``$company_id``::
+        Puts the ids, as strings, under the keys flags read, so callers do not
+        hand-write reserved keys such as ``$company_id``::
 
             identity.to_flag_context(
                 groups={"department": "finance"},
@@ -175,23 +196,20 @@ class MixpanelIdentity:
         for name, key in _FLAG_CONTEXT_KEYS:
             value = getattr(self, name)
             if value is not None:
-                context[key] = value
+                context[key] = str(value)
         if custom_properties:
             context["custom_properties"] = dict(custom_properties)
         return context
 
-    def _apply_to(self, properties: dict, *, string_ids: bool = False) -> None:
+    def _apply_to(self, properties: dict) -> None:
         """Write this identity's keys into ``properties``, replacing any there.
 
-        With ``string_ids``, ``$user_id`` and ``$company_id`` are written as
-        strings, as hierarchical groups ingestion needs.
+        Ids are written as strings, as ingestion needs.
         """
         for name, key in _IDENTITY_KEYS:
             value = getattr(self, name)
             if value is not None:
-                if string_ids and name in ("user_id", "company_id"):
-                    value = str(value)
-                properties[key] = value
+                properties[key] = str(value)
 
     def __repr__(self):
         set_fields = ", ".join(

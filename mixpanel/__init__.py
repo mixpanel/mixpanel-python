@@ -35,6 +35,7 @@ from .identity import (
     _is_blank,
     _is_id,
     _parse_combined_distinct_id,
+    _require_no_pipe,
 )
 
 __version__ = "5.4.1"
@@ -189,10 +190,10 @@ class Mixpanel:
         """Return a client that adds ``$company_id`` to every group profile update.
 
         :param company_id: the id of the top-level company, sent as a string
-            on a hierarchical groups client and as given otherwise
         :type company_id: str or int
         :raises ValueError: if ``company_id`` is empty, only whitespace or
-            None, or not a string or an integer
+            None, or not a string or an integer, or on a hierarchical groups
+            client contains ``|``
 
         Hierarchical groups projects require ``$company_id`` on every
         ``/groups`` write, including the company's own profile and user
@@ -223,6 +224,8 @@ class Mixpanel:
         if _is_blank(company_id):
             msg = f"company_id must not be only whitespace, not {company_id!r}"
             raise ValueError(msg)
+        if self._hierarchical_groups:
+            _require_no_pipe("company_id", company_id)
         bound = copy.copy(self)
         bound._company_id = company_id  # noqa: SLF001
         bound._owns_flag_providers = False  # noqa: SLF001
@@ -233,7 +236,8 @@ class Mixpanel:
 
         Hierarchical groups is a project setting, and ingestion accepts the
         identity keys on any project but ignores them, so a mismatch would be
-        silently mis-attributed.
+        silently mis-attributed. On a hierarchical groups client, a user or
+        company id containing ``|`` is refused.
         """
         if identity is None:
             raise ValueError("identity must not be None")
@@ -243,6 +247,9 @@ class Mixpanel:
                 "Mixpanel(token, hierarchical_groups=True)"
             )
             raise ValueError(msg)
+        if self._hierarchical_groups:
+            _require_no_pipe("user_id", identity.user_id)
+            _require_no_pipe("company_id", identity.company_id)
 
     def _require_identity_distinct_id_agrees(self, identity):
         """Refuse an identity whose combined distinct id names another profile.
@@ -290,9 +297,7 @@ class Mixpanel:
         if properties:
             all_properties.update(properties)
         if identity is not None:
-            identity._apply_to(  # noqa: SLF001
-                all_properties, string_ids=self._hierarchical_groups
-            )
+            identity._apply_to(all_properties)  # noqa: SLF001
         elif self._hierarchical_groups:
             _require_matches_combined_distinct_id(
                 all_properties.get("distinct_id"),
@@ -343,8 +348,7 @@ class Mixpanel:
 
         For a :class:`~.MixpanelIdentity`, its keys replace any values for the
         same keys in ``properties``, and ``distinct_id`` is sent only if the
-        identity has one or ``properties`` carries one. On a hierarchical
-        groups client, its ``$user_id`` and ``$company_id`` are sent as
+        identity has one or ``properties`` carries one. Its ids are sent as
         strings.
 
         On a hierarchical groups client, a plain distinct id of the form
@@ -815,7 +819,11 @@ class Mixpanel:
         if meta:
             meta = {key: value for key, value in meta.items() if key not in replaced}
         self._send_group_update(
-            group_message, meta, company_id, _unsupported_people_operation
+            group_message,
+            meta,
+            company_id,
+            _unsupported_people_operation,
+            user_profile=True,
         )
 
     def _require_bound_company(self, company_id, described):
@@ -858,8 +866,9 @@ class Mixpanel:
             given = meta["$distinct_id"]
             if not _same_id(given, identity.distinct_id):
                 msg = (
-                    f"meta $distinct_id is {given!r}, but the identity's "
-                    f"distinct_id is {identity.distinct_id!r}. Nothing sent"
+                    f"meta $distinct_id is {given!r}, but an identity names the "
+                    "profile. Pass either an identity or a $distinct_id, not "
+                    "both. Nothing sent"
                 )
                 raise ValueError(msg)
         if identity.distinct_id is not None:
@@ -897,6 +906,9 @@ class Mixpanel:
         company_id = identity.company_id
         if company_id is None:
             company_id = self._company_id
+        if meta and "$distinct_id" in meta:
+            # It repeats the identity's (absent) distinct id, which is never sent.
+            meta = {key: value for key, value in meta.items() if key != "$distinct_id"}
         return self._send_group_update(
             {
                 "$group_key": "$user_id",
@@ -906,6 +918,7 @@ class Mixpanel:
             meta,
             company_id,
             _unsupported_people_operation,
+            user_profile=True,
         )
 
     def group_set(self, group_key, group_id, properties, meta=None):
@@ -1029,9 +1042,7 @@ class Mixpanel:
                 f"for_company(company_id) to send them. Nothing sent for {method}"
             )
             raise CompanyRequiredError(msg)
-        if self._hierarchical_groups:
-            return str(self._company_id)
-        return self._company_id
+        return str(self._company_id)
 
     def company_set(self, properties, meta=None):
         """Set properties of the bound company's profile.
@@ -1128,7 +1139,8 @@ class Mixpanel:
             ``$group_key`` is ``$company_id`` and the ``$group_id`` differs
             from the company (the bound company, else the ``$company_id`` in
             ``message`` or ``meta``), since that company's profile would be
-            updated instead
+            updated instead, or if ``message`` or ``meta`` carries
+            ``$distinct_id`` or ``$ignore_alias``, which ``/groups`` rejects
 
         .. _`group profiles documentation`: https://developer.mixpanel.com/reference/group-profiles
         """
@@ -1136,12 +1148,16 @@ class Mixpanel:
             message, meta, self._company_id, _unsupported_group_operation
         )
 
-    def _send_group_update(self, message, meta, company_id, unsupported_error):
+    def _send_group_update(
+        self, message, meta, company_id, unsupported_error, *, user_profile=False
+    ):
         """Send a /groups message, adding ``company_id`` as a top-level key.
 
         On a hierarchical groups client, the message merged with ``meta`` is
         checked, so ``meta`` cannot add an operation /groups lacks, and an
-        empty ``$company_id`` does not count as a company.
+        empty ``$company_id`` does not count as a company. ``$ignore_alias``
+        is refused, and so is ``$distinct_id`` unless ``user_profile`` (whose
+        callers have already removed the ``$distinct_id`` naming the user).
         """
         record = {
             "$token": self._token,
@@ -1154,6 +1170,7 @@ class Mixpanel:
             unsupported = _unsupported_operations(record)
             if unsupported:
                 raise unsupported_error(unsupported[0])
+            _require_groups_accepts_keys(record, user_profile=user_profile)
             _require_same_target(message, meta, self._token)
             _keep_message_target(record, message, self._token)
         if self._hierarchical_groups and company_id is None:
@@ -1175,9 +1192,7 @@ class Mixpanel:
                 raise ValueError(msg)
         # $company_id must be top-level, not inside the operation payload
         if company_id is not None:
-            if self._hierarchical_groups:
-                company_id = str(company_id)
-            record["$company_id"] = company_id
+            record["$company_id"] = str(company_id)
         payload = json_dumps(record, cls=self._serializer)
         self._consumer.send("groups", payload)
 
@@ -1302,12 +1317,29 @@ def _require_same_target(message, meta, token):
             raise ValueError(msg)
 
 
+def _require_groups_accepts_keys(record, *, user_profile):
+    """Refuse keys that make ``/groups`` reject a hierarchical groups record.
+
+    :raises ValueError: if ``record`` carries ``$ignore_alias``, or
+        ``$distinct_id`` on a group (not user) profile update
+    """
+    rejected = ["$ignore_alias"] if user_profile else ["$distinct_id", "$ignore_alias"]
+    for key in rejected:
+        if key in record:
+            kind = "user" if user_profile else "group"
+            msg = (
+                f"{key} is not supported on hierarchical groups {kind} profile "
+                f"updates, which /groups rejects. Nothing sent"
+            )
+            raise ValueError(msg)
+
+
 def _require_given_company(company_id, message):
     """Check a ``$company_id`` given in a hierarchical groups message or meta.
 
     :raises CompanyRequiredError: if ``company_id`` is None or empty
-    :raises ValueError: if ``company_id`` is not a string or an integer, or is
-        only whitespace
+    :raises ValueError: if ``company_id`` is not a string or an integer, is
+        only whitespace, or contains ``|``
     """
     if company_id in (None, ""):
         msg = (
@@ -1322,6 +1354,7 @@ def _require_given_company(company_id, message):
             f"{company_id!r}. Nothing sent"
         )
         raise ValueError(msg)
+    _require_no_pipe("$company_id", company_id)
 
 
 def _unsupported_group_operation(operation):
