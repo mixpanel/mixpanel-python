@@ -33,6 +33,22 @@ def _is_blank(value) -> bool:
     return isinstance(value, str) and value != "" and not value.strip()
 
 
+def _validate_company_id(company_id) -> None:
+    """Refuse a company id that is not a non-empty, non-blank string or integer.
+
+    :raises ValueError: if ``company_id`` is None or empty, not a string or an
+        integer, or only whitespace
+    """
+    if company_id is None or company_id == "":
+        raise ValueError("company_id must be non-empty")
+    if not _is_id(company_id):
+        msg = f"company_id must be a string or an integer, not {company_id!r}"
+        raise ValueError(msg)
+    if _is_blank(company_id):
+        msg = f"company_id must not be only whitespace, not {company_id!r}"
+        raise ValueError(msg)
+
+
 def _require_no_pipe(name, value) -> None:
     """Refuse a hierarchical groups user or company id containing ``|``.
 
@@ -79,6 +95,55 @@ def _parse_combined_distinct_id(distinct_id) -> Optional[tuple]:
             )
             raise ValueError(msg)
     return company_id, user_id
+
+
+# Key -> the part of a combined distinct id it must match. "profile" is the
+# $group_key of a user profile update, which must be $user_id.
+_COMBINED_ID_PARTS = {
+    "$group_key": "profile",
+    "$group_id": "user",
+    "$company_id": "company",
+    "$user_id": "user",
+    "company_id": "company",
+    "user_id": "user",
+}
+
+
+def _require_matches_combined_distinct_id(distinct_id, checks):
+    """Refuse keys that name a different company or user than ``distinct_id``.
+
+    ``checks`` pairs a key with the dict it may appear in. Does nothing unless
+    ``distinct_id`` is of the form ``$company:{company}|$user:{user}``.
+
+    :raises ValueError: if a present key's string value differs from the part
+        of the distinct id it names, or a part is empty or only whitespace
+    """
+    parsed = _parse_combined_distinct_id(distinct_id)
+    if parsed is None:
+        return
+    company_id, user_id = parsed
+    parts = {"company": company_id, "user": user_id, "profile": "$user_id"}
+    for key, source in checks:
+        if key not in source:
+            continue
+        part = _COMBINED_ID_PARTS[key]
+        expected = parts[part]
+        if str(source[key]) != expected:
+            named = (
+                "a $user_id profile" if part == "profile" else f"{part} {expected!r}"
+            )
+            msg = (
+                f"distinct_id {distinct_id!r} names {named}, but {key} is "
+                f"{source[key]!r}. Nothing sent"
+            )
+            raise ValueError(msg)
+
+
+def _same_id(given, expected):
+    """True if two ids are equal compared as strings; None equals only None."""
+    if given is None or expected is None:
+        return given is expected
+    return str(given) == str(expected)
 
 
 @dataclass(frozen=True, init=False)
@@ -149,15 +214,18 @@ class MixpanelIdentity:
         }
         for name, value in values.items():
             # None leaves the value unset; an empty string is a caller error.
-            if value is not None and not _is_id(value):
-                msg = f"{name} must be a string or an integer, not {value!r}"
-                raise ValueError(msg)
-            if value == "":
-                msg = f"{name} must be non-empty"
-                raise ValueError(msg)
-            if name in ("user_id", "company_id") and _is_blank(value):
-                msg = f"{name} must not be only whitespace, not {value!r}"
-                raise ValueError(msg)
+            if name == "company_id" and value is not None:
+                _validate_company_id(value)
+            elif value is not None:
+                if not _is_id(value):
+                    msg = f"{name} must be a string or an integer, not {value!r}"
+                    raise ValueError(msg)
+                if value == "":
+                    msg = f"{name} must be non-empty"
+                    raise ValueError(msg)
+                if name == "user_id" and _is_blank(value):
+                    msg = f"{name} must not be only whitespace, not {value!r}"
+                    raise ValueError(msg)
             object.__setattr__(self, name, value)
         if all(value is None for value in values.values()):
             msg = (

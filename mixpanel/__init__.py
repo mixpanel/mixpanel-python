@@ -35,7 +35,10 @@ from .identity import (
     _is_blank,
     _is_id,
     _parse_combined_distinct_id,
+    _require_matches_combined_distinct_id,
     _require_no_pipe,
+    _same_id,
+    _validate_company_id,
 )
 
 __version__ = "5.4.1"
@@ -45,6 +48,9 @@ logger = logging.getLogger(__name__)
 # Hierarchical groups user profiles are group profiles, and /groups has no
 # $add, $append or $merge.
 GROUP_OPERATIONS = ("$set", "$set_once", "$unset", "$union", "$remove", "$delete")
+
+# Keys a combined distinct id names on a user profile update
+_COMBINED_PROFILE_KEYS = ("$group_key", "$group_id", "$company_id")
 
 # Keys of a /engage or /groups message that are not operations.
 _NON_OPERATION_KEYS = frozenset(
@@ -216,14 +222,7 @@ class Mixpanel:
         without a company uses the bound company, and a bound client raises
         ``ValueError`` for a user from another company.
         """
-        if company_id is None or company_id == "":
-            raise ValueError("company_id must be non-empty")
-        if not _is_id(company_id):
-            msg = f"company_id must be a string or an integer, not {company_id!r}"
-            raise ValueError(msg)
-        if _is_blank(company_id):
-            msg = f"company_id must not be only whitespace, not {company_id!r}"
-            raise ValueError(msg)
+        _validate_company_id(company_id)
         if self._hierarchical_groups:
             _require_no_pipe("company_id", company_id)
         bound = copy.copy(self)
@@ -574,10 +573,10 @@ class Mixpanel:
         group profile within the identity's company (or else the bound
         company, or else the ``$company_id`` in ``meta``) through ``/groups``,
         and so does a distinct id of the form ``$company:{company}|$user:{user}``,
-        which is parsed into that company and user. Any other distinct id raises ``ValueError``. The
-        same applies to
-        ``people_set_once``, ``people_unset``, ``people_union``,
-        ``people_remove`` and ``people_delete``.
+        which is parsed into that company and user. Any other distinct id
+        raises ``ValueError``. The same applies to ``people_set_once``,
+        ``people_unset``, ``people_union``, ``people_remove`` and
+        ``people_delete``.
 
         If the profile does not exist, creates a new profile with these properties.
 
@@ -1217,57 +1216,6 @@ class Mixpanel:
             await self._local_flags_provider.__aexit__(exc_type, exc_val, exc_tb)
         if self._remote_flags_provider is not None:
             await self._remote_flags_provider.__aexit__(exc_type, exc_val, exc_tb)
-
-
-# Key -> the part of a combined distinct id it must match. "profile" is the
-# $group_key of a user profile update, which must be $user_id.
-_COMBINED_ID_PARTS = {
-    "$group_key": "profile",
-    "$group_id": "user",
-    "$company_id": "company",
-    "$user_id": "user",
-    "company_id": "company",
-    "user_id": "user",
-}
-# Keys a combined distinct id names on a user profile update
-_COMBINED_PROFILE_KEYS = ("$group_key", "$group_id", "$company_id")
-
-
-def _require_matches_combined_distinct_id(distinct_id, checks):
-    """Refuse keys that name a different company or user than ``distinct_id``.
-
-    ``checks`` pairs a key with the dict it may appear in. Does nothing unless
-    ``distinct_id`` is of the form ``$company:{company}|$user:{user}``.
-
-    :raises ValueError: if a present key's string value differs from the part
-        of the distinct id it names, or a part is empty or only whitespace
-    """
-    parsed = _parse_combined_distinct_id(distinct_id)
-    if parsed is None:
-        return
-    company_id, user_id = parsed
-    parts = {"company": company_id, "user": user_id, "profile": "$user_id"}
-    for key, source in checks:
-        if key not in source:
-            continue
-        part = _COMBINED_ID_PARTS[key]
-        expected = parts[part]
-        if str(source[key]) != expected:
-            named = (
-                "a $user_id profile" if part == "profile" else f"{part} {expected!r}"
-            )
-            msg = (
-                f"distinct_id {distinct_id!r} names {named}, but {key} is "
-                f"{source[key]!r}. Nothing sent"
-            )
-            raise ValueError(msg)
-
-
-def _same_id(given, expected):
-    """True if two ids are equal compared as strings; None equals only None."""
-    if given is None or expected is None:
-        return given is expected
-    return str(given) == str(expected)
 
 
 def _keep_message_target(record, message, token):

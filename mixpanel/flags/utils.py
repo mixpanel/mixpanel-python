@@ -7,7 +7,11 @@ from typing import TYPE_CHECKING, Any, Callable
 
 from asgiref.sync import async_to_sync
 
-from mixpanel.identity import MixpanelIdentity, _require_no_pipe
+from mixpanel.identity import (
+    MixpanelIdentity,
+    _require_matches_combined_distinct_id,
+    _require_no_pipe,
+)
 
 if TYPE_CHECKING:
     from concurrent.futures import Executor, Future
@@ -145,9 +149,6 @@ def _combined_distinct_id_conflict(context: dict[str, Any]) -> str | None:
     check track and import apply, and refuses a ``$company_id`` or ``$user_id``
     containing ``|``. Returns None if they agree.
     """
-    # Imported here: the mixpanel package imports this module.
-    from mixpanel import _require_matches_combined_distinct_id  # noqa: PLC0415
-
     present = {
         key: context[key]
         for key in ("$company_id", "$user_id")
