@@ -877,9 +877,10 @@ class Mixpanel:
         if identity.distinct_id is not None:
             # On a hierarchical groups client, people_update sends a combined
             # distinct id to /groups as its company and user, and rejects any
-            # other distinct id.
+            # other distinct id. An identity's ids are always sent as strings.
             return self.people_update(
-                {"$distinct_id": identity.distinct_id, operation: value}, meta=meta
+                {"$distinct_id": str(identity.distinct_id), operation: value},
+                meta=meta,
             )
         if not self._hierarchical_groups:
             msg = (

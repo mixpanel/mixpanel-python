@@ -2476,6 +2476,16 @@ class TestHierarchicalGroupsScenarios(TestMixpanelBase):
             ),
         ]
 
+    def test_integer_identity_distinct_id_is_sent_as_string_on_profiles(self):
+        mp = make_client(self.consumer, hierarchical_groups=False)
+
+        mp.people_set(MixpanelIdentity(distinct_id=123), {"plan": "pro"})
+
+        endpoint, message = self.consumer.log[-1]
+        assert endpoint == "people"
+        assert message["$distinct_id"] == "123"
+        assert message["$set"] == {"plan": "pro"}
+
     # A combined distinct id must agree with the event's $company_id / $user_id
 
     @pytest.mark.parametrize(
