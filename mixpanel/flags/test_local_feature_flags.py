@@ -1611,16 +1611,14 @@ class TestLocalFlagsHierarchicalGroups:
         identity = self.tracker.call_args.args[0]
         assert identity == MixpanelIdentity(distinct_id="user-123")
 
-    def test_exposure_keeps_user_id_without_company(self):
+    def test_exposure_drops_user_id_without_company(self):
         provider = self.provider([raw_flag()])
         provider.get_variant_value(
             HG_FLAG_KEY, "fallback", {"distinct_id": "d1", "$user_id": "user-123"}
         )
-        assert self.tracker.call_args.args[0] == MixpanelIdentity(
-            distinct_id="d1", user_id="user-123"
-        )
+        assert self.tracker.call_args.args[0] == MixpanelIdentity(distinct_id="d1")
 
-    def test_exposure_without_company_through_client_track_keeps_user_id(self):
+    def test_exposure_without_company_through_client_track_drops_user_id(self):
         consumer = Mock()
         mp = Mixpanel("test-token", consumer=consumer, hierarchical_groups=True)
         provider = self.provider([raw_flag()], tracker=mp.track)
@@ -1631,7 +1629,7 @@ class TestLocalFlagsHierarchicalGroups:
         properties = json.loads(message)["properties"]
         assert endpoint == "events"
         assert properties["distinct_id"] == "d1"
-        assert properties["$user_id"] == "user-123"
+        assert "$user_id" not in properties
         assert "$company_id" not in properties
 
     def test_exposure_without_company_or_distinct_id_is_dropped(self, caplog):
@@ -1644,6 +1642,51 @@ class TestLocalFlagsHierarchicalGroups:
         assert any(
             "without a $company_id in the context" in r.getMessage()
             for r in caplog.records
+        )
+
+    @pytest.mark.parametrize(
+        ("ids", "expected"),
+        [
+            (
+                {"$user_id": "u1", "$company_id": 42},
+                MixpanelIdentity(distinct_id="d1"),
+            ),
+            (
+                {"$user_id": 7, "$company_id": "acme"},
+                MixpanelIdentity(distinct_id="d1", company_id="acme"),
+            ),
+            (
+                {"$user_id": "u1", "$company_id": "acme"},
+                MixpanelIdentity(distinct_id="d1", user_id="u1", company_id="acme"),
+            ),
+        ],
+    )
+    def test_exposure_attaches_only_string_ids(self, ids, expected):
+        provider = self.provider([raw_flag()])
+        provider.get_variant_value(
+            HG_FLAG_KEY, "fallback", {"distinct_id": "d1", **ids}
+        )
+        identity = self.tracker.call_args.args[0]
+        assert identity == expected
+        assert type(identity.company_id) is type(expected.company_id)
+
+    def test_exposure_with_numeric_company_and_no_distinct_id_is_dropped(self, caplog):
+        provider = self.provider([raw_flag(context="device_id")])
+        context = {"device_id": "dev", "$user_id": "u1", "$company_id": 42}
+        result = provider.get_variant_value(HG_FLAG_KEY, "fallback", context)
+        assert result == "control-value"
+        provider.track_exposure_event(
+            HG_FLAG_KEY,
+            SelectedVariant(variant_key="treatment", variant_value="treatment-value"),
+            context,
+        )
+        self.tracker.assert_not_called()
+        messages = [r.getMessage() for r in caplog.records]
+        assert (
+            messages.count(
+                "Cannot track exposure event without a $company_id in the context"
+            )
+            == 2
         )
 
     def test_manual_exposure_uses_identity(self):

@@ -105,10 +105,14 @@ def prepare_common_query_params(
 
 
 def _present(value: Any) -> str | None:
-    """Return ``value`` as a string, or None if it is None, empty or blank."""
-    if value is None or not str(value).strip():
+    """Return ``value`` if it is a non-blank string, otherwise None.
+
+    Only strings count, matching flag evaluation: a number or any other type
+    is treated as missing rather than converted.
+    """
+    if not isinstance(value, str) or not value.strip():
         return None
-    return str(value)
+    return value
 
 
 def exposure_identity(
@@ -120,10 +124,11 @@ def exposure_identity(
     to the tracker as a plain string exactly as before. With hierarchical
     groups it is a :class:`~mixpanel.identity.MixpanelIdentity` carrying
     whichever of ``distinct_id``, ``$user_id`` and ``$company_id`` the context
-    has, attributable by ``$company_id`` or ``distinct_id``. Returns None if the
+    has as non-blank strings, with ``$user_id`` only alongside ``$company_id``,
+    attributable by ``$company_id`` or ``distinct_id``. Returns None if the
     exposure cannot be attributed, including when a combined ``distinct_id``
-    names a different company or user than the context's ``$company_id`` or
-    ``$user_id``.
+    names a different company or user than the ``$company_id`` or ``$user_id``
+    the exposure would carry.
     """
     distinct_id = context.get("distinct_id")
     if not hierarchical_groups:
@@ -136,9 +141,24 @@ def exposure_identity(
         return None
     return MixpanelIdentity(
         distinct_id=str(distinct_id) if distinct_id else None,
-        user_id=_present(context.get("$user_id")),
-        company_id=company_id,
+        **_exposure_ids(context),
     )
+
+
+def _exposure_ids(context: dict[str, Any]) -> dict[str, str]:
+    """The ``user_id`` and ``company_id`` an exposure for ``context`` carries.
+
+    Only non-blank strings count. A ``$user_id`` is carried only alongside a
+    ``$company_id``; a ``$company_id`` may be carried alone.
+    """
+    company_id = _present(context.get("$company_id"))
+    if company_id is None:
+        return {}
+    ids = {"company_id": company_id}
+    user_id = _present(context.get("$user_id"))
+    if user_id is not None:
+        ids["user_id"] = user_id
+    return ids
 
 
 def _combined_distinct_id_conflict(context: dict[str, Any]) -> str | None:
@@ -149,10 +169,11 @@ def _combined_distinct_id_conflict(context: dict[str, Any]) -> str | None:
     check track and import apply, and refuses a ``$company_id`` or ``$user_id``
     containing ``|``. Returns None if they agree.
     """
+    ids = _exposure_ids(context)
     present = {
-        key: context[key]
-        for key in ("$company_id", "$user_id")
-        if _present(context.get(key)) is not None
+        key: ids[name]
+        for key, name in (("$company_id", "company_id"), ("$user_id", "user_id"))
+        if name in ids
     }
     try:
         for key, value in present.items():

@@ -728,14 +728,12 @@ class TestRemoteFlagsHierarchicalGroups:
         )
 
     @respx.mock
-    def test_exposure_keeps_user_id_without_company(self):
+    def test_exposure_drops_user_id_without_company(self):
         mock_treatment_response()
         self._flags.get_variant_value(
             "test_flag", "fallback", {"distinct_id": "d1", "$user_id": "user-123"}
         )
-        assert self.tracker.call_args.args[0] == MixpanelIdentity(
-            distinct_id="d1", user_id="user-123"
-        )
+        assert self.tracker.call_args.args[0] == MixpanelIdentity(distinct_id="d1")
 
     @respx.mock
     def test_exposure_without_company_or_distinct_id_is_not_tracked(self):
@@ -745,6 +743,59 @@ class TestRemoteFlagsHierarchicalGroups:
         )
         assert result == "t"
         self.tracker.assert_not_called()
+
+    @respx.mock
+    @pytest.mark.parametrize(
+        ("ids", "expected"),
+        [
+            (
+                {"$user_id": "u1", "$company_id": 42},
+                MixpanelIdentity(distinct_id="d1"),
+            ),
+            (
+                {"$user_id": 7, "$company_id": "acme"},
+                MixpanelIdentity(distinct_id="d1", company_id="acme"),
+            ),
+            (
+                {"$user_id": "u1", "$company_id": "acme"},
+                MixpanelIdentity(distinct_id="d1", user_id="u1", company_id="acme"),
+            ),
+        ],
+    )
+    async def test_exposure_attaches_only_string_ids(self, ids, expected):
+        mock_treatment_response()
+        context = {"distinct_id": "d1", **ids}
+        variant = SelectedVariant(variant_key="treatment", variant_value="t")
+        self._flags.get_variant_value("test_flag", "fallback", context)
+        await self._flags.aget_variant_value("test_flag", "fallback", context)
+        await drain_pending_tasks()
+        self._flags.track_exposure_event("test_flag", variant, context)
+        await self._flags.atrack_exposure_event("test_flag", variant, context)
+        assert [c.args[0] for c in self.tracker.call_args_list] == [expected] * 4
+
+    @respx.mock
+    async def test_exposure_with_numeric_company_and_no_distinct_id_is_not_tracked(
+        self, caplog
+    ):
+        mock_treatment_response()
+        context = {"$user_id": "u1", "$company_id": 42}
+        variant = SelectedVariant(variant_key="treatment", variant_value="t")
+        assert self._flags.get_variant_value("test_flag", "fallback", context) == "t"
+        assert (
+            await self._flags.aget_variant_value("test_flag", "fallback", context)
+            == "t"
+        )
+        await drain_pending_tasks()
+        self._flags.track_exposure_event("test_flag", variant, context)
+        await self._flags.atrack_exposure_event("test_flag", variant, context)
+        self.tracker.assert_not_called()
+        messages = [r.getMessage() for r in caplog.records]
+        assert (
+            messages.count(
+                "Cannot track exposure event without a $company_id in the context"
+            )
+            == 2
+        )
 
     def test_manual_exposure_uses_identity(self):
         variant = SelectedVariant(variant_key="treatment", variant_value="t")
