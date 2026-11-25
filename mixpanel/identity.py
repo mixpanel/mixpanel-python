@@ -8,7 +8,6 @@ _IDENTITY_KEYS = (
     ("distinct_id", "distinct_id"),
     ("user_id", "$user_id"),
     ("company_id", "$company_id"),
-    ("device_id", "$device_id"),
 )
 
 # Field name -> key a flag evaluation context reads it from
@@ -16,7 +15,6 @@ _FLAG_CONTEXT_KEYS = (
     ("distinct_id", "distinct_id"),
     ("user_id", "$user_id"),
     ("company_id", "$company_id"),
-    ("device_id", "device_id"),
 )
 
 _COMBINED_COMPANY_PREFIX = "$company:"
@@ -151,13 +149,12 @@ class MixpanelIdentity:
     """Identifies who an event or profile update belongs to.
 
     Mixpanel resolves an identity from whichever of ``distinct_id``,
-    ``$user_id``, ``$company_id`` and ``$device_id`` an event carries, so this
-    type sets any combination of them and leaves the rest unset (``None``)::
+    ``$user_id`` and ``$company_id`` an event carries, so this type sets any
+    combination of them and leaves the rest unset (``None``)::
 
         MixpanelIdentity(distinct_id="user_123")                 # a plain distinct id
-        MixpanelIdentity(user_id="user_123", device_id="dev")    # simplified id merge
+        MixpanelIdentity(user_id="user_123")                     # a user
         MixpanelIdentity(user_id="user_123", company_id="acme")  # hierarchical groups
-        MixpanelIdentity(device_id="dev")                        # anonymous, no user yet
         MixpanelIdentity(company_id="acme")                      # a company, no user
 
     Which combinations are valid depends on the project, so
@@ -186,8 +183,6 @@ class MixpanelIdentity:
     :param company_id: the id of the top-level company, on a hierarchical
         groups project
     :type company_id: str or int
-    :param device_id: the client's device id
-    :type device_id: str or int
     :raises ValueError: if a value is an empty string or not a string or an
         integer, ``user_id`` or ``company_id`` is only whitespace, or no value
         is set
@@ -196,7 +191,6 @@ class MixpanelIdentity:
     distinct_id: Optional[Union[str, int]]
     user_id: Optional[Union[str, int]]
     company_id: Optional[Union[str, int]]
-    device_id: Optional[Union[str, int]]
 
     def __init__(
         self,
@@ -204,13 +198,11 @@ class MixpanelIdentity:
         distinct_id: Optional[Union[str, int]] = None,
         user_id: Optional[Union[str, int]] = None,
         company_id: Optional[Union[str, int]] = None,
-        device_id: Optional[Union[str, int]] = None,
     ):
         values = {
             "distinct_id": distinct_id,
             "user_id": user_id,
             "company_id": company_id,
-            "device_id": device_id,
         }
         for name, value in values.items():
             # None leaves the value unset; an empty string is a caller error.
@@ -228,10 +220,7 @@ class MixpanelIdentity:
                     raise ValueError(msg)
             object.__setattr__(self, name, value)
         if all(value is None for value in values.values()):
-            msg = (
-                "An identity needs at least one of distinct_id, user_id, "
-                "company_id or device_id"
-            )
+            msg = "An identity needs at least one of distinct_id, user_id or company_id"
             raise ValueError(msg)
 
     @property

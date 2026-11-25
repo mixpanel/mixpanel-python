@@ -661,19 +661,16 @@ class TestHierarchicalGroups:
 
     def test_identity_rejects_empty_values(self):
         # An empty string is a caller error; None simply leaves the value unset.
-        for name in ("distinct_id", "user_id", "company_id", "device_id"):
+        for name in ("distinct_id", "user_id", "company_id"):
             with pytest.raises(ValueError, match=name):
                 mixpanel.MixpanelIdentity(**{name: ""})
 
     def test_identity_accepts_string_and_integer_ids(self):
-        identity = mixpanel.MixpanelIdentity(
-            distinct_id=0, user_id=42, company_id=7, device_id="dev"
-        )
+        identity = mixpanel.MixpanelIdentity(distinct_id=0, user_id=42, company_id=7)
 
         assert identity.distinct_id == 0
         assert identity.user_id == 42
         assert identity.company_id == 7
-        assert identity.device_id == "dev"
 
         # Ingestion drops integer ids, so every identity id is sent as a string.
         self.hg.track(identity, "event")
@@ -681,10 +678,9 @@ class TestHierarchicalGroups:
         assert properties["distinct_id"] == "0"
         assert properties["$user_id"] == "42"
         assert properties["$company_id"] == "7"
-        assert properties["$device_id"] == "dev"
 
     def test_identity_rejects_other_id_types(self):
-        for name in ("distinct_id", "user_id", "company_id", "device_id"):
+        for name in ("distinct_id", "user_id", "company_id"):
             for value in (True, False, 1.5, ["a"], {"a": 1}, b"a"):
                 with pytest.raises(ValueError, match=name):
                     mixpanel.MixpanelIdentity(**{name: value})
@@ -696,10 +692,10 @@ class TestHierarchicalGroups:
             mixpanel.MixpanelIdentity(user_id=None, company_id=None)
 
     def test_none_leaves_a_value_unset(self):
-        identity = mixpanel.MixpanelIdentity(user_id="user_123", device_id=None)
+        identity = mixpanel.MixpanelIdentity(user_id="user_123", company_id=None)
 
         assert identity.user_id == "user_123"
-        assert identity.device_id is None
+        assert identity.company_id is None
         assert not identity.is_hierarchical
 
     def test_identity_is_immutable_keyword_only_and_readable(self):
@@ -717,10 +713,18 @@ class TestHierarchicalGroups:
             company_id="acme", user_id="user_123"
         )
 
-    def test_identity_builds_a_flag_context(self):
+    def test_identity_has_no_device_id(self):
+        with pytest.raises(TypeError):
+            mixpanel.MixpanelIdentity(user_id="user_123", device_id="device_abc")
+
         identity = mixpanel.MixpanelIdentity(
-            user_id="user_123", company_id="acme", device_id="device_abc"
+            distinct_id="d", user_id="user_123", company_id="acme"
         )
+        assert not hasattr(identity, "device_id")
+        assert "device_id" not in identity.to_flag_context()
+
+    def test_identity_builds_a_flag_context(self):
+        identity = mixpanel.MixpanelIdentity(user_id="user_123", company_id="acme")
 
         assert identity.to_flag_context(
             groups={"department": "finance"},
@@ -728,7 +732,6 @@ class TestHierarchicalGroups:
         ) == {
             "$user_id": "user_123",
             "$company_id": "acme",
-            "device_id": "device_abc",
             "department": "finance",
             "custom_properties": {"plan": "enterprise"},
         }
@@ -741,9 +744,7 @@ class TestHierarchicalGroups:
     def test_identity_flag_context_ids_are_strings(self):
         # Flags read ids only as strings; group values and custom properties
         # are passed through as given.
-        identity = mixpanel.MixpanelIdentity(
-            distinct_id=1, user_id=42, company_id=7, device_id=5
-        )
+        identity = mixpanel.MixpanelIdentity(distinct_id=1, user_id=42, company_id=7)
 
         assert identity.to_flag_context(
             groups={"team_id": 9}, custom_properties={"seats": 3}
@@ -751,14 +752,13 @@ class TestHierarchicalGroups:
             "distinct_id": "1",
             "$user_id": "42",
             "$company_id": "7",
-            "device_id": "5",
             "team_id": 9,
             "custom_properties": {"seats": 3},
         }
 
     def test_identity_ids_are_strings_without_hierarchical_groups(self):
         self.legacy.track(
-            mixpanel.MixpanelIdentity(distinct_id=1, user_id=42, device_id=5),
+            mixpanel.MixpanelIdentity(distinct_id=1, user_id=42),
             "event",
             {"$user_id": 3, "count": 4},
         )
@@ -766,7 +766,6 @@ class TestHierarchicalGroups:
         properties = self.last_properties()
         assert properties["distinct_id"] == "1"
         assert properties["$user_id"] == "42"
-        assert properties["$device_id"] == "5"
         assert properties["count"] == 4
 
     # Events
@@ -783,17 +782,17 @@ class TestHierarchicalGroups:
         assert "$device_id" not in props
         assert props["token"] == self.TOKEN
 
-    def test_hierarchical_event_with_device_id(self):
-        self.hg.track(
-            mixpanel.MixpanelIdentity(
-                user_id="user_123", company_id="acme", device_id="device_abc"
-            ),
-            "Signup",
-        )
+    def test_device_id_property_is_sent_as_given(self):
+        for mp, identity in (
+            (self.hg, mixpanel.MixpanelIdentity(user_id="user_123", company_id="acme")),
+            (self.legacy, mixpanel.MixpanelIdentity(user_id="user_123")),
+        ):
+            mp.track(identity, "Signup", {"$device_id": "device_abc"})
 
-        props = self.last_properties()
-        assert props["$device_id"] == "device_abc"
-        assert "distinct_id" not in props
+            props = self.last_properties()
+            assert props["$device_id"] == "device_abc"
+            assert props["$user_id"] == "user_123"
+            assert "distinct_id" not in props
 
     def test_company_only_event(self):
         self.hg.track(mixpanel.MixpanelIdentity(company_id="acme"), "Renewed")
@@ -864,47 +863,12 @@ class TestHierarchicalGroups:
         assert "distinct_id" not in props
         assert "$insert_id" in props
 
-    def test_user_and_device_without_company_is_valid_for_simplified_id_merge(self):
-        # $user_id with $device_id is the standard non-hierarchical server-side identity.
-        self.legacy.track(
-            mixpanel.MixpanelIdentity(user_id="user_123", device_id="device_abc"),
-            "Signup",
-        )
-
-        props = self.last_properties()
-        assert props["$user_id"] == "user_123"
-        assert props["$device_id"] == "device_abc"
-        assert "distinct_id" not in props
-        assert "$company_id" not in props
-
     def test_user_without_company_is_sent_as_given_for_hierarchical_groups(self):
         self.hg.track(mixpanel.MixpanelIdentity(user_id="user_123"), "Signup")
 
         props = self.last_properties()
         assert props["$user_id"] == "user_123"
         assert "$company_id" not in props
-
-    def test_user_with_device_but_no_company_is_allowed_for_hierarchical_groups(self):
-        # Mixpanel ignores the user id and keeps the event under the device, which
-        # later links to the company-scoped user. Recoverable, so not refused.
-        self.hg.track(
-            mixpanel.MixpanelIdentity(user_id="user_123", device_id="device_abc"),
-            "Signup",
-        )
-
-        props = self.last_properties()
-        assert props["$device_id"] == "device_abc"
-        assert "$company_id" not in props
-
-    def test_anonymous_device_event(self):
-        for mp in (self.hg, self.legacy):
-            mp.track(mixpanel.MixpanelIdentity(device_id="device_abc"), "Page View")
-
-            props = self.last_properties()
-            assert props["$device_id"] == "device_abc"
-            assert "distinct_id" not in props
-            assert "$user_id" not in props
-            assert "$company_id" not in props
 
     def test_combined_distinct_id_event_passes_through(self):
         # Ingestion parses $company:{company}|$user:{user} back into $company_id and
@@ -1106,10 +1070,8 @@ class TestHierarchicalGroups:
                 )
         assert self.consumer.log == []
 
-    def test_combined_distinct_id_identity_with_device_goes_to_groups(self):
-        identity = mixpanel.MixpanelIdentity(
-            distinct_id=self.COMBINED_ID, device_id="dev"
-        )
+    def test_combined_distinct_id_identity_goes_to_groups(self):
+        identity = mixpanel.MixpanelIdentity(distinct_id=self.COMBINED_ID)
 
         self.hg.people_set(identity, {"plan": "pro"})
 
@@ -1288,7 +1250,7 @@ class TestHierarchicalGroups:
         assert self.consumer.log == []
 
     def test_identity_profile_uses_company_id_meta_when_identity_has_no_company(self):
-        identity = mixpanel.MixpanelIdentity(user_id="user_123", device_id="dev")
+        identity = mixpanel.MixpanelIdentity(user_id="user_123")
 
         self.hg.people_set(identity, {"role": "admin"}, meta={"$company_id": "acme"})
 
@@ -1390,15 +1352,6 @@ class TestHierarchicalGroups:
                 "$company_id": "acme",
             },
         )
-
-    def test_device_identity_cannot_identify_a_profile(self):
-        identity = mixpanel.MixpanelIdentity(device_id="device_abc")
-
-        with pytest.raises(ValueError, match="names no user"):
-            self.hg.people_set(identity, {"plan": "pro"})
-        with pytest.raises(ValueError, match="cannot identify a profile"):
-            self.legacy.people_set(identity, {"plan": "pro"})
-        assert self.consumer.log == []
 
     def test_company_only_identity_profile_update_is_rejected(self):
         with pytest.raises(ValueError, match="company_set") as excinfo:
@@ -1811,10 +1764,8 @@ class TestHierarchicalGroups:
         def exercise(mp):
             mp.track("user_123", "Signup", {"plan": "pro"}, meta={"ip": 0})
             mp.import_data(None, "user_123", "Signup", 1000, {"plan": "pro"})
-            mp.track(mixpanel.MixpanelIdentity(device_id="dev"), "Page View")
-            mp.track(
-                mixpanel.MixpanelIdentity(user_id="u", device_id="dev"), "Page View"
-            )
+            mp.track(mixpanel.MixpanelIdentity(user_id="u"), "Page View")
+            mp.track("user_123", "Page View", {"$device_id": "dev"})
             mp.group_set("company", "acme", {"plan": "x"}, meta={"$company_id": "a"})
             mp.for_company("acme").group_set("company", "acme", {"plan": "x"})
             mp.for_company("acme").group_delete("company", "acme")
@@ -1942,12 +1893,7 @@ class TestHierarchicalGroupsScenarios(TestMixpanelBase):
         super().setup_method()
         self.mp = make_client(self.consumer)
         self.company = self.mp.for_company(COMPANY_ID)
-        self.user = MixpanelIdentity(
-            user_id=USER_ID, company_id=COMPANY_ID, device_id=DEVICE_ID
-        )
-        self.user_without_device = MixpanelIdentity(
-            user_id=USER_ID, company_id=COMPANY_ID
-        )
+        self.user = MixpanelIdentity(user_id=USER_ID, company_id=COMPANY_ID)
 
     def only_sent(self):
         assert len(self.consumer.log) == 1
@@ -1969,29 +1915,22 @@ class TestHierarchicalGroupsScenarios(TestMixpanelBase):
 
     # Events
 
-    def test_track_anonymous(self):
-        self.mp.track(MixpanelIdentity(device_id=DEVICE_ID), "Page View")
+    def test_track_with_device_id_property(self):
+        self.mp.track(self.user, "Page View", {"$device_id": DEVICE_ID})
 
         self.assert_only_event(
-            "Page View", event_properties(**{"$device_id": DEVICE_ID})
-        )
-
-    def test_track_identified(self):
-        self.mp.track(self.user, "Signup")
-
-        self.assert_only_event(
-            "Signup",
+            "Page View",
             event_properties(
                 **{
+                    "$device_id": DEVICE_ID,
                     "$user_id": USER_ID,
                     "$company_id": COMPANY_ID,
-                    "$device_id": DEVICE_ID,
                 }
             ),
         )
 
-    def test_track_identified_without_device(self):
-        self.mp.track(self.user_without_device, "Signup")
+    def test_track_identified(self):
+        self.mp.track(self.user, "Signup")
 
         self.assert_only_event(
             "Signup",
@@ -2008,7 +1947,6 @@ class TestHierarchicalGroupsScenarios(TestMixpanelBase):
                     "team_id": TEAM_ID,
                     "$user_id": USER_ID,
                     "$company_id": COMPANY_ID,
-                    "$device_id": DEVICE_ID,
                 }
             ),
         )
@@ -2021,7 +1959,6 @@ class TestHierarchicalGroupsScenarios(TestMixpanelBase):
                 "time": 1000,
                 "$user_id": USER_ID,
                 "$company_id": COMPANY_ID,
-                "$device_id": DEVICE_ID,
             }
         )
         self.assert_only_event("Signup", properties, endpoint="imports")
@@ -2037,7 +1974,6 @@ class TestHierarchicalGroupsScenarios(TestMixpanelBase):
                 **{
                     "$user_id": USER_ID,
                     "$company_id": COMPANY_ID,
-                    "$device_id": DEVICE_ID,
                 }
             ),
         )
@@ -2388,7 +2324,7 @@ class TestHierarchicalGroupsScenarios(TestMixpanelBase):
     # Integer ids are sent as strings
 
     def test_integer_identity_ids_are_sent_as_strings_on_events(self):
-        identity = MixpanelIdentity(user_id=3190316, company_id=3190317, device_id=5)
+        identity = MixpanelIdentity(user_id=3190316, company_id=3190317)
 
         self.mp.track(identity, "Signup", {"count": 3, "$company_id": "ignored"})
 
@@ -2399,7 +2335,6 @@ class TestHierarchicalGroupsScenarios(TestMixpanelBase):
                     "count": 3,
                     "$user_id": "3190316",
                     "$company_id": "3190317",
-                    "$device_id": "5",
                 }
             ),
         )
@@ -2456,7 +2391,7 @@ class TestHierarchicalGroupsScenarios(TestMixpanelBase):
     def test_integer_ids_without_hierarchical_groups(self):
         mp = make_client(self.consumer, hierarchical_groups=False)
 
-        mp.track(MixpanelIdentity(user_id=42, device_id=5), "Signup")
+        mp.track(MixpanelIdentity(user_id=42), "Signup")
         mp.for_company(7).company_set({"plan": "pro"})
 
         assert self.consumer.log == [
@@ -2464,9 +2399,7 @@ class TestHierarchicalGroupsScenarios(TestMixpanelBase):
                 "events",
                 {
                     "event": "Signup",
-                    "properties": event_properties(
-                        **{"$user_id": "42", "$device_id": "5"}
-                    ),
+                    "properties": event_properties(**{"$user_id": "42"}),
                 },
             ),
             (
@@ -2883,7 +2816,6 @@ class TestHierarchicalGroupsScenarios(TestMixpanelBase):
                         "note": "a|b",
                         "$user_id": USER_ID,
                         "$company_id": COMPANY_ID,
-                        "$device_id": DEVICE_ID,
                     }
                 ),
             },
@@ -2892,15 +2824,13 @@ class TestHierarchicalGroupsScenarios(TestMixpanelBase):
     def test_pipe_in_ids_without_hierarchical_groups_is_sent(self):
         mp = make_client(self.consumer, hierarchical_groups=False)
 
-        mp.track(MixpanelIdentity(user_id="u|1", device_id="d|1"), "Signup")
+        mp.track(MixpanelIdentity(user_id="u|1"), "Signup")
         mp.for_company("c|1").company_set({"plan": "pro"})
 
         assert [message for _, message in self.consumer.log] == [
             {
                 "event": "Signup",
-                "properties": event_properties(
-                    **{"$user_id": "u|1", "$device_id": "d|1"}
-                ),
+                "properties": event_properties(**{"$user_id": "u|1"}),
             },
             {
                 "$token": TOKEN,

@@ -890,12 +890,6 @@ class Mixpanel:
             )
             raise ValueError(msg)
         if identity.user_id is None:
-            if identity.company_id is None:
-                msg = (
-                    f"{identity!r} names no user, so it cannot identify a profile. "
-                    "Device ids identify anonymous events, not profiles."
-                )
-                raise ValueError(msg)
             msg = (
                 f"User profile updates require a user id, and {identity!r} has "
                 "none. Use for_company(company_id).company_set(properties) to "
