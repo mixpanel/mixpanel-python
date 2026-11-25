@@ -41,7 +41,7 @@ from .identity import (
     _validate_company_id,
 )
 
-__version__ = "5.4.1"
+__version__ = "5.5.0"
 
 logger = logging.getLogger(__name__)
 

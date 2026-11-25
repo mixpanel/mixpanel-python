@@ -1,5 +1,12 @@
 # Changelog
 
+## [openfeature/v0.3.0](https://github.com/mixpanel/mixpanel-python/tree/openfeature/v0.3.0) (2026-11-23)
+
+### Features
+- tag OpenFeature exposures with $openfeature_provider (SDK-448) ([#202](https://github.com/mixpanel/mixpanel-python/pull/202))
+
+[Full Changelog](https://github.com/mixpanel/mixpanel-python/compare/openfeature/v0.2.0...openfeature/v0.3.0)
+
 ## [openfeature/v0.2.0](https://github.com/mixpanel/mixpanel-python/tree/openfeature/v0.2.0) (2026-07-28)
 
 ### Fixes

@@ -27,6 +27,7 @@ from .utils import (
     exposure_conflict_message,
     exposure_identity,
     generate_traceparent,
+    mark_openfeature_exposure,
     missing_exposure_identity_message,
     prepare_common_query_params,
 )
@@ -167,6 +168,7 @@ class RemoteFeatureFlagsProvider:
                 properties = self._build_tracking_properties(
                     flag_key, selected_variant, start_time, end_time
                 )
+                mark_openfeature_exposure(properties, context)
                 asyncio.create_task(  # noqa: RUF006 - intentional fire-and-forget for exposure tracking
                     sync_to_async(self._tracker, thread_sensitive=False)(
                         identity, EXPOSURE_EVENT, properties
@@ -218,6 +220,7 @@ class RemoteFeatureFlagsProvider:
             identity := exposure_identity(context, self._hierarchical_groups)
         ) is not None:
             properties = self._build_tracking_properties(flag_key, variant)
+            mark_openfeature_exposure(properties, context)
 
             await sync_to_async(self._tracker, thread_sensitive=False)(
                 identity, EXPOSURE_EVENT, properties
@@ -305,6 +308,7 @@ class RemoteFeatureFlagsProvider:
                 properties = self._build_tracking_properties(
                     flag_key, selected_variant, start_time, end_time
                 )
+                mark_openfeature_exposure(properties, context)
                 self._dispatch_exposure(identity, properties)
             elif (
                 not is_fallback
@@ -351,6 +355,7 @@ class RemoteFeatureFlagsProvider:
             identity := exposure_identity(context, self._hierarchical_groups)
         ) is not None:
             properties = self._build_tracking_properties(flag_key, variant)
+            mark_openfeature_exposure(properties, context)
             self._dispatch_exposure(identity, properties)
         else:
             logger.error(

@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 EXPOSURE_EVENT = "$experiment_started"
+OPENFEATURE_PROVIDER_KEY = "$openfeature_provider"
 
 
 def close_async_client_from_sync(client: httpx.AsyncClient) -> None:
@@ -210,6 +211,19 @@ def missing_exposure_identity_message(
         return conflict
     key = "$company_id" if hierarchical_groups else "distinct_id"
     return f"Cannot track exposure event without a {key} in the context"
+
+
+def mark_openfeature_exposure(
+    properties: dict[str, Any], context: dict[str, Any]
+) -> None:
+    """SDK-448: tag exposures from the Mixpanel OpenFeature provider.
+
+    The provider sets ``"$openfeature_provider": True`` in the context it
+    passes to ``get_variant``; direct SDK calls don't, so their exposures
+    are left untouched.
+    """
+    if context.get(OPENFEATURE_PROVIDER_KEY) is True:
+        properties[OPENFEATURE_PROVIDER_KEY] = True
 
 
 def dispatch_exposure(

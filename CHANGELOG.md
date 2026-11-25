@@ -1,5 +1,12 @@
 # Changelog
 
+## [v5.5.0](https://github.com/mixpanel/mixpanel-python/tree/v5.5.0) (2026-11-23)
+
+### Features
+- tag OpenFeature exposures with $openfeature_provider (SDK-448) ([#202](https://github.com/mixpanel/mixpanel-python/pull/202))
+
+[Full Changelog](https://github.com/mixpanel/mixpanel-python/compare/v5.4.1...v5.5.0)
+
 ## [v5.4.1](https://github.com/mixpanel/mixpanel-python/tree/v5.4.1) (2026-09-03)
 
 [Full Changelog](https://github.com/mixpanel/mixpanel-python/compare/v5.4.0...v5.4.1)
