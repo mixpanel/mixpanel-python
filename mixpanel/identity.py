@@ -1,0 +1,281 @@
+"""The identity an event or profile update belongs to."""
+
+from dataclasses import dataclass, fields
+from typing import Optional, Union
+
+# Field name -> property key it is sent as
+_IDENTITY_KEYS = (
+    ("distinct_id", "distinct_id"),
+    ("user_id", "$user_id"),
+    ("company_id", "$company_id"),
+)
+
+# Field name -> key a flag evaluation context reads it from
+_FLAG_CONTEXT_KEYS = (
+    ("distinct_id", "distinct_id"),
+    ("user_id", "$user_id"),
+    ("company_id", "$company_id"),
+)
+
+_COMBINED_COMPANY_PREFIX = "$company:"
+_COMBINED_USER_SEPARATOR = "|$user:"
+
+
+def _is_id(value) -> bool:
+    """True if ``value`` is an id type: a string or an integer, not a bool."""
+    return isinstance(value, (str, int)) and not isinstance(value, bool)
+
+
+def _is_blank(value) -> bool:
+    """True if ``value`` is a non-empty string of only whitespace."""
+    return isinstance(value, str) and value != "" and not value.strip()
+
+
+def _validate_company_id(company_id) -> None:
+    """Refuse a company id that is not a non-empty, non-blank string or integer.
+
+    :raises ValueError: if ``company_id`` is None or empty, not a string or an
+        integer, or only whitespace
+    """
+    if company_id is None or company_id == "":
+        raise ValueError("company_id must be non-empty")
+    if not _is_id(company_id):
+        msg = f"company_id must be a string or an integer, not {company_id!r}"
+        raise ValueError(msg)
+    if _is_blank(company_id):
+        msg = f"company_id must not be only whitespace, not {company_id!r}"
+        raise ValueError(msg)
+
+
+def _require_no_pipe(name, value) -> None:
+    """Refuse a hierarchical groups user or company id containing ``|``.
+
+    Mixpanel builds the distinct id ``$company:{company}|$user:{user}`` from
+    them, which cannot be split again if either contains ``|``.
+
+    :raises ValueError: if ``value`` is a string containing ``|``
+    """
+    if isinstance(value, str) and "|" in value:
+        msg = (
+            f"{name} must not contain '|' on a hierarchical groups project, "
+            f"not {value!r}. Nothing sent"
+        )
+        raise ValueError(msg)
+
+
+def _parse_combined_distinct_id(distinct_id) -> Optional[tuple]:
+    """Split a ``$company:{company}|$user:{user}`` distinct id.
+
+    The company is the text up to the first ``|$user:`` and the user is
+    everything after it. Returns ``(company_id, user_id)``, or None if
+    ``distinct_id`` does not have that form.
+
+    :raises ValueError: if the company or the user is empty, only whitespace
+        or contains ``|``
+    """
+    if not isinstance(distinct_id, str) or not distinct_id.startswith(
+        _COMBINED_COMPANY_PREFIX
+    ):
+        return None
+    company_id, separator, user_id = distinct_id[
+        len(_COMBINED_COMPANY_PREFIX) :
+    ].partition(_COMBINED_USER_SEPARATOR)
+    if not separator:
+        return None
+    for name, value in (("company", company_id), ("user", user_id)):
+        if not value.strip():
+            msg = f"distinct_id {distinct_id!r} names a blank {name}. Nothing sent"
+            raise ValueError(msg)
+        if "|" in value:
+            msg = (
+                f"distinct_id {distinct_id!r} names a {name} containing '|'. "
+                "Nothing sent"
+            )
+            raise ValueError(msg)
+    return company_id, user_id
+
+
+# Key -> the part of a combined distinct id it must match. "profile" is the
+# $group_key of a user profile update, which must be $user_id.
+_COMBINED_ID_PARTS = {
+    "$group_key": "profile",
+    "$group_id": "user",
+    "$company_id": "company",
+    "$user_id": "user",
+    "company_id": "company",
+    "user_id": "user",
+}
+
+
+def _require_matches_combined_distinct_id(distinct_id, checks):
+    """Refuse keys that name a different company or user than ``distinct_id``.
+
+    ``checks`` pairs a key with the dict it may appear in. Does nothing unless
+    ``distinct_id`` is of the form ``$company:{company}|$user:{user}``.
+
+    :raises ValueError: if a present key's string value differs from the part
+        of the distinct id it names, or a part is empty or only whitespace
+    """
+    parsed = _parse_combined_distinct_id(distinct_id)
+    if parsed is None:
+        return
+    company_id, user_id = parsed
+    parts = {"company": company_id, "user": user_id, "profile": "$user_id"}
+    for key, source in checks:
+        if key not in source:
+            continue
+        part = _COMBINED_ID_PARTS[key]
+        expected = parts[part]
+        if str(source[key]) != expected:
+            named = (
+                "a $user_id profile" if part == "profile" else f"{part} {expected!r}"
+            )
+            msg = (
+                f"distinct_id {distinct_id!r} names {named}, but {key} is "
+                f"{source[key]!r}. Nothing sent"
+            )
+            raise ValueError(msg)
+
+
+def _same_id(given, expected):
+    """True if two ids are equal compared as strings; None equals only None."""
+    if given is None or expected is None:
+        return given is expected
+    return str(given) == str(expected)
+
+
+@dataclass(frozen=True, init=False)
+class MixpanelIdentity:
+    """Identifies who an event or profile update belongs to.
+
+    Mixpanel resolves an identity from whichever of ``distinct_id``,
+    ``$user_id`` and ``$company_id`` an event carries, so this type sets any
+    combination of them and leaves the rest unset (``None``)::
+
+        MixpanelIdentity(distinct_id="user_123")                 # a plain distinct id
+        MixpanelIdentity(user_id="user_123")                     # a user
+        MixpanelIdentity(user_id="user_123", company_id="acme")  # hierarchical groups
+        MixpanelIdentity(company_id="acme")                      # a company, no user
+
+    Which combinations are valid depends on the project, so
+    :class:`~mixpanel.Mixpanel` rather than this type decides. On a
+    hierarchical groups project the company is part of the user's identity: a
+    ``$user_id`` sent without a ``$company_id`` resolves to a different user
+    that nothing reconciles later, so include the company whenever the user has
+    one. Events still send a user id without one as given; user profile updates
+    need the company. A user who belongs to two companies is two users, by
+    design.
+
+    On a hierarchical groups project, set ``distinct_id`` only when it is one
+    Mixpanel itself built, of the form ``$company:{company}|$user:{user}``. Any
+    other distinct id names a separate, unrelated user that cannot be merged
+    afterwards, and a user profile update rejects it.
+
+    Instances are immutable.
+
+    Each id is a string or an integer, and is sent as a string.
+
+    :param distinct_id: a distinct id Mixpanel resolves directly
+    :type distinct_id: str or int
+    :param user_id: the user's id; on a hierarchical groups project it only
+        needs to be unique within the company
+    :type user_id: str or int
+    :param company_id: the id of the top-level company, on a hierarchical
+        groups project
+    :type company_id: str or int
+    :raises ValueError: if a value is an empty string or not a string or an
+        integer, ``user_id`` or ``company_id`` is only whitespace, or no value
+        is set
+    """
+
+    distinct_id: Optional[Union[str, int]]
+    user_id: Optional[Union[str, int]]
+    company_id: Optional[Union[str, int]]
+
+    def __init__(
+        self,
+        *,
+        distinct_id: Optional[Union[str, int]] = None,
+        user_id: Optional[Union[str, int]] = None,
+        company_id: Optional[Union[str, int]] = None,
+    ):
+        values = {
+            "distinct_id": distinct_id,
+            "user_id": user_id,
+            "company_id": company_id,
+        }
+        for name, value in values.items():
+            # None leaves the value unset; an empty string is a caller error.
+            if name == "company_id" and value is not None:
+                _validate_company_id(value)
+            elif value is not None:
+                if not _is_id(value):
+                    msg = f"{name} must be a string or an integer, not {value!r}"
+                    raise ValueError(msg)
+                if value == "":
+                    msg = f"{name} must be non-empty"
+                    raise ValueError(msg)
+                if name == "user_id" and _is_blank(value):
+                    msg = f"{name} must not be only whitespace, not {value!r}"
+                    raise ValueError(msg)
+            object.__setattr__(self, name, value)
+        if all(value is None for value in values.values()):
+            msg = "An identity needs at least one of distinct_id, user_id or company_id"
+            raise ValueError(msg)
+
+    @property
+    def is_hierarchical(self) -> bool:
+        """True if this identity names a company, for hierarchical groups."""
+        return self.company_id is not None
+
+    def to_flag_context(
+        self,
+        groups: Optional[dict] = None,
+        custom_properties: Optional[dict] = None,
+    ) -> dict:
+        """Build a feature flag evaluation context for this identity.
+
+        Puts the ids, as strings, under the keys flags read, so callers do not
+        hand-write reserved keys such as ``$company_id``::
+
+            identity.to_flag_context(
+                groups={"department": "finance"},
+                custom_properties={"plan": "enterprise"},
+            )
+            # {"$user_id": "user_123", "$company_id": "acme",
+            #  "department": "finance", "custom_properties": {"plan": "enterprise"}}
+
+        On a hierarchical groups project, flags need both ``user_id`` and
+        ``company_id``. An identity with only one of them doesn't get
+        hierarchical bucketing, and remote evaluation returns the fallback.
+
+        :param dict groups: group keys and values the evaluation is for, such
+            as ``{"department": "finance"}``
+        :param dict custom_properties: properties used by runtime targeting rules
+        """
+        context = dict(groups or {})
+        for name, key in _FLAG_CONTEXT_KEYS:
+            value = getattr(self, name)
+            if value is not None:
+                context[key] = str(value)
+        if custom_properties:
+            context["custom_properties"] = dict(custom_properties)
+        return context
+
+    def _apply_to(self, properties: dict) -> None:
+        """Write this identity's keys into ``properties``, replacing any there.
+
+        Ids are written as strings, as ingestion needs.
+        """
+        for name, key in _IDENTITY_KEYS:
+            value = getattr(self, name)
+            if value is not None:
+                properties[key] = str(value)
+
+    def __repr__(self):
+        set_fields = ", ".join(
+            f"{f.name}={getattr(self, f.name)!r}"
+            for f in fields(self)
+            if getattr(self, f.name) is not None
+        )
+        return f"MixpanelIdentity({set_fields})"

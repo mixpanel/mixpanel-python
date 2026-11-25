@@ -128,6 +128,9 @@ class ExperimentationFlag:
     experiment_id: Optional[str] = None
     is_experiment_active: Optional[bool] = None
     hash_salt: Optional[str] = None
+    # How to build the assignment key from the evaluation context,
+    # e.g. ``$company:{$company_id}|$user:{$user_id}``.
+    context_value_template: Optional[str] = None
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "ExperimentationFlag":

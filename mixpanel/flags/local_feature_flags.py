@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import copy
 import logging
+import re
 import threading
 import time
 from datetime import datetime, timedelta
@@ -12,6 +13,7 @@ import httpx
 import json_logic
 
 from mixpanel.credentials import ServiceAccountCredentials
+from mixpanel.identity import MixpanelIdentity
 
 from . import custom_operators  # noqa: F401  (registers custom JsonLogic operators)
 from .types import (
@@ -27,14 +29,50 @@ from .utils import (
     REQUEST_HEADERS,
     close_async_client_from_sync,
     dispatch_exposure,
+    exposure_identity,
     generate_traceparent,
     mark_openfeature_exposure,
+    missing_exposure_identity_message,
     normalized_hash,
     prepare_common_query_params,
 )
 
 logger = logging.getLogger(__name__)
 logging.getLogger("httpx").setLevel(logging.ERROR)
+
+# A {key} placeholder in a context value template.
+_CONTEXT_PLACEHOLDER = re.compile(r"\{([^{}]+)\}")
+
+
+def _apply_context_value_template(
+    template: str | None, context: dict[str, Any]
+) -> str | None:
+    """Fill a flag's context value template from the evaluation context.
+
+    Each ``{key}`` placeholder is replaced with the value of ``key`` from the
+    context; text outside the braces is literal. Only a non-empty string value
+    counts, as on the server. Returns None if there is no template or any
+    placeholder's key is missing or not a non-empty string.
+    """
+    if not template:
+        return None
+    missing = False
+
+    def fill(match: re.Match) -> str:
+        nonlocal missing
+        value = context.get(match.group(1))
+        if not _is_present_string(value):
+            missing = True
+            return ""
+        return value
+
+    resolved = _CONTEXT_PLACEHOLDER.sub(fill, template)
+    return None if missing else resolved
+
+
+def _is_present_string(value: Any) -> bool:
+    """True if ``value`` is a non-empty string."""
+    return isinstance(value, str) and value != ""
 
 
 class LocalFeatureFlagsProvider:
@@ -47,6 +85,7 @@ class LocalFeatureFlagsProvider:
         version: str,
         tracker: Callable,
         credentials: ServiceAccountCredentials | None = None,
+        hierarchical_groups: bool = False,
     ) -> None:
         """Initialize the LocalFeatureFlagsProvider.
 
@@ -55,12 +94,17 @@ class LocalFeatureFlagsProvider:
         :param str version: the version of the Mixpanel library being used, just for tracking
         :param Callable tracker: A function used to track flags exposure events to mixpanel
         :param ServiceAccountCredentials credentials: Optional service account credentials for authentication.
+        :param bool hierarchical_groups: True if the project uses hierarchical groups (default False).
+            Exposure events are then attributed by the context's ``$company_id`` (with ``$user_id``)
+            as well as ``distinct_id``, and the tracker receives a :class:`~mixpanel.identity.MixpanelIdentity`
+            instead of a distinct id string.
         """
         self._token: str = token
         self._config: LocalFlagsConfig = config
         self._version = version
         self._tracker: Callable = tracker
         self._credentials = credentials
+        self._hierarchical_groups = hierarchical_groups
 
         self._flag_definitions: dict[str, ExperimentationFlag] = {}
         self._are_flags_ready = False
@@ -236,7 +280,13 @@ class LocalFeatureFlagsProvider:
             logger.warning("Cannot find flag definition for key: '%s'", flag_key)
             return fallback_value.as_fallback(FallbackReason.flag_not_found())
 
-        if not (context_value := context.get(flag_definition.context)):
+        # The flag's template builds the assignment key from the context. Without
+        # one, or with a placeholder missing, the raw context value is used.
+        context_value = _apply_context_value_template(
+            flag_definition.context_value_template, context
+        ) or context.get(flag_definition.context)
+
+        if not context_value:
             logger.warning(
                 "The rollout context, '%s' for flag, '%s' is not present in the supplied context dictionary",
                 flag_definition.context,
@@ -249,7 +299,7 @@ class LocalFeatureFlagsProvider:
         selected_variant: SelectedVariant | None = None
 
         if test_user_variant := self._get_variant_override_for_test_user(
-            flag_definition, context
+            flag_definition, context, context_value
         ):
             selected_variant = test_user_variant
         elif rollout := self._get_assigned_rollout(
@@ -289,13 +339,28 @@ class LocalFeatureFlagsProvider:
         self._track_exposure(flag_key, variant, context)
 
     def _get_variant_override_for_test_user(
-        self, flag_definition: ExperimentationFlag, context: dict[str, Any]
+        self,
+        flag_definition: ExperimentationFlag,
+        context: dict[str, Any],
+        context_value: Any,
     ) -> SelectedVariant | None:
         """Check if user has a test variant override."""
         if not flag_definition.ruleset.test or not flag_definition.ruleset.test.users:
             return None
 
-        if not (distinct_id := context.get("distinct_id")):
+        # Overrides are keyed by distinct id. As on the server, a context with a
+        # user and a company looks them up by the combined distinct id for every
+        # flag; otherwise a flag assigned on distinct_id looks them up by its
+        # resolved assignment key.
+        user_id = context.get("$user_id")
+        company_id = context.get("$company_id")
+        if _is_present_string(user_id) and _is_present_string(company_id):
+            distinct_id = f"$company:{company_id}|$user:{user_id}"
+        elif flag_definition.context == "distinct_id":
+            distinct_id = context_value
+        else:
+            distinct_id = context.get("distinct_id")
+        if not distinct_id:
             return None
 
         if not (variant_key := flag_definition.ruleset.test.users.get(distinct_id)):
@@ -523,7 +588,9 @@ class LocalFeatureFlagsProvider:
         context: dict[str, Any],
         latency_in_seconds: float | None = None,
     ):
-        if distinct_id := context.get("distinct_id"):
+        if (
+            identity := exposure_identity(context, self._hierarchical_groups)
+        ) is not None:
             properties = {
                 "Experiment name": flag_key,
                 "Variant name": variant.variant_key,
@@ -538,13 +605,15 @@ class LocalFeatureFlagsProvider:
                 properties["Variant fetch latency (ms)"] = latency_in_seconds * 1000
 
             mark_openfeature_exposure(properties, context)
-            self._dispatch_exposure(distinct_id, properties)
+            self._dispatch_exposure(identity, properties)
         else:
             logger.error(
-                "Cannot track exposure event without a distinct_id in the context"
+                missing_exposure_identity_message(self._hierarchical_groups, context)
             )
 
-    def _dispatch_exposure(self, distinct_id: str, properties: dict[str, Any]) -> None:
+    def _dispatch_exposure(
+        self, distinct_id: str | MixpanelIdentity, properties: dict[str, Any]
+    ) -> None:
         dispatch_exposure(
             self._tracker, self._config.exposure_executor, distinct_id, properties
         )
