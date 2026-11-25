@@ -256,6 +256,10 @@ class MixpanelIdentity:
             # {"$user_id": "user_123", "$company_id": "acme",
             #  "department": "finance", "custom_properties": {"plan": "enterprise"}}
 
+        On a hierarchical groups project, flags need both ``user_id`` and
+        ``company_id``. An identity with only one of them doesn't get
+        hierarchical bucketing, and remote evaluation returns the fallback.
+
         :param dict groups: group keys and values the evaluation is for, such
             as ``{"department": "finance"}``
         :param dict custom_properties: properties used by runtime targeting rules
