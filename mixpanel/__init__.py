@@ -279,7 +279,7 @@ class Mixpanel:
         # bypass BufferedConsumer's buffer so the alias is sent immediately.
         sync_consumer = self._consumer
         if isinstance(sync_consumer, BufferedConsumer):
-            sync_consumer = sync_consumer._consumer  # noqa: SLF001
+            sync_consumer = getattr(sync_consumer, "_consumer", None)
         if type(sync_consumer) is not Consumer:
             # Custom consumers may not send synchronously; keep the default.
             sync_consumer = Consumer()

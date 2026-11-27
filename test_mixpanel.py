@@ -5,7 +5,7 @@ import datetime
 import decimal
 import json
 import time
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from urllib import parse as urllib_parse
 
 import pytest
@@ -437,6 +437,33 @@ class TestMixpanelIdentity(TestMixpanelBase):
 
             # Sent immediately, even with BufferedConsumer.
             assert len(rsps.calls) == 1
+            call = rsps.calls[0]
+            assert call.request.url == "https://api-eu.mixpanel.com/track"
+            posted_data = dict(urllib_parse.parse_qsl(call.request.body))
+            assert json.loads(posted_data["data"]) == {
+                "event": "$create_alias",
+                "properties": {
+                    "alias": "ALIAS",
+                    "token": "12345",
+                    "distinct_id": "ORIGINAL ID",
+                },
+            }
+
+    def test_alias_with_mocked_buffered_consumer(self):
+        # A spec'd mock has no _consumer attribute; fall back to the default.
+        mp = mixpanel.Mixpanel("12345", consumer=Mock(spec=mixpanel.BufferedConsumer))
+
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.POST,
+                "https://api.mixpanel.com/track",
+                json={"status": 1, "error": None},
+                status=200,
+            )
+
+            mp.alias("ALIAS", "ORIGINAL ID")
+
+            assert rsps.calls[0].request.url == "https://api.mixpanel.com/track"
 
     def test_alias_with_service_account(self):
         """Test that alias() does NOT use service account credentials.
