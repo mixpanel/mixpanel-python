@@ -16,7 +16,6 @@ dependencies = [
     "requests>=2.4.2, <3",
     "httpx>=0.27.0",
     "asgiref>=3.0.0",
-    "json-logic==0.7.0a0"
 ]
 keywords = ["mixpanel", "analytics"]
 classifiers = [
@@ -77,7 +76,8 @@ addopts = "--ignore=openfeature-provider"
 [tool.ruff]
 target-version = "py39"
 line-length = 88
-extend-exclude = ["openfeature-provider"]
+# _json_logic.py is vendored third-party code, kept identical to upstream.
+extend-exclude = ["openfeature-provider", "mixpanel/flags/_json_logic.py"]
 
 [tool.ruff.lint]
 select = ["ALL"]
