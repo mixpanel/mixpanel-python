@@ -847,7 +847,8 @@ class BufferedConsumer:
     time required to post your events to Mixpanel.
 
     :param int max_size: number of :meth:`~.send` calls for a given endpoint to
-        buffer before flushing automatically
+        buffer before flushing automatically; must be a positive integer.
+        Values greater than 50 are capped at 50.
     :param str events_url: override the default events API endpoint
     :param str people_url: override the default people API endpoint
     :param str import_url: override the default import API endpoint
@@ -889,6 +890,9 @@ class BufferedConsumer:
         verify_cert=True,
         credentials=None,
     ):
+        if isinstance(max_size, bool) or not isinstance(max_size, int) or max_size <= 0:
+            msg = "max_size must be a positive integer"
+            raise ValueError(msg)
         self._consumer = Consumer(
             events_url,
             people_url,
