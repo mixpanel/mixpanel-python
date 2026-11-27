@@ -862,6 +862,10 @@ class BufferedConsumer:
     :param bool verify_cert: whether to verify the server certificate.
     :param ServiceAccountCredentials credentials: optional service account
         credentials for authentication. Only used for /import endpoint.
+    :param int import_max_size: number of :meth:`~.send` calls for the
+        imports endpoint to buffer before flushing automatically, up to 2000.
+        Defaults to *max_size*. Large batches of large events can exceed the
+        10 MB request limit of the /import API.
 
     .. versionadded:: 4.6.0
         The *api_host* parameter.
@@ -888,6 +892,7 @@ class BufferedConsumer:
         retry_backoff_factor=0.25,
         verify_cert=True,
         credentials=None,
+        import_max_size=None,
     ):
         self._consumer = Consumer(
             events_url,
@@ -908,6 +913,12 @@ class BufferedConsumer:
             "imports": [],
         }
         self._max_size = min(50, max_size)
+        if import_max_size is not None and import_max_size < 1:
+            msg = f"import_max_size must be at least 1, got {import_max_size}"
+            raise ValueError(msg)
+        self._import_max_size = (
+            self._max_size if import_max_size is None else min(2000, import_max_size)
+        )
         self._api_key = None
         self._api_secret = None
 
@@ -942,7 +953,7 @@ class BufferedConsumer:
         # TODO: Don't stick these in the instance.
         self._api_key = api_key
         self._api_secret = api_secret
-        if len(buf) >= self._max_size:
+        if len(buf) >= self._endpoint_max_size(endpoint):
             self._flush_endpoint(endpoint)
 
     def flush(self):
@@ -954,11 +965,15 @@ class BufferedConsumer:
         for endpoint in self._buffers:
             self._flush_endpoint(endpoint)
 
+    def _endpoint_max_size(self, endpoint):
+        return self._import_max_size if endpoint == "imports" else self._max_size
+
     def _flush_endpoint(self, endpoint):
         buf = self._buffers[endpoint]
+        max_size = self._endpoint_max_size(endpoint)
 
         while buf:
-            batch = buf[: self._max_size]
+            batch = buf[:max_size]
             batch_json = "[{}]".format(",".join(batch))
             try:
                 # Credentials are passed via Consumer constructor, not send()
@@ -968,5 +983,5 @@ class BufferedConsumer:
                 mp_e.message = batch_json
                 mp_e.endpoint = endpoint
                 raise mp_e from orig_e
-            buf = buf[self._max_size :]
+            buf = buf[max_size:]
         self._buffers[endpoint] = buf
