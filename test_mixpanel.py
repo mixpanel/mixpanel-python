@@ -820,6 +820,25 @@ class TestBufferedConsumer:
             )
         ]
 
+    def test_import_max_size_allows_larger_import_batches(self):
+        consumer = mixpanel.BufferedConsumer(import_max_size=2000)
+        consumer._consumer = LogConsumer()
+        log = consumer._consumer.log
+
+        for _i in range(1999):
+            consumer.send("imports", '"Event"')
+            consumer.send("events", '"Event"')
+        # events still flush every 50; imports wait for 2000
+        assert {endpoint for endpoint, _ in log} == {"events"}
+
+        consumer.send("imports", '"Last Event"')
+        import_batches = [batch for endpoint, batch in log if endpoint == "imports"]
+        assert [len(batch) for batch in import_batches] == [2000]
+
+    def test_import_max_size_defaults_to_max_size_and_is_capped(self):
+        assert mixpanel.BufferedConsumer(10)._import_max_size == 10
+        assert mixpanel.BufferedConsumer(import_max_size=5000)._import_max_size == 2000
+
     def test_unknown_endpoint_raises_on_send(self):
         # Ensure the exception isn't hidden until a flush.
         with pytest.raises(mixpanel.MixpanelException):
