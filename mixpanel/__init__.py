@@ -133,11 +133,15 @@ class Mixpanel:
         :param str event_name: a name describing the event
         :param dict properties: additional data to record; keys should be
             strings, and values should be strings, numbers, or booleans
-        :param dict meta: overrides Mixpanel special properties
+        :param dict meta: keys to merge into the top level of the event
+            message, next to ``event`` and ``properties``
 
         ``properties`` should describe the circumstances of the event, or
-        aspects of the source or user associated with it. ``meta`` is used
-        (rarely) to override special values sent in the event object.
+        aspects of the source or user associated with it. Put all event data
+        in ``properties``, including special properties such as ``ip``,
+        ``$latitude`` and ``$longitude``. ``meta`` is used (rarely) to
+        override or add top-level keys of the event message itself; keys in
+        ``meta`` are not event properties.
         """
         all_properties = {
             "token": self._token,
@@ -175,7 +179,8 @@ class Mixpanel:
         :param int timestamp: UTC seconds since epoch
         :param dict properties: additional data to record; keys should be
             strings, and values should be strings, numbers, or booleans
-        :param dict meta: overrides Mixpanel special properties
+        :param dict meta: keys to merge into the top level of the event
+            message, next to ``event`` and ``properties`` (see :meth:`track`)
         :param str api_secret: (DEPRECATED) Your Mixpanel project's API secret.
 
         .. deprecated::
@@ -250,7 +255,8 @@ class Mixpanel:
         :param str alias_id: A distinct_id to be merged with the original
             distinct_id. Each alias can only map to one distinct_id.
         :param str original: A distinct_id to be merged with alias_id.
-        :param dict meta: overrides Mixpanel special properties
+        :param dict meta: keys to merge into the top level of the event
+            message, next to ``event`` and ``properties`` (see :meth:`track`)
 
         Immediately creates a one-way mapping between two ``distinct_ids``.
         Events triggered by the new id will be associated with the existing
@@ -282,7 +288,8 @@ class Mixpanel:
         :param str api_key: (DEPRECATED) Your Mixpanel project's API key.
         :param str distinct_id1: The first distinct_id to merge.
         :param str distinct_id2: The second (other) distinct_id to merge.
-        :param dict meta: overrides Mixpanel special properties
+        :param dict meta: keys to merge into the top level of the event
+            message, next to ``event`` and ``properties`` (see :meth:`track`)
         :param str api_secret: (DEPRECATED) Your Mixpanel project's API secret.
 
         .. deprecated::
@@ -346,7 +353,10 @@ class Mixpanel:
 
         :param str distinct_id: the profile to update
         :param dict properties: properties to set
-        :param dict meta: overrides Mixpanel special properties
+        :param dict meta: keys to merge into the top level of the profile
+            update, next to ``$token``, ``$distinct_id`` and ``$set``. Use it
+            for update parameters such as ``$ip``, ``$ignore_time``,
+            ``$latitude`` and ``$longitude``.
 
         If the profile does not exist, creates a new profile with these properties.
         """
@@ -363,6 +373,7 @@ class Mixpanel:
 
         :param str distinct_id: the profile to update
         :param dict properties: properties to set
+        :param dict meta: see :meth:`people_set`
 
         Any properties that already exist on the profile will not be
         overwritten. If the profile does not exist, creates a new profile with
@@ -382,6 +393,7 @@ class Mixpanel:
         :param str distinct_id: the profile to update
         :param dict properties: properties to increment/decrement; values
             should be numeric
+        :param dict meta: see :meth:`people_set`
 
         Adds numerical values to properties of a people record. Nonexistent
         properties on the record default to zero. Negative values in
@@ -400,6 +412,7 @@ class Mixpanel:
 
         :param str distinct_id: the profile to update
         :param dict properties: properties to append
+        :param dict meta: see :meth:`people_set`
 
         Adds items to list-style properties of a people record. Appending to
         nonexistent properties results in a list with a single element. For
@@ -420,6 +433,7 @@ class Mixpanel:
 
         :param str distinct_id: the profile to update
         :param dict properties: properties to merge
+        :param dict meta: see :meth:`people_set`
 
         Merges list values in ``properties`` with existing list-style
         properties of a people record. Duplicate values are ignored. For
@@ -440,6 +454,7 @@ class Mixpanel:
 
         :param str distinct_id: the profile to update
         :param list properties: property names to remove
+        :param dict meta: see :meth:`people_set`
         """
         return self.people_update(
             {
@@ -454,6 +469,7 @@ class Mixpanel:
 
         :param str distinct_id: the profile to update
         :param dict properties: properties to remove
+        :param dict meta: see :meth:`people_set`
 
         Removes items from list-style properties of a people record.
         For example::
@@ -472,6 +488,7 @@ class Mixpanel:
         """Permanently delete a people record.
 
         :param str distinct_id: the profile to delete
+        :param dict meta: see :meth:`people_set`
         """
         return self.people_update(
             {
@@ -487,6 +504,7 @@ class Mixpanel:
         :param str distinct_id: the profile with which to associate the charge
         :param numeric amount: number of dollars charged
         :param dict properties: extra properties related to the transaction
+        :param dict meta: see :meth:`people_set`
 
         Record that you have charged the current user a certain amount of
         money. Charges recorded with this way will appear in the Mixpanel
@@ -503,6 +521,7 @@ class Mixpanel:
         """Permanently clear all charges on a people record.
 
         :param str distinct_id: the profile whose charges will be cleared
+        :param dict meta: see :meth:`people_set`
         """
         return self.people_unset(
             distinct_id,
@@ -514,6 +533,8 @@ class Mixpanel:
         """Send a generic update to Mixpanel people analytics.
 
         :param dict message: the message to send
+        :param dict meta: keys to merge into the top level of the profile
+            update (see :meth:`people_set`)
 
         Callers are responsible for formatting the update message as described
         in the `user profiles documentation`_. This method may be useful if you
@@ -537,7 +558,9 @@ class Mixpanel:
         :param str group_key: the group key, e.g. 'company'
         :param str group_id: the group to update
         :param dict properties: properties to set
-        :param dict meta: overrides Mixpanel special properties. (See also `Mixpanel.people_set`.)
+        :param dict meta: keys to merge into the top level of the group
+            profile update, next to ``$token``, ``$group_key``, ``$group_id``
+            and ``$set``
 
         If the profile does not exist, creates a new profile with these properties.
         """
@@ -556,6 +579,7 @@ class Mixpanel:
         :param str group_key: the group key, e.g. 'company'
         :param str group_id: the group to update
         :param dict properties: properties to set
+        :param dict meta: see :meth:`group_set`
 
         Any properties that already exist on the profile will not be
         overwritten. If the profile does not exist, creates a new profile with
@@ -576,6 +600,7 @@ class Mixpanel:
         :param str group_key: the group key, e.g. 'company'
         :param str group_id: the group to update
         :param dict properties: properties to merge
+        :param dict meta: see :meth:`group_set`
 
         Merges list values in ``properties`` with existing list-style
         properties of a group profile. Duplicate values are ignored. For
@@ -598,6 +623,7 @@ class Mixpanel:
         :param str group_key: the group key, e.g. 'company'
         :param str group_id: the group to update
         :param list properties: property names to remove
+        :param dict meta: see :meth:`group_set`
         """
         return self.group_update(
             {
@@ -614,6 +640,7 @@ class Mixpanel:
         :param str group_key: the group key, e.g. 'company'
         :param str group_id: the group to update
         :param dict properties: properties to remove
+        :param dict meta: see :meth:`group_set`
 
         Removes items from list-style properties of a group profile.
         For example::
@@ -634,6 +661,7 @@ class Mixpanel:
 
         :param str group_key: the group key, e.g. 'company'
         :param str group_id: the group to delete
+        :param dict meta: see :meth:`group_set`
         """
         return self.group_update(
             {
@@ -648,6 +676,8 @@ class Mixpanel:
         """Send a generic group profile update.
 
         :param dict message: the message to send
+        :param dict meta: keys to merge into the top level of the group
+            profile update (see :meth:`group_set`)
 
         Callers are responsible for formatting the update message as documented
         in the `group profiles documentation`_. This method may be useful if you
