@@ -418,6 +418,26 @@ class TestMixpanelIdentity(TestMixpanelBase):
                 },
             }
 
+    @pytest.mark.parametrize(
+        "consumer_cls", [mixpanel.Consumer, mixpanel.BufferedConsumer]
+    )
+    def test_alias_uses_configured_api_host(self, consumer_cls):
+        consumer = consumer_cls(api_host="api-eu.mixpanel.com")
+        mp = mixpanel.Mixpanel("12345", consumer=consumer)
+
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.POST,
+                "https://api-eu.mixpanel.com/track",
+                json={"status": 1, "error": None},
+                status=200,
+            )
+
+            mp.alias("ALIAS", "ORIGINAL ID")
+
+            # Sent immediately, even with BufferedConsumer.
+            assert len(rsps.calls) == 1
+
     def test_alias_with_service_account(self):
         """Test that alias() does NOT use service account credentials.
 

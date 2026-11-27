@@ -260,7 +260,9 @@ class Mixpanel:
 
         .. note::
             Calling this method *always* results in a synchronous HTTP request
-            to Mixpanel servers, regardless of any custom consumer.
+            to Mixpanel servers, regardless of any custom consumer. If you use
+            a :class:`~.Consumer` or :class:`~.BufferedConsumer`, its
+            connection settings (such as *api_host*) are used for the request.
         """
         event = {
             "event": "$create_alias",
@@ -273,7 +275,14 @@ class Mixpanel:
         if meta:
             event.update(meta)
 
-        sync_consumer = Consumer()
+        # Reuse the configured transport (api_host, timeouts, retries), but
+        # bypass BufferedConsumer's buffer so the alias is sent immediately.
+        sync_consumer = self._consumer
+        if isinstance(sync_consumer, BufferedConsumer):
+            sync_consumer = sync_consumer._consumer  # noqa: SLF001
+        if type(sync_consumer) is not Consumer:
+            # Custom consumers may not send synchronously; keep the default.
+            sync_consumer = Consumer()
         sync_consumer.send("events", json_dumps(event, cls=self._serializer))
 
     def merge(self, api_key, distinct_id1, distinct_id2, meta=None, api_secret=None):
