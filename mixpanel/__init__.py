@@ -864,7 +864,8 @@ class BufferedConsumer:
         credentials for authentication. Only used for /import endpoint.
     :param int import_max_size: number of :meth:`~.send` calls for the
         imports endpoint to buffer before flushing automatically, up to 2000.
-        Defaults to *max_size*.
+        Defaults to *max_size*. Large batches of large events can exceed the
+        10 MB request limit of the /import API.
 
     .. versionadded:: 4.6.0
         The *api_host* parameter.
@@ -912,6 +913,9 @@ class BufferedConsumer:
             "imports": [],
         }
         self._max_size = min(50, max_size)
+        if import_max_size is not None and import_max_size < 1:
+            msg = f"import_max_size must be at least 1, got {import_max_size}"
+            raise ValueError(msg)
         self._import_max_size = (
             self._max_size if import_max_size is None else min(2000, import_max_size)
         )
