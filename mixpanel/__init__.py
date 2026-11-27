@@ -133,11 +133,15 @@ class Mixpanel:
         :param str event_name: a name describing the event
         :param dict properties: additional data to record; keys should be
             strings, and values should be strings, numbers, or booleans
-        :param dict meta: overrides Mixpanel special properties
+        :param dict meta: keys to merge into the top level of the event
+            message, next to ``event`` and ``properties``
 
         ``properties`` should describe the circumstances of the event, or
-        aspects of the source or user associated with it. ``meta`` is used
-        (rarely) to override special values sent in the event object.
+        aspects of the source or user associated with it. Put all event data
+        in ``properties``, including special properties such as ``ip``,
+        ``$latitude`` and ``$longitude``. ``meta`` is used (rarely) to
+        override or add top-level keys of the event message itself; keys in
+        ``meta`` are not event properties.
         """
         all_properties = {
             "token": self._token,
@@ -175,7 +179,8 @@ class Mixpanel:
         :param int timestamp: UTC seconds since epoch
         :param dict properties: additional data to record; keys should be
             strings, and values should be strings, numbers, or booleans
-        :param dict meta: overrides Mixpanel special properties
+        :param dict meta: keys to merge into the top level of the event
+            message, next to ``event`` and ``properties`` (see :meth:`track`)
         :param str api_secret: (DEPRECATED) Your Mixpanel project's API secret.
 
         .. deprecated::
@@ -250,7 +255,8 @@ class Mixpanel:
         :param str alias_id: A distinct_id to be merged with the original
             distinct_id. Each alias can only map to one distinct_id.
         :param str original: A distinct_id to be merged with alias_id.
-        :param dict meta: overrides Mixpanel special properties
+        :param dict meta: keys to merge into the top level of the event
+            message, next to ``event`` and ``properties`` (see :meth:`track`)
 
         Immediately creates a one-way mapping between two ``distinct_ids``.
         Events triggered by the new id will be associated with the existing
@@ -282,7 +288,8 @@ class Mixpanel:
         :param str api_key: (DEPRECATED) Your Mixpanel project's API key.
         :param str distinct_id1: The first distinct_id to merge.
         :param str distinct_id2: The second (other) distinct_id to merge.
-        :param dict meta: overrides Mixpanel special properties
+        :param dict meta: keys to merge into the top level of the event
+            message, next to ``event`` and ``properties`` (see :meth:`track`)
         :param str api_secret: (DEPRECATED) Your Mixpanel project's API secret.
 
         .. deprecated::
@@ -346,7 +353,10 @@ class Mixpanel:
 
         :param str distinct_id: the profile to update
         :param dict properties: properties to set
-        :param dict meta: overrides Mixpanel special properties
+        :param dict meta: keys to merge into the top level of the profile
+            update, next to ``$token``, ``$distinct_id`` and ``$set``. Use it
+            for update parameters such as ``$ip``, ``$ignore_time``,
+            ``$latitude`` and ``$longitude``.
 
         If the profile does not exist, creates a new profile with these properties.
         """
@@ -514,6 +524,8 @@ class Mixpanel:
         """Send a generic update to Mixpanel people analytics.
 
         :param dict message: the message to send
+        :param dict meta: keys to merge into the top level of the profile
+            update (see :meth:`people_set`)
 
         Callers are responsible for formatting the update message as described
         in the `user profiles documentation`_. This method may be useful if you
@@ -537,7 +549,8 @@ class Mixpanel:
         :param str group_key: the group key, e.g. 'company'
         :param str group_id: the group to update
         :param dict properties: properties to set
-        :param dict meta: overrides Mixpanel special properties. (See also `Mixpanel.people_set`.)
+        :param dict meta: keys to merge into the top level of the group
+            profile update (see :meth:`people_set`)
 
         If the profile does not exist, creates a new profile with these properties.
         """
@@ -648,6 +661,8 @@ class Mixpanel:
         """Send a generic group profile update.
 
         :param dict message: the message to send
+        :param dict meta: keys to merge into the top level of the group
+            profile update (see :meth:`people_set`)
 
         Callers are responsible for formatting the update message as documented
         in the `group profiles documentation`_. This method may be useful if you
